@@ -61,7 +61,7 @@ class ProcurementRequisitionController extends Controller
     }
 
     /**
-     * Approve a requisition.
+     * Approve a requisition and redirect to PO creation.
      */
     public function approve(Request $request, $id)
     {
@@ -111,8 +111,9 @@ class ProcurementRequisitionController extends Controller
                 'requisition_number' => $requisition->requisition_number
             ]);
 
-            return redirect()->route('procurement.requisitions.show', $requisition->id)
-                ->with('success', 'Requisition approved successfully. You can now create a Purchase Order.');
+            // >>> CHANGE: redirect straight to Purchase Order creation with requisition_id <<<
+            return redirect()->route('procurement.purchase-orders.create', ['requisition_id' => $requisition->id])
+                ->with('success', 'Requisition approved successfully.<br>Now create the Purchase Order.');
 
         } catch (\Exception $e) {
             DB::rollBack();
@@ -124,54 +125,50 @@ class ProcurementRequisitionController extends Controller
     /**
      * Reject a requisition.
      */
-    /**
- * Reject a requisition.
- */
-public function reject(Request $request, $id)
-{
-    $user = Auth::user();
-    
-    if (!$user->department || $user->department->name !== 'PROCUREMENT') {
-        return redirect()->route('dashboard')->with('error', 'Unauthorized access');
-    }
-
-    $request->validate([
-        'rejection_reason' => 'required|string|min:5',
-    ]);
-
-    DB::beginTransaction();
-
-    try {
-        $requisition = Requisition::findOrFail($id);
-
-        if ($requisition->status !== 'pending') {
-            return redirect()->back()->with('error', 'Only pending requisitions can be rejected.');
+    public function reject(Request $request, $id)
+    {
+        $user = Auth::user();
+        
+        if (!$user->department || $user->department->name !== 'PROCUREMENT') {
+            return redirect()->route('dashboard')->with('error', 'Unauthorized access');
         }
 
-        $requisition->update([
-            'status' => 'rejected',
-            'approved_by' => Auth::id(),
-            'approved_at' => now(),
-            'rejection_reason' => $request->rejection_reason,  // Use dedicated column
+        $request->validate([
+            'rejection_reason' => 'required|string|min:5',
         ]);
 
-        DB::commit();
+        DB::beginTransaction();
 
-        Log::info('Requisition rejected', [
-            'user_id' => Auth::id(),
-            'requisition_id' => $requisition->id,
-            'requisition_number' => $requisition->requisition_number,
-            'reason' => $request->rejection_reason
-        ]);
+        try {
+            $requisition = Requisition::findOrFail($id);
 
-        return redirect()->route('procurement.requisitions.index')
-            ->with('success', 'Requisition rejected successfully.');
+            if ($requisition->status !== 'pending') {
+                return redirect()->back()->with('error', 'Only pending requisitions can be rejected.');
+            }
 
-    } catch (\Exception $e) {
-        DB::rollBack();
-        Log::error('Error rejecting requisition: ' . $e->getMessage());
-        return redirect()->back()->with('error', 'Failed to reject requisition: ' . $e->getMessage());
+            $requisition->update([
+                'status' => 'rejected',
+                'approved_by' => Auth::id(),
+                'approved_at' => now(),
+                'rejection_reason' => $request->rejection_reason,  // Use dedicated column
+            ]);
+
+            DB::commit();
+
+            Log::info('Requisition rejected', [
+                'user_id' => Auth::id(),
+                'requisition_id' => $requisition->id,
+                'requisition_number' => $requisition->requisition_number,
+                'reason' => $request->rejection_reason
+            ]);
+
+            return redirect()->route('procurement.requisitions.index')
+                ->with('success', 'Requisition rejected successfully.');
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('Error rejecting requisition: ' . $e->getMessage());
+            return redirect()->back()->with('error', 'Failed to reject requisition: ' . $e->getMessage());
+        }
     }
-}
-
 }
