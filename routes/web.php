@@ -8,6 +8,7 @@ use App\Http\Controllers\DepartmentController;
 use App\Http\Middleware\AllowFirstUserRegistration;
 use Illuminate\Support\Facades\Auth;
 use App\Http\Controllers\RoleController;
+use App\Http\Controllers\Procurement\PurchaseOrderController;
 use App\Http\Controllers\Store\StoreDashboardController;
 
 // =====================================================
@@ -197,6 +198,28 @@ Route::prefix('procurement')->name('procurement.')->middleware(['auth', 'procure
         // Procurement Notifications
        
     });
+
+
+    // Management Routes
+Route::prefix('management')->name('management.')->middleware(['auth', 'management'])->group(function () {
+    Route::get('/dashboard', [App\Http\Controllers\Management\ManagementController::class, 'dashboard'])->name('dashboard');
+    Route::get('/reports/purchase-orders', [App\Http\Controllers\Management\ManagementController::class, 'reportsPurchaseOrders'])->name('reports.purchase-orders');
+    Route::get('/analytics/procurement', [App\Http\Controllers\Management\ManagementController::class, 'analyticsProcurement'])->name('analytics.procurement');
+    Route::get('/vendors', [App\Http\Controllers\Management\ManagementController::class, 'vendorsIndex'])->name('vendors.index');
+    Route::get('/vendors/{id}', [App\Http\Controllers\Management\ManagementController::class, 'vendorsShow'])->name('vendors.show');
+});
+    // Goods Received Routes
+Route::prefix('goods-received')->name('goods-received.')->group(function () {
+    Route::get('/', [App\Http\Controllers\Procurement\GoodsReceivedController::class, 'index'])->name('index');
+    Route::get('/create', [App\Http\Controllers\Procurement\GoodsReceivedController::class, 'create'])->name('create');
+    Route::post('/store', [App\Http\Controllers\Procurement\GoodsReceivedController::class, 'store'])->name('store');
+    Route::get('/get-po-items/{poId}', [App\Http\Controllers\Procurement\GoodsReceivedController::class, 'getPoItems'])->name('get-po-items');
+    Route::get('/{id}', [App\Http\Controllers\Procurement\GoodsReceivedController::class, 'show'])->name('show');
+    Route::post('/{id}/send-to-store', [App\Http\Controllers\Procurement\GoodsReceivedController::class, 'sendToStore'])->name('send-to-store');
+});
+    // Add these routes inside the procurement group
+Route::post('/purchase-orders/{id}/resend-email', [PurchaseOrderController::class, 'resendEmail'])->name('purchase-orders.resend-email');
+Route::get('/purchase-orders/{id}/download-pdf', [PurchaseOrderController::class, 'downloadPdf'])->name('purchase-orders.download-pdf');
 
     
     

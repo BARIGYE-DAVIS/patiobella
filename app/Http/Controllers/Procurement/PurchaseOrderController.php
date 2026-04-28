@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Procurement;
 
+use App\Mail\PurchaseOrderMail;
 use App\Http\Controllers\Controller;
 use App\Models\PurchaseOrder;
 use App\Models\PurchaseOrderItem;
@@ -11,6 +12,8 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
+use Barryvdh\DomPDF\Facade\Pdf;
 
 class PurchaseOrderController extends Controller
 {
@@ -62,7 +65,7 @@ class PurchaseOrderController extends Controller
         ));
     }
 
-    // Store PO
+    // Store PO and send email with PDF
     public function store(Request $request)
     {
         $user = Auth::user();
@@ -100,8 +103,8 @@ class PurchaseOrderController extends Controller
             $po->tax_amount = 0;
             $po->total_amount = 0;
             
-            // FIXED: Using valid ENUM value 'draft' for new PO
-            $po->status = 'draft';
+            // Set status as 'sent' immediately
+            $po->status = 'sent';
             
             $po->created_by = Auth::id();
             $po->delivery_address = $request->delivery_address;
@@ -121,10 +124,7 @@ class PurchaseOrderController extends Controller
                             $reqItemsByInvId[$ri->inventory_item_id] = $ri;
                         }
                     }
-                    // Update requisition status - use valid status from your requisition enum
-                    // Common values: 'approved', 'fulfilled', 'ordered', 'completed'
-                    // You may need to adjust this based on your requisition status enum
-                    $requisition->status = 'approved'; // Keeping as approved since PO is draft
+                    $requisition->status = 'ordered';
                     $requisition->save();
                 }
             }
@@ -157,8 +157,11 @@ class PurchaseOrderController extends Controller
 
             DB::commit();
 
+            // Send email with PDF attachment
+            $this->sendPurchaseOrderEmail($po);
+
             return redirect()->route('procurement.purchase-orders.show', $po->id)
-                ->with('success', 'Purchase Order created successfully as DRAFT.');
+                ->with('success', 'Purchase Order created successfully and sent to vendor.');
                 
         } catch (\Exception $e) {
             DB::rollBack();
@@ -169,15 +172,38 @@ class PurchaseOrderController extends Controller
                 'request' => $request->all()
             ]);
             
-            if (str_contains($e->getMessage(), 'Data truncated for column \'status\'')) {
-                return redirect()->back()
-                    ->withInput()
-                    ->with('error', 'Database configuration error: Invalid status value. Please contact system administrator.');
-            }
-            
             return redirect()->back()
                 ->withInput()
                 ->with('error', 'Error creating PO: ' . $e->getMessage());
+        }
+    }
+
+    // Send PO email with PDF attachment
+    private function sendPurchaseOrderEmail($purchaseOrder)
+    {
+        try {
+            $po = PurchaseOrder::with(['vendor', 'items.inventoryItem'])->find($purchaseOrder->id);
+            
+            // Generate PDF
+            $pdf = Pdf::loadView('procurement.purchase_orders.pdf', compact('po'));
+            $pdfContent = $pdf->output();
+            
+            // Send email using Mailable - FIXED: Use Mail::to()->send()
+            Mail::to($po->vendor->email)->send(new PurchaseOrderMail($po, $pdfContent));
+            
+            Log::info('PO email sent successfully', [
+                'po_id' => $po->id, 
+                'vendor_email' => $po->vendor->email
+            ]);
+            
+            return true;
+            
+        } catch (\Exception $e) {
+            Log::error('Failed to send PO email', [
+                'po_id' => $purchaseOrder->id,
+                'error' => $e->getMessage()
+            ]);
+            throw $e;
         }
     }
 
@@ -328,8 +354,8 @@ class PurchaseOrderController extends Controller
         }
     }
     
-    // Send PO to vendor (change status from draft to sent)
-    public function sendToVendor($id)
+    // Resend PO email
+    public function resendEmail($id)
     {
         $user = Auth::user();
         if (!$user->department || $user->department->name !== 'PROCUREMENT') {
@@ -337,60 +363,33 @@ class PurchaseOrderController extends Controller
         }
         
         try {
-            $po = PurchaseOrder::findOrFail($id);
+            $po = PurchaseOrder::with(['vendor'])->findOrFail($id);
             
-            // Only allow sending of draft POs
-            if ($po->status !== 'draft') {
-                return redirect()->back()->with('error', 'Only draft POs can be sent to vendor.');
-            }
+            $this->sendPurchaseOrderEmail($po);
             
-            $po->status = 'sent';
-            $po->save();
+            return redirect()->back()->with('success', 'PO email resent successfully to ' . $po->vendor->email);
             
-            // You can add email sending logic here
-            
-            return redirect()->route('procurement.purchase-orders.show', $po->id)
-                ->with('success', 'PO has been sent to vendor successfully.');
-                
         } catch (\Exception $e) {
-            Log::error('Error sending PO to vendor', [
+            Log::error('Error resending PO email', [
                 'error' => $e->getMessage(),
-                'po_id' => $id,
-                'user_id' => Auth::id()
+                'po_id' => $id
             ]);
-            return redirect()->back()->with('error', 'Error sending PO: ' . $e->getMessage());
+            return redirect()->back()->with('error', 'Error sending email: ' . $e->getMessage());
         }
     }
     
-    // Mark PO as approved
-    public function approve($id)
+    // Download PDF
+    public function downloadPdf($id)
     {
         $user = Auth::user();
         if (!$user->department || $user->department->name !== 'PROCUREMENT') {
             return redirect()->route('dashboard')->with('error', 'Unauthorized access');
         }
         
-        try {
-            $po = PurchaseOrder::findOrFail($id);
-            
-            // Only allow approval of sent POs
-            if ($po->status !== 'sent') {
-                return redirect()->back()->with('error', 'Only sent POs can be approved.');
-            }
-            
-            $po->status = 'approved';
-            $po->save();
-            
-            return redirect()->route('procurement.purchase-orders.show', $po->id)
-                ->with('success', 'PO has been approved successfully.');
-                
-        } catch (\Exception $e) {
-            Log::error('Error approving PO', [
-                'error' => $e->getMessage(),
-                'po_id' => $id,
-                'user_id' => Auth::id()
-            ]);
-            return redirect()->back()->with('error', 'Error approving PO: ' . $e->getMessage());
-        }
+        $po = PurchaseOrder::with(['vendor', 'items.inventoryItem'])->findOrFail($id);
+        
+        $pdf = Pdf::loadView('procurement.purchase_orders.pdf', compact('po'));
+        
+        return $pdf->download('PO_' . $po->po_number . '.pdf');
     }
 }

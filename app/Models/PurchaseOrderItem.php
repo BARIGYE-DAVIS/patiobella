@@ -115,4 +115,20 @@ class PurchaseOrderItem extends Model
     {
         return $this->hasMany(GoodsReceivedNoteItem::class, 'purchase_order_item_id');
     }
+
+
+    // In app/Models/PurchaseOrderItem.php
+
+public function goodsReceivedItems()
+{
+    return $this->hasMany(GoodsReceivedNoteItem::class, 'purchase_order_item_id');
+}
+
+public function getRemainingToReceiveAttribute()
+{
+    return $this->quantity_ordered - $this->quantity_received;
+}
+
+
+
 }

@@ -37,13 +37,17 @@
         color: #991b1b;
     }
     .info-row {
-        @apply py-3 border-b border-gray-100;
+        padding: 12px 0;
+        border-bottom: 1px solid #e5e7eb;
     }
     .info-label {
-        @apply font-semibold text-gray-600 w-32;
+        font-weight: 600;
+        color: #4b5563;
+        width: 140px;
+        display: inline-block;
     }
     .info-value {
-        @apply text-gray-800;
+        color: #1f2937;
     }
 </style>
 
@@ -70,67 +74,20 @@
 @endif
 
 <div class="space-y-6">
-    {{-- Header with Actions --}}
+    {{-- Header --}}
     <div class="bg-white rounded-xl shadow-lg overflow-hidden">
         <div class="bg-gradient-to-r from-gray-800 to-gray-700 px-6 py-4 flex justify-between items-center">
             <div>
                 <h2 class="text-xl font-bold text-white">PO #{{ $purchaseOrder->po_number }}</h2>
                 <p class="text-gray-300 text-sm mt-1">Created: {{ $purchaseOrder->created_at->format('F d, Y H:i') }}</p>
             </div>
-            <div class="flex space-x-3">
-                @if($purchaseOrder->status == 'draft')
-                    <a href="{{ route('procurement.purchase-orders.edit', $purchaseOrder->id) }}" 
-                       class="px-4 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition flex items-center">
-                        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
-                        </svg>
-                        Edit PO
-                    </a>
-                    <form action="{{ route('procurement.purchase-orders.send', $purchaseOrder->id) }}" method="POST" class="inline">
-                        @csrf
-                        <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition flex items-center">
-                            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path>
-                            </svg>
-                            Send to Vendor
-                        </button>
-                    </form>
-                @endif
-                
-                @if($purchaseOrder->status == 'sent')
-                    <form action="{{ route('procurement.purchase-orders.approve', $purchaseOrder->id) }}" method="POST" class="inline">
-                        @csrf
-                        <button type="submit" class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition flex items-center">
-                            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                            </svg>
-                            Approve PO
-                        </button>
-                    </form>
-                @endif
-                
-                @if(in_array($purchaseOrder->status, ['draft', 'sent']))
-                    <form action="{{ route('procurement.purchase-orders.destroy', $purchaseOrder->id) }}" method="POST" class="inline" 
-                          onsubmit="return confirm('Are you sure you want to delete this PO? This action cannot be undone.')">
-                        @csrf
-                        @method('DELETE')
-                        <button type="submit" class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition flex items-center">
-                            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
-                            </svg>
-                            Delete PO
-                        </button>
-                    </form>
-                @endif
-                
-                <a href="{{ route('procurement.purchase-orders.index') }}" 
-                   class="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition flex items-center">
-                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
-                    </svg>
-                    Back to List
-                </a>
-            </div>
+            <a href="{{ route('procurement.purchase-orders.index') }}" 
+               class="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition flex items-center">
+                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
+                </svg>
+                Back to List
+            </a>
         </div>
     </div>
 
@@ -163,23 +120,23 @@
             </div>
             <div class="p-6">
                 <div class="space-y-3">
-                    <div class="flex">
+                    <div class="info-row">
                         <span class="info-label">Vendor Name:</span>
                         <span class="info-value">{{ $purchaseOrder->vendor->name ?? 'N/A' }}</span>
                     </div>
-                    <div class="flex">
+                    <div class="info-row">
                         <span class="info-label">Contact Person:</span>
                         <span class="info-value">{{ $purchaseOrder->vendor->contact_person ?? 'N/A' }}</span>
                     </div>
-                    <div class="flex">
+                    <div class="info-row">
                         <span class="info-label">Phone:</span>
                         <span class="info-value">{{ $purchaseOrder->vendor->phone ?? 'N/A' }}</span>
                     </div>
-                    <div class="flex">
+                    <div class="info-row">
                         <span class="info-label">Email:</span>
                         <span class="info-value">{{ $purchaseOrder->vendor->email ?? 'N/A' }}</span>
                     </div>
-                    <div class="flex">
+                    <div class="info-row">
                         <span class="info-label">Address:</span>
                         <span class="info-value">{{ $purchaseOrder->vendor->address ?? 'N/A' }}</span>
                     </div>
@@ -266,7 +223,6 @@
                     <tr>
                         <th class="p-3 border text-left">Item</th>
                         <th class="p-3 border text-center">Quantity Ordered</th>
-                        <th class="p-3 border text-center">Quantity Received</th>
                         <th class="p-3 border text-center">Unit Cost (UGX)</th>
                         <th class="p-3 border text-center">Total Cost (UGX)</th>
                         <th class="p-3 border text-left">Notes</th>
@@ -282,16 +238,6 @@
                                 {{ number_format($item->quantity_ordered, 2) }}
                             </td>
                             <td class="p-3 border text-center">
-                                <span class="font-medium {{ $item->quantity_received >= $item->quantity_ordered ? 'text-green-600' : 'text-orange-600' }}">
-                                    {{ number_format($item->quantity_received, 2) }}
-                                </span>
-                                @if($item->quantity_received < $item->quantity_ordered)
-                                    <span class="text-xs text-gray-500 block">
-                                        ({{ number_format(($item->quantity_received / $item->quantity_ordered) * 100, 1) }}% received)
-                                    </span>
-                                @endif
-                            </td>
-                            <td class="p-3 border text-center">
                                 UGX {{ number_format($item->unit_cost, 2) }}
                             </td>
                             <td class="p-3 border text-center font-semibold">
@@ -303,7 +249,7 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="6" class="p-8 text-center text-gray-500">
+                            <td colspan="5" class="p-8 text-center text-gray-500">
                                 No items found for this purchase order.
                             </td>
                         </tr>
@@ -311,7 +257,7 @@
                 </tbody>
                 <tfoot class="bg-gray-50 font-semibold">
                     <tr>
-                        <td colspan="4" class="p-3 border text-right">Grand Total:</td>
+                        <td colspan="3" class="p-3 border text-right">Grand Total:</td>
                         <td class="p-3 border text-center text-green-600 text-lg">
                             UGX {{ number_format($purchaseOrder->total_amount, 2) }}
                         </td>

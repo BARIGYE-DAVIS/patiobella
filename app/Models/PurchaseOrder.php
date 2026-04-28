@@ -171,4 +171,20 @@ class PurchaseOrder extends Model
     {
         return $this->hasMany(GoodsReceivedNote::class, 'purchase_order_id');
     }
+
+
+    // In app/Models/PurchaseOrder.php
+
+
+public function getTotalReceivedQuantityAttribute()
+{
+    return $this->items->sum('quantity_received');
+}
+
+public function getIsFullyReceivedAttribute()
+{
+    return $this->items->every(function($item) {
+        return $item->quantity_received >= $item->quantity_ordered;
+    });
+}
 }

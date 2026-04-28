@@ -76,6 +76,11 @@ protected function redirectBasedOnDepartment($user)
             return redirect()->route('procurement.dashboard')
                 ->with('success', 'Welcome to Procurement Module, ' . $user->first_name);
         }
+
+                if ($departmentName === 'GENERAL MANAGEMENT ') {
+            return redirect()->route('management.dashboard')
+                ->with('success', 'Welcome to Management Module, ' . $user->first_name);
+        }
     }
     
     return redirect()->route('dashboard')

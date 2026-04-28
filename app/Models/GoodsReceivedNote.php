@@ -10,6 +10,8 @@ class GoodsReceivedNote extends Model
 {
     use HasFactory, SoftDeletes;
 
+    protected $table = 'goods_received_notes';
+
     protected $fillable = [
         'grn_number',
         'purchase_order_id',
@@ -18,26 +20,28 @@ class GoodsReceivedNote extends Model
         'received_by',
         'received_date',
         'delivery_note_number',
+        'po_total_amount',
+        'grn_total_amount',
         'subtotal',
         'tax_amount',
         'total_amount',
         'status',
+        'notes',
         'created_by',
         'updated_by',
     ];
 
-    protected function casts(): array
-    {
-        return [
-            'received_date' => 'date',
-            'subtotal' => 'decimal:2',
-            'tax_amount' => 'decimal:2',
-            'total_amount' => 'decimal:2',
-            'created_at' => 'datetime',
-            'updated_at' => 'datetime',
-            'deleted_at' => 'datetime',
-        ];
-    }
+    protected $casts = [
+        'received_date' => 'date',
+        'po_total_amount' => 'decimal:2',
+        'grn_total_amount' => 'decimal:2',
+        'subtotal' => 'decimal:2',
+        'tax_amount' => 'decimal:2',
+        'total_amount' => 'decimal:2',
+        'created_at' => 'datetime',
+        'updated_at' => 'datetime',
+        'deleted_at' => 'datetime',
+    ];
 
     // Status constants
     const STATUS_DRAFT = 'draft';
@@ -83,25 +87,8 @@ class GoodsReceivedNote extends Model
     {
         $this->subtotal = $this->items->sum('total_cost');
         $this->total_amount = $this->subtotal + $this->tax_amount;
+        $this->grn_total_amount = $this->total_amount;
         $this->saveQuietly();
-    }
-
-    /**
-     * Complete the GRN and create stock movements.
-     */
-    public function complete(): void
-    {
-        if (!$this->canComplete()) {
-            throw new \Exception('Cannot complete this GRN');
-        }
-
-        $this->status = self::STATUS_COMPLETED;
-        $this->save();
-
-        // Create stock movements for each item
-        foreach ($this->items as $item) {
-            $item->createStockMovement();
-        }
     }
 
     // Relationships
@@ -138,10 +125,5 @@ class GoodsReceivedNote extends Model
     public function items()
     {
         return $this->hasMany(GoodsReceivedNoteItem::class, 'goods_received_note_id');
-    }
-
-    public function stockMovements()
-    {
-        return $this->hasMany(StockMovement::class, 'goods_received_note_id');
     }
 }
