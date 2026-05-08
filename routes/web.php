@@ -36,10 +36,10 @@ Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
 // =====================================================
 
 Route::middleware(['auth'])->group(function () {
-    
+
     // Main Dashboard
     Route::get('/dashboard', [AuthController::class, 'dashboard'])->name('dashboard');
-    
+
     // =====================================================
     // USER Management Routes
     // =====================================================
@@ -47,7 +47,7 @@ Route::middleware(['auth'])->group(function () {
     Route::patch('/users/{id}/activate', [UserController::class, 'activate'])->name('users.activate');
     Route::patch('/users/{id}/deactivate', [UserController::class, 'deactivate'])->name('users.deactivate');
     Route::put('/users/{id}/update-password', [UserController::class, 'updatePassword'])->name('users.update-password');
-    
+
     // =====================================================
     // DEPARTMENT Management Routes
     // =====================================================
@@ -64,14 +64,7 @@ Route::middleware(['auth'])->group(function () {
         Route::patch('/{id}/restore', [DepartmentController::class, 'restore'])->name('restore');
         Route::delete('/{id}/force-delete', [DepartmentController::class, 'forceDelete'])->name('force-delete');
     });
-    
-    // =====================================================
-    // STORE MODULE Routes
-    // =====================================================
-    Route::prefix('store')->name('store.')->group(function () {
-        Route::get('/dashboard', [StoreDashboardController::class, 'index'])->name('dashboard');
-    });
-    
+
     // =====================================================
     // ROLE Management Routes
     // =====================================================
@@ -86,81 +79,6 @@ Route::middleware(['auth'])->group(function () {
         Route::patch('/{id}/activate', [RoleController::class, 'activate'])->name('activate');
         Route::patch('/{id}/deactivate', [RoleController::class, 'deactivate'])->name('deactivate');
     });
-
-    // =====================================================
-// STORE MODULE Routes
-// =====================================================
-Route::prefix('store')->name('store.')->group(function () {
-    Route::get('/dashboard', [StoreDashboardController::class, 'index'])->name('dashboard');
-    
-    // Inventory routes
-    Route::prefix('inventory')->name('inventory.')->group(function () {
-        Route::get('/', [App\Http\Controllers\Store\InventoryController::class, 'index'])->name('index');
-        Route::get('/create', [App\Http\Controllers\Store\InventoryController::class, 'create'])->name('create');
-        Route::post('/', [App\Http\Controllers\Store\InventoryController::class, 'store'])->name('store');
-        Route::get('/{id}', [App\Http\Controllers\Store\InventoryController::class, 'show'])->name('show');
-        Route::get('/{id}/edit', [App\Http\Controllers\Store\InventoryController::class, 'edit'])->name('edit');
-        Route::put('/{id}', [App\Http\Controllers\Store\InventoryController::class, 'update'])->name('update');
-        Route::delete('/{id}', [App\Http\Controllers\Store\InventoryController::class, 'destroy'])->name('destroy');
-    });
-});
-
-// =====================================================
-// STORE MODULE - Complete Routes
-// =====================================================
-Route::prefix('store')->name('store.')->middleware(['auth'])->group(function () {
-    
-    // Dashboard
-    Route::get('/dashboard', [App\Http\Controllers\Store\StoreDashboardController::class, 'index'])->name('dashboard');
-    
-    // Inventory Management
-    Route::prefix('inventory')->name('inventory.')->group(function () {
-        Route::get('/', [App\Http\Controllers\Store\InventoryController::class, 'index'])->name('index');
-        Route::get('/create', [App\Http\Controllers\Store\InventoryController::class, 'create'])->name('create');
-        Route::post('/', [App\Http\Controllers\Store\InventoryController::class, 'store'])->name('store');
-        Route::get('/{id}', [App\Http\Controllers\Store\InventoryController::class, 'show'])->name('show');
-        Route::get('/{id}/edit', [App\Http\Controllers\Store\InventoryController::class, 'edit'])->name('edit');
-        Route::put('/{id}', [App\Http\Controllers\Store\InventoryController::class, 'update'])->name('update');
-        Route::delete('/{id}', [App\Http\Controllers\Store\InventoryController::class, 'destroy'])->name('destroy');
-    });
-    
-    // Stock Movements
-    Route::prefix('stock-movements')->name('stock-movements.')->group(function () {
-        Route::get('/', [App\Http\Controllers\Store\StockMovementController::class, 'index'])->name('index');
-        Route::get('/create', [App\Http\Controllers\Store\StockMovementController::class, 'create'])->name('create');
-        Route::post('/', [App\Http\Controllers\Store\StockMovementController::class, 'store'])->name('store');
-        Route::get('/{id}', [App\Http\Controllers\Store\StockMovementController::class, 'show'])->name('show');
-    });
-    
-    // Requisitions (Store requests for stock)
-    Route::prefix('requisitions')->name('requisitions.')->group(function () {
-        Route::get('/', [App\Http\Controllers\Store\RequisitionController::class, 'index'])->name('index');
-        Route::get('/create', [App\Http\Controllers\Store\RequisitionController::class, 'create'])->name('create');
-        Route::post('/', [App\Http\Controllers\Store\RequisitionController::class, 'store'])->name('store');
-        Route::get('/{id}', [App\Http\Controllers\Store\RequisitionController::class, 'show'])->name('show');
-        Route::get('/{id}/edit', [App\Http\Controllers\Store\RequisitionController::class, 'edit'])->name('edit');
-        Route::put('/{id}', [App\Http\Controllers\Store\RequisitionController::class, 'update'])->name('update');
-        Route::delete('/{id}', [App\Http\Controllers\Store\RequisitionController::class, 'destroy'])->name('destroy');
-        Route::delete('/{id}/cancel', [App\Http\Controllers\Store\RequisitionController::class, 'cancel'])->name('cancel');
-        Route::put('/requisitions/{id}', [RequisitionController::class, 'update'])->name('store.requisitions.update');
-    });
-    
-    
-    // Goods Received Notes (GRN)
-    Route::prefix('grn')->name('grn.')->group(function () {
-        Route::get('/', [App\Http\Controllers\Store\GoodsReceivedNoteController::class, 'index'])->name('index');
-        Route::get('/{id}', [App\Http\Controllers\Store\GoodsReceivedNoteController::class, 'show'])->name('show');
-    });
-    
-    // Reports
-    Route::prefix('reports')->name('reports.')->group(function () {
-        Route::get('/', [App\Http\Controllers\Store\ReportController::class, 'index'])->name('index');
-        Route::get('/stock', [App\Http\Controllers\Store\ReportController::class, 'stock'])->name('stock');
-        Route::get('/movements', [App\Http\Controllers\Store\ReportController::class, 'movements'])->name('movements');
-    });
-});
-    
-
 
     // =====================================================
     // PERMISSION Management Routes
@@ -178,52 +96,94 @@ Route::prefix('store')->name('store.')->middleware(['auth'])->group(function () 
         Route::get('/group/{group}', [PermissionController::class, 'getByGroup'])->name('by-group');
         Route::get('/groups/list', [PermissionController::class, 'getGroups'])->name('groups');
     });
+});
 
+// =====================================================
+// STORE MODULE Routes
+// =====================================================
+Route::prefix('store')->name('store.')->middleware(['auth'])->group(function () {
+
+    // Dashboard
+    Route::get('/dashboard', [App\Http\Controllers\Store\StoreDashboardController::class, 'index'])->name('dashboard');
+
+    // Inventory Management
+    Route::prefix('inventory')->name('inventory.')->group(function () {
+        Route::get('/', [App\Http\Controllers\Store\InventoryController::class, 'index'])->name('index');
+        Route::get('/create', [App\Http\Controllers\Store\InventoryController::class, 'create'])->name('create');
+        Route::post('/', [App\Http\Controllers\Store\InventoryController::class, 'store'])->name('store');
+        Route::get('/{id}', [App\Http\Controllers\Store\InventoryController::class, 'show'])->name('show');
+        Route::get('/{id}/edit', [App\Http\Controllers\Store\InventoryController::class, 'edit'])->name('edit');
+        Route::put('/{id}', [App\Http\Controllers\Store\InventoryController::class, 'update'])->name('update');
+        Route::delete('/{id}', [App\Http\Controllers\Store\InventoryController::class, 'destroy'])->name('destroy');
+    });
+
+    // Categories Routes
+Route::prefix('categories')->name('categories.')->group(function () {
+    Route::get('/', [App\Http\Controllers\Store\CategoryController::class, 'index'])->name('index');
+    Route::get('/create', [App\Http\Controllers\Store\CategoryController::class, 'create'])->name('create');
+    Route::post('/', [App\Http\Controllers\Store\CategoryController::class, 'store'])->name('store');
+    Route::get('/{id}/edit', [App\Http\Controllers\Store\CategoryController::class, 'edit'])->name('edit');
+    Route::put('/{id}', [App\Http\Controllers\Store\CategoryController::class, 'update'])->name('update');
+    Route::delete('/{id}', [App\Http\Controllers\Store\CategoryController::class, 'destroy'])->name('destroy');
+});
+
+    // Stock Movements
+    Route::prefix('stock-movements')->name('stock-movements.')->group(function () {
+        Route::get('/', [App\Http\Controllers\Store\StockMovementController::class, 'index'])->name('index');
+        Route::get('/create', [App\Http\Controllers\Store\StockMovementController::class, 'create'])->name('create');
+        Route::post('/', [App\Http\Controllers\Store\StockMovementController::class, 'store'])->name('store');
+        Route::get('/{id}', [App\Http\Controllers\Store\StockMovementController::class, 'show'])->name('show');
+    });
+
+    // Requisitions (Store requests for stock)
+    Route::prefix('requisitions')->name('requisitions.')->group(function () {
+        Route::get('/', [App\Http\Controllers\Store\RequisitionController::class, 'index'])->name('index');
+        Route::get('/create', [App\Http\Controllers\Store\RequisitionController::class, 'create'])->name('create');
+        Route::post('/', [App\Http\Controllers\Store\RequisitionController::class, 'store'])->name('store');
+        Route::get('/{id}', [App\Http\Controllers\Store\RequisitionController::class, 'show'])->name('show');
+        Route::get('/{id}/edit', [App\Http\Controllers\Store\RequisitionController::class, 'edit'])->name('edit');
+        Route::put('/{id}', [App\Http\Controllers\Store\RequisitionController::class, 'update'])->name('update');
+        Route::delete('/{id}', [App\Http\Controllers\Store\RequisitionController::class, 'destroy'])->name('destroy');
+        Route::delete('/{id}/cancel', [App\Http\Controllers\Store\RequisitionController::class, 'cancel'])->name('cancel');
+    });
+
+
+
+    // Reports
+
+});
 
 // =====================================================
 // PROCUREMENT MODULE Routes
 // =====================================================
-Route::prefix('procurement')->name('procurement.')->middleware(['auth', 'procurement'])->group(function () {
-    
+Route::prefix('procurement')->name('procurement.')->middleware(['auth'])->group(function () {
+
     // Dashboard
     Route::get('/dashboard', [App\Http\Controllers\Procurement\ProcurementDashboardController::class, 'index'])->name('dashboard');
+
+    // Notifications
     Route::get('/notifications/check', [App\Http\Controllers\Procurement\NotificationController::class, 'check'])->name('notifications.check');
-    // Requisitions (View only - from Store)
+
+    // Requisitions
     Route::prefix('requisitions')->name('requisitions.')->group(function () {
         Route::get('/', [App\Http\Controllers\Procurement\ProcurementRequisitionController::class, 'index'])->name('index');
         Route::get('/{id}', [App\Http\Controllers\Procurement\ProcurementRequisitionController::class, 'show'])->name('show');
         Route::post('/{id}/approve', [App\Http\Controllers\Procurement\ProcurementRequisitionController::class, 'approve'])->name('approve');
-       
         Route::post('/{id}/reject', [App\Http\Controllers\Procurement\ProcurementRequisitionController::class, 'reject'])->name('reject');
-        // Procurement Notifications
-       
     });
 
 
-    // Management Routes
-Route::prefix('management')->name('management.')->middleware(['auth', 'management'])->group(function () {
-    Route::get('/dashboard', [App\Http\Controllers\Management\ManagementController::class, 'dashboard'])->name('dashboard');
-    Route::get('/reports/purchase-orders', [App\Http\Controllers\Management\ManagementController::class, 'reportsPurchaseOrders'])->name('reports.purchase-orders');
-    Route::get('/analytics/procurement', [App\Http\Controllers\Management\ManagementController::class, 'analyticsProcurement'])->name('analytics.procurement');
-    Route::get('/vendors', [App\Http\Controllers\Management\ManagementController::class, 'vendorsIndex'])->name('vendors.index');
-    Route::get('/vendors/{id}', [App\Http\Controllers\Management\ManagementController::class, 'vendorsShow'])->name('vendors.show');
+    // Local Purchase Order (LPO) Routes
+Route::prefix('lpo')->name('lpo.')->group(function () {
+    Route::get('/create/{requisition_id}', [App\Http\Controllers\Procurement\LocalPurchaseOrderController::class, 'createFromRequisition'])->name('create');
+    Route::post('/store', [App\Http\Controllers\Procurement\LocalPurchaseOrderController::class, 'store'])->name('store');
+    Route::get('/{id}', [App\Http\Controllers\Procurement\LocalPurchaseOrderController::class, 'show'])->name('show');
+    Route::get('/', [App\Http\Controllers\Procurement\LocalPurchaseOrderController::class, 'index'])->name('index');
 });
-    // Goods Received Routes
-Route::prefix('goods-received')->name('goods-received.')->group(function () {
-    Route::get('/', [App\Http\Controllers\Procurement\GoodsReceivedController::class, 'index'])->name('index');
-    Route::get('/create', [App\Http\Controllers\Procurement\GoodsReceivedController::class, 'create'])->name('create');
-    Route::post('/store', [App\Http\Controllers\Procurement\GoodsReceivedController::class, 'store'])->name('store');
-    Route::get('/get-po-items/{poId}', [App\Http\Controllers\Procurement\GoodsReceivedController::class, 'getPoItems'])->name('get-po-items');
-    Route::get('/{id}', [App\Http\Controllers\Procurement\GoodsReceivedController::class, 'show'])->name('show');
-    Route::post('/{id}/send-to-store', [App\Http\Controllers\Procurement\GoodsReceivedController::class, 'sendToStore'])->name('send-to-store');
-});
-    // Add these routes inside the procurement group
-Route::post('/purchase-orders/{id}/resend-email', [PurchaseOrderController::class, 'resendEmail'])->name('purchase-orders.resend-email');
-Route::get('/purchase-orders/{id}/download-pdf', [PurchaseOrderController::class, 'downloadPdf'])->name('purchase-orders.download-pdf');
 
-    
-    
-    
+// Approved LPOs for External PO conversion
+Route::get('/approved-lpos', [App\Http\Controllers\Procurement\LocalPurchaseOrderController::class, 'approvedLpos'])->name('approved-lpos');
+Route::get('/approved-lpos/{id}/convert-to-epo', [App\Http\Controllers\Procurement\LocalPurchaseOrderController::class, 'convertToEpo'])->name('convert-to-epo');
     // Purchase Orders
     Route::prefix('purchase-orders')->name('purchase-orders.')->group(function () {
         Route::get('/', [App\Http\Controllers\Procurement\PurchaseOrderController::class, 'index'])->name('index');
@@ -234,8 +194,10 @@ Route::get('/purchase-orders/{id}/download-pdf', [PurchaseOrderController::class
         Route::put('/{id}', [App\Http\Controllers\Procurement\PurchaseOrderController::class, 'update'])->name('update');
         Route::delete('/{id}', [App\Http\Controllers\Procurement\PurchaseOrderController::class, 'destroy'])->name('destroy');
         Route::post('/{id}/send', [App\Http\Controllers\Procurement\PurchaseOrderController::class, 'send'])->name('send');
+        Route::post('/{id}/resend-email', [App\Http\Controllers\Procurement\PurchaseOrderController::class, 'resendEmail'])->name('resend-email');
+        Route::get('/{id}/download-pdf', [App\Http\Controllers\Procurement\PurchaseOrderController::class, 'downloadPdf'])->name('download-pdf');
     });
-    
+
     // Vendors
     Route::prefix('vendors')->name('vendors.')->group(function () {
         Route::get('/', [App\Http\Controllers\Procurement\VendorController::class, 'index'])->name('index');
@@ -246,23 +208,55 @@ Route::get('/purchase-orders/{id}/download-pdf', [PurchaseOrderController::class
         Route::put('/{id}', [App\Http\Controllers\Procurement\VendorController::class, 'update'])->name('update');
         Route::delete('/{id}', [App\Http\Controllers\Procurement\VendorController::class, 'destroy'])->name('destroy');
     });
-    
-    // Goods Received Notes (GRN)
-    Route::prefix('grn')->name('grn.')->group(function () {
-        Route::get('/', [App\Http\Controllers\Procurement\GoodsReceivedNoteController::class, 'index'])->name('index');
-        Route::get('/create/{purchase_order_id}', [App\Http\Controllers\Procurement\GoodsReceivedNoteController::class, 'create'])->name('create');
-        Route::post('/', [App\Http\Controllers\Procurement\GoodsReceivedNoteController::class, 'store'])->name('store');
-        Route::get('/{id}', [App\Http\Controllers\Procurement\GoodsReceivedNoteController::class, 'show'])->name('show');
+
+    // Goods Received Routes
+    Route::prefix('goods-received')->name('goods-received.')->group(function () {
+        Route::get('/', [App\Http\Controllers\Procurement\GoodsReceivedController::class, 'index'])->name('index');
+        Route::get('/create', [App\Http\Controllers\Procurement\GoodsReceivedController::class, 'create'])->name('create');
+        Route::post('/store', [App\Http\Controllers\Procurement\GoodsReceivedController::class, 'store'])->name('store');
+        Route::get('/get-po-items/{poId}', [App\Http\Controllers\Procurement\GoodsReceivedController::class, 'getPoItems'])->name('get-po-items');
+        Route::get('/{id}', [App\Http\Controllers\Procurement\GoodsReceivedController::class, 'show'])->name('show');
+        Route::post('/{id}/send-to-store', [App\Http\Controllers\Procurement\GoodsReceivedController::class, 'sendToStore'])->name('send-to-store');
     });
-    
-    // Reports
-    Route::prefix('reports')->name('reports.')->group(function () {
-        Route::get('/', [App\Http\Controllers\Procurement\ProcurementReportController::class, 'index'])->name('index');
-        Route::get('/purchase-orders', [App\Http\Controllers\Procurement\ProcurementReportController::class, 'purchaseOrders'])->name('purchase-orders');
-        Route::get('/vendors', [App\Http\Controllers\Procurement\ProcurementReportController::class, 'vendors'])->name('vendors');
-    });
+
+
 });
 
-    
+// =====================================================
+// MANAGEMENT MODULE Routes
+// =====================================================
+Route::prefix('management')->name('management.')->middleware(['auth', 'management'])->group(function () {
+    Route::get('/dashboard', [App\Http\Controllers\Management\ManagementController::class, 'dashboard'])->name('dashboard');
+    Route::get('/reports/purchase-orders', [App\Http\Controllers\Management\ManagementController::class, 'reportsPurchaseOrders'])->name('reports.purchase-orders');
+    Route::get('/analytics/procurement', [App\Http\Controllers\Management\ManagementController::class, 'analyticsProcurement'])->name('analytics.procurement');
+    Route::get('/vendors', [App\Http\Controllers\Management\ManagementController::class, 'vendorsIndex'])->name('vendors.index');
 
+
+    Route::get('/vendors/{id}', [App\Http\Controllers\Management\ManagementController::class, 'vendorsShow'])->name('vendors.show');
+
+    // In routes/web.php - inside the management group
+Route::prefix('requisitions')->name('requisitions.')->group(function () {
+    Route::get('/', [App\Http\Controllers\Management\ManagementRequisitionController::class, 'index'])->name('index');
+    Route::get('/all', [App\Http\Controllers\Management\ManagementRequisitionController::class, 'all'])->name('all');
+    Route::get('/{id}', [App\Http\Controllers\Management\ManagementRequisitionController::class, 'show'])->name('show');
+    Route::get('/{id}/approve', [App\Http\Controllers\Management\ManagementRequisitionController::class, 'approveForm'])->name('approve-form');
+    Route::post('/{id}/approve', [App\Http\Controllers\Management\ManagementRequisitionController::class, 'approve'])->name('approve');
+    Route::get('/requisitions/{id}/edit', [App\Http\Controllers\Management\ManagementRequisitionController::class, 'edit'])->name('requisitions.edit');
+    Route::put('/requisitions/{id}', [App\Http\Controllers\Management\ManagementRequisitionController::class, 'update'])->name('requisitions.update');
+    Route::post('/{id}/reject', [App\Http\Controllers\Management\ManagementRequisitionController::class, 'reject'])->name('reject');
+});
+
+
+
+});
+
+
+// Director Module Routes
+Route::prefix('director')->name('director.')->middleware(['auth', 'director'])->group(function () {
+    Route::get('/dashboard', [App\Http\Controllers\Director\DirectorController::class, 'dashboard'])->name('dashboard');
+    Route::get('/lpos', [App\Http\Controllers\Director\LpoController::class, 'index'])->name('lpos.index');
+    Route::get('/lpos/{id}', [App\Http\Controllers\Director\LpoController::class, 'show'])->name('lpos.show');
+    Route::post('/lpos/{id}/approve', [App\Http\Controllers\Director\LpoController::class, 'approve'])->name('lpos.approve');
+    Route::post('/lpos/{id}/reject', [App\Http\Controllers\Director\LpoController::class, 'reject'])->name('lpos.reject');
+    Route::get('/lpos/{id}/download-pdf', [App\Http\Controllers\Director\LpoController::class, 'downloadPdf'])->name('lpos.download-pdf');
 });

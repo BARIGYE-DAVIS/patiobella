@@ -5,16 +5,16 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>@yield('title', 'Store Module') - {{ config('app.name') }}</title>
-    
+
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    
+
     <!-- Font Awesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    
+
     <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    
+
     <style>
         body {
             font-family: 'Inter', sans-serif;
@@ -117,7 +117,7 @@
             }
         }
     </style>
-    
+
     @stack('styles')
 </head>
 <body>
@@ -140,7 +140,7 @@
             </button>
         </div>
     </div>
-    
+
     <nav class="mt-6">
         <a href="{{ route('store.dashboard') }}" class="flex items-center px-4 py-3 text-sm hover:bg-blue-700 transition sidebar-nav-link {{ request()->routeIs('store.dashboard') ? 'sidebar-active' : '' }}">
             <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -148,43 +148,40 @@
             </svg>
             Dashboard
         </a>
-        
+
         <a href="{{ route('store.inventory.index') }}" class="flex items-center px-4 py-3 text-sm hover:bg-blue-700 transition sidebar-nav-link {{ request()->routeIs('store.inventory.*') ? 'sidebar-active' : '' }}">
             <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
             </svg>
             Inventory
         </a>
-        
+
         <a href="{{ route('store.stock-movements.index') }}" class="flex items-center px-4 py-3 text-sm hover:bg-blue-700 transition sidebar-nav-link">
             <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/>
             </svg>
             Stock Movements
         </a>
-        
+
         <a href="{{ route('store.requisitions.index') }}" class="flex items-center px-4 py-3 text-sm hover:bg-blue-700 transition sidebar-nav-link {{ request()->routeIs('store.requisitions.*') ? 'sidebar-active' : '' }}">
             <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
             </svg>
             Requisitions
         </a>
-        
-        <a href="{{ route('store.grn.index') }}" class="flex items-center px-4 py-3 text-sm hover:bg-blue-700 transition sidebar-nav-link">
+
+        <a href="{{ route('store.categories.index') }}" class="flex items-center px-4 py-3 text-sm hover:bg-blue-700 transition sidebar-nav-link {{ request()->routeIs('store.categories.*') ? 'sidebar-active' : '' }}">
             <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
             </svg>
-            Goods Received
+            Categories
         </a>
-        
-        <a href="{{ route('store.reports.index') }}" class="flex items-center px-4 py-3 text-sm hover:bg-blue-700 transition sidebar-nav-link">
-            <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
-            </svg>
-            Reports
-        </a>
+
+
+
+
     </nav>
-    
+
     <div class="absolute bottom-0 w-full p-4 border-t border-blue-700">
         <div class="flex items-center">
             <div class="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center">
@@ -195,7 +192,7 @@
                 <p class="text-xs text-blue-300">{{ Auth::user()->role ?? 'Store Keeper' }}</p>
             </div>
         </div>
-        <a href="{{ route('logout') }}" 
+        <a href="{{ route('logout') }}"
            onclick="event.preventDefault(); document.getElementById('logout-form').submit();"
            class="mt-3 flex items-center text-sm text-blue-300 hover:text-white transition">
             <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -241,13 +238,13 @@
             {{ session('success') }}
         </div>
     @endif
-    
+
     @if(session('error'))
         <div class="mb-4 p-4 bg-red-100 border border-red-400 text-red-700 rounded-lg">
             {{ session('error') }}
         </div>
     @endif
-    
+
     @yield('content')
 </main>
 
@@ -257,23 +254,23 @@
     const menuIconBtn = document.getElementById('menuIconBtn');
     const closeSidebarBtn = document.getElementById('closeSidebarBtn');
     const navLinks = document.querySelectorAll('.sidebar-nav-link');
-    
+
     function openSidebar() {
         sidebar.classList.add('open');
         overlay.classList.add('active');
         document.body.classList.add('sidebar-open');
     }
-    
+
     function closeSidebar() {
         sidebar.classList.remove('open');
         overlay.classList.remove('active');
         document.body.classList.remove('sidebar-open');
     }
-    
+
     menuIconBtn.addEventListener('click', openSidebar);
     closeSidebarBtn.addEventListener('click', closeSidebar);
     overlay.addEventListener('click', closeSidebar);
-    
+
     // Close sidebar when a navigation link is clicked
     navLinks.forEach(link => {
         link.addEventListener('click', function() {

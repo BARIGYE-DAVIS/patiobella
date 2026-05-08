@@ -57,7 +57,7 @@
                     'cancelled' => 'bg-gray-100 text-gray-800',
                 ];
                 $statusText = [
-                    'pending' => 'Pending',
+                    'pending' => 'Pending GM Approval',
                     'approved' => 'Approved',
                     'rejected' => 'Rejected',
                     'fulfilled' => 'Fulfilled',
@@ -96,7 +96,7 @@
                 </svg>
                 <div>
                     <h4 class="text-sm font-semibold text-green-800">Approval Confirmation</h4>
-                    <p class="text-sm text-green-700 mt-1">This requisition has been approved.</p>
+                    <p class="text-sm text-green-700 mt-1">This requisition has been approved by General Manager.</p>
                     @if($requisition->approvedBy)
                         <p class="text-xs text-green-600 mt-2">Approved by: {{ $requisition->approvedBy->first_name }} {{ $requisition->approvedBy->last_name }} on {{ $requisition->approved_at ? $requisition->approved_at->format('F d, Y g:i A') : '' }}</p>
                     @endif
@@ -124,7 +124,7 @@
                     </div>
                 </div>
             </div>
-            
+
             <div>
                 <h4 class="text-sm font-medium text-gray-500 mb-2">Response Information</h4>
                 <div class="space-y-2">
@@ -159,47 +159,85 @@
         @endif
 
         {{-- Items Table --}}
-        <div>
-            <h4 class="text-sm font-medium text-gray-500 mb-3">Requested Items</h4>
-            <div class="overflow-x-auto">
-                <table class="w-full border border-gray-200 rounded-lg">
-                    <thead class="bg-gray-50">
-                        <tr class="border-b border-gray-200">
-                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Type</th>
-                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Item</th>
-                            <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Quantity Requested</th>
-                            <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Quantity Approved</th>
-                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Notes</th>
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y divide-gray-200">
-                        @foreach($requisition->items as $item)
-                        <tr>
-                            <td class="px-4 py-3 text-sm">
-                                @if($item->inventory_item_id)
-                                    <span class="px-2 py-1 text-xs rounded-full bg-green-100 text-green-800">Existing</span>
-                                @else
-                                    <span class="px-2 py-1 text-xs rounded-full bg-purple-100 text-purple-800">New</span>
-                                @endif
-                            </td>
-                            <td class="px-4 py-3 text-sm text-gray-800">
-                                @if($item->inventory_item_id)
-                                    {{ $item->inventoryItem ? $item->inventoryItem->name : 'Item not found' }}
-                                    <br>
-                                    <span class="text-xs text-gray-500">{{ $item->inventoryItem ? $item->inventoryItem->item_code : '' }}</span>
-                                @else
-                                    <strong>{{ $item->item_name }}</strong>
-                                    <br>
-                                    <span class="text-xs text-gray-500">New item (not in inventory)</span>
-                                @endif
-                            </td>
-                            <td class="px-4 py-3 text-sm text-gray-800 text-right">{{ number_format($item->quantity_requested, 2) }}</td>
-                            <td class="px-4 py-3 text-sm text-gray-800 text-right">{{ number_format($item->quantity_approved, 2) }}</td>
-                            <td class="px-4 py-3 text-sm text-gray-500">{{ $item->notes ?? '—' }}</td>
-                        </tr>
-                        @endforeach
-                    </tbody>
-                </table>
+        {{-- Items Table --}}
+<div>
+    <h4 class="text-sm font-medium text-gray-500 mb-3">Requested Items</h4>
+    <div class="overflow-x-auto">
+        <table class="w-full border border-gray-200 rounded-lg">
+            <thead class="bg-gray-50">
+                <tr class="border-b border-gray-200">
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Item</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Category</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase w-24">Metrics</th>
+                    <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase w-28">Requested Qty</th>
+                    <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase w-28">Approved Qty</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Notes</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-200">
+                @php
+                    $totalRequested = 0;
+                    $totalApproved = 0;
+                @endphp
+                @foreach($requisition->items as $item)
+                @php
+                    $totalRequested += $item->quantity_requested;
+                    $totalApproved += $item->quantity_approved;
+                @endphp
+                <tr class="border-b hover:bg-gray-50">
+                    <td class="px-4 py-3 text-sm text-gray-800">
+                        {{ $item->inventoryItem ? $item->inventoryItem->name : 'Item not found' }}
+                        @if($item->inventoryItem && $item->inventoryItem->item_code)
+                            <br>
+                            <span class="text-xs text-gray-500">Code: {{ $item->inventoryItem->item_code }}</span>
+                        @endif
+                    </td>
+                    <td class="px-4 py-3 text-sm text-gray-500">
+                        <span class="px-2 py-1 text-xs rounded-full bg-gray-100">
+                            {{ $item->category_name ?: '—' }}
+                        </span>
+                    </td>
+                    <td class="px-4 py-3 text-sm text-gray-500">
+                        {{ $item->metrics ?: '—' }}
+                    </td>
+                    <td class="px-4 py-3 text-sm text-gray-800 text-right font-semibold">
+                        {{ number_format($item->quantity_requested, 2) }}
+                    </td>
+                    <td class="px-4 py-3 text-sm text-gray-800 text-right">
+                        {{ number_format($item->quantity_approved, 2) }}
+                    </td>
+                    <td class="px-4 py-3 text-sm text-gray-500">{{ $item->notes ?? '—' }}</td>
+                </tr>
+                @endforeach
+            </tbody>
+            <tfoot class="bg-gray-50">
+                <tr>
+                    <td class="px-4 py-3 text-sm font-semibold text-gray-800" colspan="2">Total Items: {{ $requisition->items->count() }}</td>
+                    <td class="px-4 py-3 text-sm font-semibold text-gray-800"></td>
+                    <td class="px-4 py-3 text-sm font-semibold text-gray-800 text-right">Total Qty: {{ number_format($totalRequested, 2) }}</td>
+                    <td class="px-4 py-3 text-sm font-semibold text-gray-800 text-right">{{ number_format($totalApproved, 2) }}</td>
+                    <td class="px-4 py-3"></td>
+                </tr>
+            </tfoot>
+        </table>
+    </div>
+</div>
+        {{-- Summary Cards --}}
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
+            <div class="bg-blue-50 rounded-lg p-4 border border-blue-200">
+                <p class="text-sm text-blue-600">Total Items</p>
+                <p class="text-2xl font-bold text-blue-800">{{ $requisition->items->count() }}</p>
+            </div>
+            <div class="bg-yellow-50 rounded-lg p-4 border border-yellow-200">
+                <p class="text-sm text-yellow-600">Total Requested Quantity</p>
+                <p class="text-2xl font-bold text-yellow-800">{{ number_format($totalRequested, 2) }}</p>
+            </div>
+            <div class="bg-green-50 rounded-lg p-4 border border-green-200">
+                <p class="text-sm text-green-600">Total Approved Quantity</p>
+                <p class="text-2xl font-bold text-green-800">{{ number_format($totalApproved, 2) }}</p>
+                @if($requisition->status == 'approved' && $totalApproved < $totalRequested)
+                    <p class="text-xs text-orange-600 mt-1">Partial approval - Some items reduced</p>
+                @endif
             </div>
         </div>
     </div>

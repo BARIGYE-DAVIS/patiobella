@@ -16,19 +16,18 @@ class RequisitionItem extends Model
         'inventory_item_id',
         'item_name',
         'quantity_requested',
+        'metrics',
+        'category_name',
         'quantity_approved',
         'notes',
     ];
 
-    protected function casts(): array
-    {
-        return [
-            'quantity_requested' => 'decimal:2',
-            'quantity_approved' => 'decimal:2',
-            'created_at' => 'datetime',
-            'updated_at' => 'datetime',
-        ];
-    }
+    protected $casts = [
+        'quantity_requested' => 'decimal:2',
+        'quantity_approved' => 'decimal:2',
+        'created_at' => 'datetime',
+        'updated_at' => 'datetime',
+    ];
 
     public function requisition()
     {

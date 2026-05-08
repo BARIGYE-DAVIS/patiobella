@@ -19,7 +19,7 @@ class RequisitionController extends Controller
     public function index(Request $request)
     {
         $user = Auth::user();
-        
+
         if (!$user->department || $user->department->name !== 'STORE') {
             return redirect()->route('dashboard')->with('error', 'Unauthorized access');
         }
@@ -45,13 +45,13 @@ class RequisitionController extends Controller
     public function create()
     {
         $user = Auth::user();
-        
+
         if (!$user->department || $user->department->name !== 'STORE') {
             return redirect()->route('dashboard')->with('error', 'Unauthorized access');
         }
 
         $items = InventoryItem::where('is_active', true)->orderBy('name')->get();
-        
+
         return view('store.requisitions.create', compact('items'));
     }
 
@@ -61,7 +61,7 @@ class RequisitionController extends Controller
     public function store(Request $request)
     {
         $user = Auth::user();
-        
+
         if (!$user->department || $user->department->name !== 'STORE') {
             return redirect()->route('dashboard')->with('error', 'Unauthorized access');
         }
@@ -70,9 +70,9 @@ class RequisitionController extends Controller
             'date_needed' => 'nullable|date',
             'notes' => 'nullable|string',
             'items' => 'required|array|min:1',
-            'items.*.item_id' => 'nullable|exists:inventory_items,id',
-            'items.*.new_item_name' => 'nullable|string|max:255',
+            'items.*.item_id' => 'required|exists:inventory_items,id',
             'items.*.quantity' => 'required|numeric|min:0.01',
+            'items.*.metrics' => 'nullable|string|max:50',
             'items.*.notes' => 'nullable|string',
         ]);
 
@@ -94,24 +94,20 @@ class RequisitionController extends Controller
 
             // Create requisition items
             foreach ($validated['items'] as $item) {
-                $itemData = [
+                // Get the inventory item to fetch its category
+                $inventoryItem = InventoryItem::with('category')->find($item['item_id']);
+                $categoryName = $inventoryItem && $inventoryItem->category ? $inventoryItem->category->name : null;
+
+                RequisitionItem::create([
                     'requisition_id' => $requisition->id,
+                    'inventory_item_id' => $item['item_id'],
+                    'item_name' => null,
                     'quantity_requested' => $item['quantity'],
+                    'metrics' => $item['metrics'] ?? null,
+                    'category_name' => $categoryName,
+                    'quantity_approved' => 0,
                     'notes' => $item['notes'] ?? null,
-                ];
-
-                // Check if it's an existing item or new item
-                if (!empty($item['item_id'])) {
-                    // Existing item from inventory
-                    $itemData['inventory_item_id'] = $item['item_id'];
-                    $itemData['item_name'] = null;
-                } else {
-                    // New item not in inventory
-                    $itemData['inventory_item_id'] = null;
-                    $itemData['item_name'] = $item['new_item_name'];
-                }
-
-                RequisitionItem::create($itemData);
+                ]);
             }
 
             DB::commit();
@@ -128,7 +124,7 @@ class RequisitionController extends Controller
 
         } catch (\Exception $e) {
             DB::rollBack();
-            
+
             Log::error('Error creating requisition: ' . $e->getMessage(), [
                 'user_id' => Auth::id(),
                 'error' => $e->getMessage(),
@@ -147,23 +143,154 @@ class RequisitionController extends Controller
     public function show($id)
     {
         $user = Auth::user();
-        
+
         if (!$user->department || $user->department->name !== 'STORE') {
             return redirect()->route('dashboard')->with('error', 'Unauthorized access');
         }
 
-        $requisition = Requisition::with(['items', 'requestedBy', 'approvedBy'])->findOrFail($id);
-        
+        $requisition = Requisition::with(['items.inventoryItem', 'requestedBy', 'approvedBy'])->findOrFail($id);
+
         return view('store.requisitions.show', compact('requisition'));
     }
 
+    /**
+     * Show form to edit a requisition.
+     */
+    public function edit($id)
+    {
+        $user = Auth::user();
+
+        if (!$user->department || $user->department->name !== 'STORE') {
+            return redirect()->route('dashboard')->with('error', 'Unauthorized access');
+        }
+
+        $requisition = Requisition::with('items')->findOrFail($id);
+
+        // Only allow editing if status is pending or rejected
+        if ($requisition->status !== 'pending' && $requisition->status !== 'rejected') {
+            return redirect()->route('store.requisitions.show', $requisition->id)
+                ->with('error', 'Only pending or rejected requisitions can be edited.');
+        }
+
+        $items = InventoryItem::where('is_active', true)->orderBy('name')->get();
+
+        return view('store.requisitions.edit', compact('requisition', 'items'));
+    }
+
+
+    /**
+ * Update the specified requisition.
+ */
+public function update(Request $request, $id)
+{
+    $user = Auth::user();
+
+    if (!$user->department || $user->department->name !== 'STORE') {
+        return redirect()->route('dashboard')->with('error', 'Unauthorized access');
+    }
+
+    $requisition = Requisition::findOrFail($id);
+
+    // Only allow editing if status is pending or rejected
+    if ($requisition->status !== 'pending' && $requisition->status !== 'rejected') {
+        return redirect()->route('store.requisitions.show', $requisition->id)
+            ->with('error', 'Only pending or rejected requisitions can be edited.');
+    }
+
+    // Debug: Log the incoming request
+    Log::info('Update Requisition Request - Full Data', $request->all());
+
+    $validated = $request->validate([
+        'date_needed' => 'nullable|date',
+        'notes' => 'nullable|string',
+        'items' => 'required|array|min:1',
+        'items.*.item_id' => 'required|exists:inventory_items,id',
+        'items.*.quantity' => 'required|numeric|min:0.01',
+        'items.*.metrics' => 'nullable|string|max:50',
+        'items.*.notes' => 'nullable|string',
+    ]);
+
+    DB::beginTransaction();
+
+    try {
+        // Update requisition header
+        $requisition->update([
+            'date_needed' => $validated['date_needed'],
+            'notes' => $validated['notes'],
+        ]);
+
+        // Reset status to pending if it was rejected
+        if ($requisition->status === 'rejected') {
+            $requisition->update([
+                'status' => 'pending',
+                'approved_by' => null,
+                'approved_at' => null,
+                'rejection_reason' => null,
+            ]);
+        }
+
+        // Delete existing items
+        $requisition->items()->delete();
+
+        // Create new items
+        foreach ($validated['items'] as $index => $item) {
+            // Get the inventory item to fetch its category
+            $inventoryItem = \App\Models\InventoryItem::with('category')->find($item['item_id']);
+            $categoryName = $inventoryItem && $inventoryItem->category ? $inventoryItem->category->name : null;
+
+            // Make sure quantity is set
+            $quantity = isset($item['quantity']) ? $item['quantity'] : 0;
+
+            Log::info('Creating requisition item', [
+                'requisition_id' => $requisition->id,
+                'inventory_item_id' => $item['item_id'],
+                'quantity_requested' => $quantity,
+                'metrics' => $item['metrics'] ?? null,
+                'category_name' => $categoryName,
+                'notes' => $item['notes'] ?? null
+            ]);
+
+            RequisitionItem::create([
+                'requisition_id' => $requisition->id,
+                'inventory_item_id' => $item['item_id'],
+                'item_name' => null,
+                'quantity_requested' => $quantity,
+                'metrics' => $item['metrics'] ?? null,
+                'category_name' => $categoryName,
+                'quantity_approved' => 0,
+                'notes' => $item['notes'] ?? null,
+            ]);
+        }
+
+        DB::commit();
+
+        Log::info('Requisition updated successfully', [
+            'user_id' => Auth::id(),
+            'requisition_id' => $requisition->id,
+            'requisition_number' => $requisition->requisition_number
+        ]);
+
+        return redirect()->route('store.requisitions.show', $requisition->id)
+            ->with('success', 'Requisition updated successfully and resubmitted for approval.');
+
+    } catch (\Exception $e) {
+        DB::rollBack();
+        Log::error('Error updating requisition: ' . $e->getMessage(), [
+            'trace' => $e->getTraceAsString(),
+            'request_data' => $request->all()
+        ]);
+        return redirect()->back()
+            ->with('error', 'Failed to update requisition: ' . $e->getMessage())
+            ->withInput();
+    }
+}
     /**
      * Cancel a requisition (only if pending).
      */
     public function cancel($id)
     {
         $user = Auth::user();
-        
+
         if (!$user->department || $user->department->name !== 'STORE') {
             return redirect()->route('dashboard')->with('error', 'Unauthorized access');
         }
@@ -195,143 +322,14 @@ class RequisitionController extends Controller
         $lastRequisition = Requisition::where('requisition_number', 'like', $prefix . '%')
             ->orderBy('id', 'desc')
             ->first();
-        
+
         if ($lastRequisition) {
             $lastNumber = intval(substr($lastRequisition->requisition_number, -4));
             $newNumber = $lastNumber + 1;
         } else {
             $newNumber = 1;
         }
-        
+
         return $prefix . '-' . str_pad($newNumber, 4, '0', STR_PAD_LEFT);
     }
-
-
-    /**
- * Show form to edit a requisition.
- */
-public function edit($id)
-{
-    $user = Auth::user();
-    
-    if (!$user->department || $user->department->name !== 'STORE') {
-        return redirect()->route('dashboard')->with('error', 'Unauthorized access');
-    }
-
-    $requisition = Requisition::with('items')->findOrFail($id);
-
-    // Only allow editing if status is pending
-    if ($requisition->status !== 'pending' && $requisition->status !== 'rejected') {
-        return redirect()->route('store.requisitions.show', $requisition->id)
-            ->with('error', 'Only pending requisitions can be edited.');
-
-    }
-
-    $items = InventoryItem::where('is_active', true)->orderBy('name')->get();
-
-    return view('store.requisitions.edit', compact('requisition', 'items'));
-}
-
-    /**
- * Update the specified requisition.
- */
-/**
- * Update the specified requisition.
- */
-
-
-/**
- * Update the specified requisition.
- */
-public function update(Request $request, $id)
-{
-    $user = Auth::user();
-    
-    if (!$user->department || $user->department->name !== 'STORE') {
-        return redirect()->route('dashboard')->with('error', 'Unauthorized access');
-    }
-
-    $requisition = Requisition::findOrFail($id);
-
-    // Only allow editing if status is pending or rejected
-    if ($requisition->status !== 'pending' && $requisition->status !== 'rejected') {
-        return redirect()->route('store.requisitions.show', $requisition->id)
-            ->with('error', 'Only pending or rejected requisitions can be edited.');
-    }
-
-    $validated = $request->validate([
-        'date_needed' => 'nullable|date',
-        'notes' => 'nullable|string',
-        'items' => 'required|array|min:1',
-        'items.*.quantity' => 'required|numeric|min:0.01',
-        'items.*.notes' => 'nullable|string',
-    ]);
-
-    DB::beginTransaction();
-
-    try {
-        // Update requisition header
-        $requisition->update([
-            'date_needed' => $validated['date_needed'],
-            'notes' => $validated['notes'],
-        ]);
-
-        // Reset status to pending if it was rejected
-        if ($requisition->status === 'rejected') {
-            $requisition->update([
-                'status' => 'pending',
-                'approved_by' => null,
-                'approved_at' => null,
-                'rejection_reason' => null,
-            ]);
-        }
-
-        // Delete existing items
-        $requisition->items()->delete();
-
-        // Create new items
-        foreach ($request->input('items') as $item) {
-            $itemData = [
-                'requisition_id' => $requisition->id,
-                'quantity_requested' => $item['quantity'],
-                'notes' => $item['notes'] ?? null,
-            ];
-
-            // Check if it's an existing item (has item_id) or new item (has name)
-            if (!empty($item['item_id'])) {
-                // Existing item from inventory
-                $itemData['inventory_item_id'] = $item['item_id'];
-                $itemData['item_name'] = null;
-            } else if (!empty($item['name'])) {
-                // New item not in inventory
-                $itemData['inventory_item_id'] = null;
-                $itemData['item_name'] = $item['name'];
-            } else {
-                // Skip if no item identified
-                continue;
-            }
-
-            RequisitionItem::create($itemData);
-        }
-
-        DB::commit();
-
-        Log::info('Requisition updated', [
-            'user_id' => Auth::id(),
-            'requisition_id' => $requisition->id,
-            'requisition_number' => $requisition->requisition_number
-        ]);
-
-        return redirect()->route('store.requisitions.show', $requisition->id)
-            ->with('success', 'Requisition updated successfully and resubmitted for approval.');
-
-    } catch (\Exception $e) {
-        DB::rollBack();
-        Log::error('Error updating requisition: ' . $e->getMessage());
-        return redirect()->back()
-            ->with('error', 'Failed to update requisition: ' . $e->getMessage())
-            ->withInput();
-    }
-}
-
 }

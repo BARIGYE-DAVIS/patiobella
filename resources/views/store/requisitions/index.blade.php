@@ -9,7 +9,7 @@
     <div>
         <p class="text-gray-600">Manage your store requisitions</p>
     </div>
-    <a href="{{ route('store.requisitions.create') }}" 
+    <a href="{{ route('store.requisitions.create') }}"
        class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition flex items-center gap-2">
         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
@@ -22,11 +22,11 @@
 <div class="bg-white rounded-lg shadow-sm mb-6 p-4">
     <form method="GET" action="{{ route('store.requisitions.index') }}" class="flex flex-wrap gap-4">
         <div class="flex-1 min-w-[200px]">
-            <input type="text" name="search" value="{{ request('search') }}" 
+            <input type="text" name="search" value="{{ request('search') }}"
                    placeholder="Search by requisition number..."
                    class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
         </div>
-        
+
         <div>
             <select name="status" class="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
                 <option value="">All Status</option>
@@ -36,7 +36,7 @@
                 <option value="fulfilled" {{ request('status') == 'fulfilled' ? 'selected' : '' }}>Fulfilled</option>
             </select>
         </div>
-        
+
         <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition">
             Filter
         </button>
@@ -100,7 +100,7 @@
                     {{ $requisition->requestedBy ? $requisition->requestedBy->first_name . ' ' . $requisition->requestedBy->last_name : '—' }}
                 </td>
                 <td class="px-6 py-4 text-right">
-                    <a href="{{ route('store.requisitions.show', $requisition->id) }}" 
+                    <a href="{{ route('store.requisitions.show', $requisition->id) }}"
                        class="text-blue-600 hover:text-blue-800 mr-3">View</a>
                 </td>
             </tr>

@@ -7,7 +7,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 
-class ManagementMiddleware
+class DirectorMiddleware
 {
     public function handle(Request $request, Closure $next)
     {
@@ -23,15 +23,16 @@ class ManagementMiddleware
                 ->with('error', 'You do not have a department assigned.');
         }
 
-        $departmentName = $user->department->name;
+        $departmentName = strtoupper(trim($user->department->name));
         
-        if ($departmentName !== 'GENERAL MANAGEMENT') {
-            Log::warning('Unauthorized access to management module', [
+        if ($departmentName !== 'DIRECTORS') {
+            Log::warning('Unauthorized access to director module', [
                 'user_id' => $user->id,
-                'department' => $departmentName
+                'department' => $departmentName,
+                'expected' => 'DIRECTORS'
             ]);
             return redirect()->route('dashboard')
-                ->with('error', 'You do not have access to the Management module.');
+                ->with('error', 'You do not have access to the Directors module.');
         }
 
         return $next($request);

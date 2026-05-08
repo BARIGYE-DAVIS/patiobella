@@ -6,6 +6,7 @@
 <style>
     .stat-card {
         transition: transform 0.2s ease, box-shadow 0.2s ease;
+        cursor: pointer;
     }
     .stat-card:hover {
         transform: translateY(-2px);
@@ -16,39 +17,27 @@
 <div class="space-y-6">
     {{-- Statistics Cards --}}
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <div class="bg-white rounded-xl shadow-md p-6 stat-card">
+        <a href="{{ route('management.requisitions.index', ['tab' => 'pending']) }}"
+           class="bg-white rounded-xl shadow-md p-6 stat-card block">
             <div class="flex items-center justify-between">
                 <div>
-                    <p class="text-gray-500 text-sm">Total Purchase Orders</p>
-                    <p class="text-2xl font-bold text-gray-800">{{ number_format($stats['total_pos']) }}</p>
-                </div>
-                <div class="bg-blue-100 rounded-full p-3">
-                    <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
-                    </svg>
-                </div>
-            </div>
-        </div>
-
-        <div class="bg-white rounded-xl shadow-md p-6 stat-card">
-            <div class="flex items-center justify-between">
-                <div>
-                    <p class="text-gray-500 text-sm">Sent POs</p>
-                    <p class="text-2xl font-bold text-yellow-600">{{ number_format($stats['sent_pos']) }}</p>
+                    <p class="text-gray-500 text-sm">Pending Requisitions</p>
+                    <p class="text-2xl font-bold text-yellow-600">{{ $pendingCount }}</p>
                 </div>
                 <div class="bg-yellow-100 rounded-full p-3">
                     <svg class="w-6 h-6 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/>
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
                     </svg>
                 </div>
             </div>
-        </div>
+        </a>
 
-        <div class="bg-white rounded-xl shadow-md p-6 stat-card">
+        <a href="{{ route('management.requisitions.index', ['tab' => 'approved']) }}"
+           class="bg-white rounded-xl shadow-md p-6 stat-card block">
             <div class="flex items-center justify-between">
                 <div>
-                    <p class="text-gray-500 text-sm">Received POs</p>
-                    <p class="text-2xl font-bold text-green-600">{{ number_format($stats['received_pos']) }}</p>
+                    <p class="text-gray-500 text-sm">Approved Requisitions</p>
+                    <p class="text-2xl font-bold text-green-600">{{ $approvedCount }}</p>
                 </div>
                 <div class="bg-green-100 rounded-full p-3">
                     <svg class="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -56,90 +45,89 @@
                     </svg>
                 </div>
             </div>
-        </div>
+        </a>
 
-        <div class="bg-white rounded-xl shadow-md p-6 stat-card">
+        <a href="{{ route('management.requisitions.index', ['tab' => 'rejected']) }}"
+           class="bg-white rounded-xl shadow-md p-6 stat-card block">
             <div class="flex items-center justify-between">
                 <div>
-                    <p class="text-gray-500 text-sm">Total Vendors</p>
-                    <p class="text-2xl font-bold text-purple-600">{{ number_format($stats['total_vendors']) }}</p>
+                    <p class="text-gray-500 text-sm">Rejected Requisitions</p>
+                    <p class="text-2xl font-bold text-red-600">{{ $rejectedCount }}</p>
                 </div>
-                <div class="bg-purple-100 rounded-full p-3">
-                    <svg class="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/>
+                <div class="bg-red-100 rounded-full p-3">
+                    <svg class="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"/>
                     </svg>
                 </div>
             </div>
-        </div>
-    </div>
+        </a>
 
-    {{-- Financial Summary --}}
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div class="bg-white rounded-xl shadow-md p-6">
-            <h3 class="font-semibold text-gray-800 mb-4">Financial Summary</h3>
-            <div class="space-y-3">
-                <div class="flex justify-between pb-2 border-b">
-                    <span class="text-gray-600">Total PO Value:</span>
-                    <span class="font-bold text-gray-800">UGX {{ number_format($stats['total_po_value'], 2) }}</span>
+        <a href="{{ route('management.requisitions.index', ['tab' => 'all']) }}"
+           class="bg-white rounded-xl shadow-md p-6 stat-card block">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-gray-500 text-sm">Total Requisitions</p>
+                    <p class="text-2xl font-bold text-blue-600">{{ $totalCount }}</p>
                 </div>
-                <div class="flex justify-between pb-2 border-b">
-                    <span class="text-gray-600">Total GRN Value:</span>
-                    <span class="font-bold text-green-600">UGX {{ number_format($stats['total_grn_value'], 2) }}</span>
-                </div>
-                <div class="flex justify-between pt-2">
-                    <span class="text-gray-600">Variance:</span>
-                    <span class="font-bold {{ $stats['total_po_value'] - $stats['total_grn_value'] > 0 ? 'text-red-600' : 'text-green-600' }}">
-                        UGX {{ number_format($stats['total_po_value'] - $stats['total_grn_value'], 2) }}
-                    </span>
+                <div class="bg-blue-100 rounded-full p-3">
+                    <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                    </svg>
                 </div>
             </div>
-        </div>
-
-        <div class="bg-white rounded-xl shadow-md p-6">
-            <h3 class="font-semibold text-gray-800 mb-4">Quick Stats</h3>
-            <div class="grid grid-cols-2 gap-4">
-                <div class="text-center">
-                    <p class="text-2xl font-bold text-blue-600">{{ number_format($stats['total_grns']) }}</p>
-                    <p class="text-sm text-gray-500">Goods Received Notes</p>
-                </div>
-                <div class="text-center">
-                    <p class="text-2xl font-bold text-green-600">{{ number_format($stats['received_pos']) }}</p>
-                    <p class="text-sm text-gray-500">Completed POs</p>
-                </div>
-            </div>
-        </div>
+        </a>
     </div>
 
-    {{-- Recent Purchase Orders --}}
+    {{-- Recent Requisitions --}}
     <div class="bg-white rounded-xl shadow-md overflow-hidden">
         <div class="bg-gradient-to-r from-gray-800 to-gray-700 px-6 py-4">
-            <h3 class="text-lg font-semibold text-white">Recent Purchase Orders</h3>
+            <h3 class="text-lg font-semibold text-white">Recent Requisitions</h3>
         </div>
         <div class="p-6 overflow-x-auto">
             <table class="min-w-full">
                 <thead class="bg-gray-50">
-                    <tr>
-                        <th class="p-3 text-left">PO Number</th>
-                        <th class="p-3 text-left">Vendor</th>
-                        <th class="p-3 text-center">Date</th>
-                        <th class="p-3 text-right">Amount</th>
-                        <th class="p-3 text-center">Status</th>
+                    <tr class="border-b">
+                        <th class="p-3 text-left text-xs font-medium text-gray-500 uppercase">Requisition #</th>
+                        <th class="p-3 text-left text-xs font-medium text-gray-500 uppercase">Store</th>
+                        <th class="p-3 text-left text-xs font-medium text-gray-500 uppercase">Requested By</th>
+                        <th class="p-3 text-center text-xs font-medium text-gray-500 uppercase">Date</th>
+                        <th class="p-3 text-right text-xs font-medium text-gray-500 uppercase">Total Qty</th>
+                        <th class="p-3 text-center text-xs font-medium text-gray-500 uppercase">Status</th>
+                        <th class="p-3 text-center text-xs font-medium text-gray-500 uppercase">Action</th>
                     </tr>
                 </thead>
-                <tbody>
-                    @foreach($recentPos as $po)
-                    <tr class="border-b hover:bg-gray-50">
-                        <td class="p-3 font-semibold">{{ $po->po_number }}</td>
-                        <td class="p-3">{{ $po->vendor->name ?? 'N/A' }}</td>
-                        <td class="p-3 text-center">{{ $po->created_at->format('Y-m-d') }}</td>
-                        <td class="p-3 text-right">UGX {{ number_format($po->total_amount, 2) }}</td>
+                <tbody class="divide-y divide-gray-200">
+                    @forelse($recentRequisitions as $req)
+                    <tr class="hover:bg-gray-50">
+                        <td class="p-3 font-mono font-semibold">{{ $req->requisition_number }}</td>
+                        <td class="p-3">{{ $req->store->name ?? 'N/A' }}</td>
+                        <td class="p-3">{{ $req->requestedBy ? $req->requestedBy->first_name . ' ' . $req->requestedBy->last_name : 'N/A' }}</td>
+                        <td class="p-3 text-center">{{ $req->created_at->format('Y-m-d') }}</td>
+                        <td class="p-3 text-right">{{ number_format($req->items->sum('quantity_requested'), 2) }}</td>
                         <td class="p-3 text-center">
-                            <span class="px-2 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-800">
-                                {{ ucfirst($po->status) }}
+                            @php
+                                $statusClass = 'bg-gray-100 text-gray-800';
+                                if ($req->status == 'pending') {
+                                    $statusClass = 'bg-yellow-100 text-yellow-800';
+                                } elseif ($req->status == 'approved') {
+                                    $statusClass = 'bg-green-100 text-green-800';
+                                } elseif ($req->status == 'rejected') {
+                                    $statusClass = 'bg-red-100 text-red-800';
+                                }
+                            @endphp
+                            <span class="px-2 py-1 text-xs rounded-full {{ $statusClass }}">
+                                {{ ucfirst($req->status) }}
                             </span>
                         </td>
+                        <td class="p-3 text-center">
+                            <a href="{{ route('management.requisitions.show', $req->id) }}" class="text-blue-600 hover:text-blue-800">View</a>
+                        </td>
                     </tr>
-                    @endforeach
+                    @empty
+                    <tr>
+                        <td colspan="7" class="p-8 text-center text-gray-500">No requisitions found</td>
+                    </tr>
+                    @endforelse
                 </tbody>
             </table>
         </div>

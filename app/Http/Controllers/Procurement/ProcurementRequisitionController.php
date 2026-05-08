@@ -13,162 +13,82 @@ use Illuminate\Support\Facades\Log;
 class ProcurementRequisitionController extends Controller
 {
     /**
-     * Display a listing of requisitions.
+     * Display a listing of requisitions - ONLY GM APPROVED
      */
     public function index(Request $request)
     {
         $user = Auth::user();
-        
+
         // Check if user belongs to Procurement department
         if (!$user->department || $user->department->name !== 'PROCUREMENT') {
             return redirect()->route('dashboard')->with('error', 'Unauthorized access');
         }
 
-        $query = Requisition::with(['store', 'requestedBy', 'items']);
+        // ONLY show requisitions with status 'approved' (GM approved)
+        $query = Requisition::with(['store', 'requestedBy', 'items'])
+            ->where('status', 'approved');
 
-        // Search
+        // Search by requisition number
         if ($request->filled('search')) {
             $query->where('requisition_number', 'like', '%' . $request->search . '%');
         }
 
-        // Filter by status
-        if ($request->filled('status')) {
-            $query->where('status', $request->status);
-        } else {
-            // Default show pending requisitions first
-            $query->orderByRaw("FIELD(status, 'pending', 'approved', 'rejected', 'fulfilled')");
+        // Filter by store
+        if ($request->filled('store_id')) {
+            $query->where('store_id', $request->store_id);
+        }
+
+        // Filter by date range
+        if ($request->filled('date_from')) {
+            $query->whereDate('created_at', '>=', $request->date_from);
+        }
+        if ($request->filled('date_to')) {
+            $query->whereDate('created_at', '<=', $request->date_to);
         }
 
         $requisitions = $query->orderBy('created_at', 'desc')->paginate(20);
 
-        return view('procurement.requisitions.index', compact('requisitions'));
+        // Get stores for filter dropdown
+        $stores = \App\Models\Department::where('name', 'STORE')->get();
+
+        return view('procurement.requisitions.index', compact('requisitions', 'stores'));
     }
 
     /**
-     * Display the specified requisition.
+     * Display the specified requisition - ONLY if approved
      */
     public function show($id)
     {
         $user = Auth::user();
-        
+
         if (!$user->department || $user->department->name !== 'PROCUREMENT') {
             return redirect()->route('dashboard')->with('error', 'Unauthorized access');
         }
 
-        $requisition = Requisition::with(['store', 'requestedBy', 'approvedBy', 'items.inventoryItem'])->findOrFail($id);
+        // Only show if status is 'approved'
+        $requisition = Requisition::with(['store', 'requestedBy', 'approvedBy', 'items.inventoryItem'])
+            ->where('status', 'approved')
+            ->findOrFail($id);
 
         return view('procurement.requisitions.show', compact('requisition'));
     }
 
     /**
-     * Approve a requisition and redirect to PO creation.
+     * Redirect to LPO creation for approved requisition
      */
-    public function approve(Request $request, $id)
+    public function createLpo($id)
     {
         $user = Auth::user();
-        
+
         if (!$user->department || $user->department->name !== 'PROCUREMENT') {
             return redirect()->route('dashboard')->with('error', 'Unauthorized access');
         }
 
-        DB::beginTransaction();
+        $requisition = Requisition::with(['items.inventoryItem', 'store'])
+            ->where('status', 'approved')
+            ->findOrFail($id);
 
-        try {
-            $requisition = Requisition::findOrFail($id);
-
-            if ($requisition->status !== 'pending') {
-                return redirect()->back()->with('error', 'Only pending requisitions can be approved.');
-            }
-
-            // Update requisition status
-            $requisition->update([
-                'status' => 'approved',
-                'approved_by' => Auth::id(),
-                'approved_at' => now(),
-            ]);
-
-            // Update approved quantities if provided
-            if ($request->has('quantities')) {
-                foreach ($request->quantities as $itemId => $quantity) {
-                    RequisitionItem::where('id', $itemId)->update([
-                        'quantity_approved' => $quantity
-                    ]);
-                }
-            } else {
-                // Approve all items with requested quantity
-                foreach ($requisition->items as $item) {
-                    $item->update([
-                        'quantity_approved' => $item->quantity_requested
-                    ]);
-                }
-            }
-
-            DB::commit();
-
-            Log::info('Requisition approved', [
-                'user_id' => Auth::id(),
-                'requisition_id' => $requisition->id,
-                'requisition_number' => $requisition->requisition_number
-            ]);
-
-            // >>> CHANGE: redirect straight to Purchase Order creation with requisition_id <<<
-            return redirect()->route('procurement.purchase-orders.create', ['requisition_id' => $requisition->id])
-                ->with('success', 'Requisition approved successfully.<br>Now create the Purchase Order.');
-
-        } catch (\Exception $e) {
-            DB::rollBack();
-            Log::error('Error approving requisition: ' . $e->getMessage());
-            return redirect()->back()->with('error', 'Failed to approve requisition: ' . $e->getMessage());
-        }
-    }
-
-    /**
-     * Reject a requisition.
-     */
-    public function reject(Request $request, $id)
-    {
-        $user = Auth::user();
-        
-        if (!$user->department || $user->department->name !== 'PROCUREMENT') {
-            return redirect()->route('dashboard')->with('error', 'Unauthorized access');
-        }
-
-        $request->validate([
-            'rejection_reason' => 'required|string|min:5',
-        ]);
-
-        DB::beginTransaction();
-
-        try {
-            $requisition = Requisition::findOrFail($id);
-
-            if ($requisition->status !== 'pending') {
-                return redirect()->back()->with('error', 'Only pending requisitions can be rejected.');
-            }
-
-            $requisition->update([
-                'status' => 'rejected',
-                'approved_by' => Auth::id(),
-                'approved_at' => now(),
-                'rejection_reason' => $request->rejection_reason,  // Use dedicated column
-            ]);
-
-            DB::commit();
-
-            Log::info('Requisition rejected', [
-                'user_id' => Auth::id(),
-                'requisition_id' => $requisition->id,
-                'requisition_number' => $requisition->requisition_number,
-                'reason' => $request->rejection_reason
-            ]);
-
-            return redirect()->route('procurement.requisitions.index')
-                ->with('success', 'Requisition rejected successfully.');
-
-        } catch (\Exception $e) {
-            DB::rollBack();
-            Log::error('Error rejecting requisition: ' . $e->getMessage());
-            return redirect()->back()->with('error', 'Failed to reject requisition: ' . $e->getMessage());
-        }
+        return redirect()->route('procurement.lpo.create', $requisition->id)
+            ->with('success', 'Create LPO from requisition #' . $requisition->requisition_number);
     }
 }

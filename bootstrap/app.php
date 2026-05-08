@@ -1,9 +1,11 @@
 <?php
 
 use Illuminate\Foundation\Application;
+
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use App\Http\Middleware\StoreMiddleware;
+use App\Http\Middleware\DirectorMiddleware;
 use App\Http\Middleware\ProcurementMiddleware;
 use App\Http\Middleware\ManagementMiddleware;
 
@@ -18,6 +20,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'store' => StoreMiddleware::class,
             'procurement' => ProcurementMiddleware::class,
             'management' => ManagementMiddleware::class,
+            'director' => DirectorMiddleware::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {

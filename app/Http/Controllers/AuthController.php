@@ -62,6 +62,9 @@ class AuthController extends Controller
  /**
  * Redirect user based on their department.
  */
+/**
+ * Redirect user based on their department.
+ */
 protected function redirectBasedOnDepartment($user)
 {
     if ($user->department) {
@@ -76,10 +79,15 @@ protected function redirectBasedOnDepartment($user)
             return redirect()->route('procurement.dashboard')
                 ->with('success', 'Welcome to Procurement Module, ' . $user->first_name);
         }
-
-                if ($departmentName === 'GENERAL MANAGEMENT ') {
+        
+        if ($departmentName === 'GENERAL MANAGEMENT') {
             return redirect()->route('management.dashboard')
                 ->with('success', 'Welcome to Management Module, ' . $user->first_name);
+        }
+
+         if ($departmentName === 'DIRECTORS') {
+            return redirect()->route('director.dashboard')
+                ->with('success', 'Welcome to Director dashboard, ' . $user->first_name);
         }
     }
     

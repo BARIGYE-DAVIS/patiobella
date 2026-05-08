@@ -2,57 +2,39 @@
 
 namespace App\Http\Controllers\Management;
 
-use Illuminate\Routing\Controller as BaseController;
+use App\Http\Controllers\Controller;
 use App\Models\PurchaseOrder;
 use App\Models\GoodsReceivedNote;
 use App\Models\Vendor;
+use App\Models\Requisition;
+use App\Models\User;
+use App\Models\Department;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 
-class ManagementController extends BaseController
+class ManagementController extends Controller
 {
-    public function __construct()
-    {
-        $this->middleware(function ($request, $next) {
-            $user = Auth::user();
-            if (!$user->department || $user->department->name !== ' GENERAL MANAGEMENT') {
-                return redirect()->route('dashboard')->with('error', 'Unauthorized access');
-            }
-            return $next($request);
-        });
+   public function dashboard()
+{
+    $user = Auth::user();
+
+    if (!$user->department || $user->department->name !== 'GENERAL MANAGEMENT') {
+        return redirect()->route('dashboard')->with('error', 'Unauthorized access');
     }
 
-    public function dashboard()
-    {
-        // Get statistics for dashboard
-        $stats = [
-            'total_pos' => PurchaseOrder::count(),
-            'sent_pos' => PurchaseOrder::where('status', 'sent')->count(),
-            'received_pos' => PurchaseOrder::where('status', 'received')->count(),
-            'total_grns' => GoodsReceivedNote::count(),
-            'total_vendors' => Vendor::count(),
-            'total_po_value' => PurchaseOrder::sum('total_amount'),
-            'total_grn_value' => GoodsReceivedNote::sum('total_amount'),
-        ];
+    $pendingCount = Requisition::where('status', 'pending')->count();
+    $approvedCount = Requisition::where('status', 'approved')->count();
+    $rejectedCount = Requisition::where('status', 'rejected')->count();
+    $totalCount = Requisition::count();
 
-        // Get recent POs
-        $recentPos = PurchaseOrder::with(['vendor'])
-            ->orderBy('created_at', 'desc')
-            ->limit(10)
-            ->get();
+    $recentRequisitions = Requisition::with(['store', 'requestedBy', 'items'])
+        ->orderBy('created_at', 'desc')
+        ->limit(10)
+        ->get();
 
-        // Get recent GRNs
-        $recentGrns = GoodsReceivedNote::with(['vendor', 'purchaseOrder'])
-            ->orderBy('created_at', 'desc')
-            ->limit(10)
-            ->get();
-
-        // Get monthly data for chart
-        $monthlyData = $this->getMonthlyData();
-
-        return view('management.dashboard', compact('stats', 'recentPos', 'recentGrns', 'monthlyData'));
-    }
+    return view('management.dashboard', compact('pendingCount', 'approvedCount', 'rejectedCount', 'totalCount', 'recentRequisitions'));
+}
 
     private function getMonthlyData()
     {
@@ -63,15 +45,15 @@ class ManagementController extends BaseController
         for ($i = 5; $i >= 0; $i--) {
             $month = now()->subMonths($i);
             $months[] = $month->format('M Y');
-            
+
             $poTotal = PurchaseOrder::whereYear('created_at', $month->year)
                 ->whereMonth('created_at', $month->month)
                 ->sum('total_amount');
-            
+
             $grnTotal = GoodsReceivedNote::whereYear('received_date', $month->year)
                 ->whereMonth('received_date', $month->month)
-                ->sum('total_amount');
-            
+                ->sum('grn_total_amount');
+
             $poTotals[] = $poTotal;
             $grnTotals[] = $grnTotal;
         }
