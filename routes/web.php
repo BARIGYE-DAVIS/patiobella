@@ -179,12 +179,17 @@ Route::prefix('lpo')->name('lpo.')->group(function () {
     Route::post('/store', [App\Http\Controllers\Procurement\LocalPurchaseOrderController::class, 'store'])->name('store');
     Route::get('/{id}', [App\Http\Controllers\Procurement\LocalPurchaseOrderController::class, 'show'])->name('show');
     Route::get('/', [App\Http\Controllers\Procurement\LocalPurchaseOrderController::class, 'index'])->name('index');
+
+
+});
+Route::prefix('approved-lpos')->name('approved-lpos.')->group(function () {
+    Route::get('/', [App\Http\Controllers\Procurement\LocalPurchaseOrderController::class, 'approvedLpos'])->name('index');
+    Route::get('/{id}/convert-to-epo', [App\Http\Controllers\Procurement\LocalPurchaseOrderController::class, 'convertToEpo'])->name('convert-to-epo');
+    Route::post('/{id}/store-epo', [App\Http\Controllers\Procurement\LocalPurchaseOrderController::class, 'storeExternalPo'])->name('store-epo');
 });
 
 // Approved LPOs for External PO conversion
-Route::get('/approved-lpos', [App\Http\Controllers\Procurement\LocalPurchaseOrderController::class, 'approvedLpos'])->name('approved-lpos');
-Route::get('/approved-lpos/{id}/convert-to-epo', [App\Http\Controllers\Procurement\LocalPurchaseOrderController::class, 'convertToEpo'])->name('convert-to-epo');
-    // Purchase Orders
+  // Purchase Orders
     Route::prefix('purchase-orders')->name('purchase-orders.')->group(function () {
         Route::get('/', [App\Http\Controllers\Procurement\PurchaseOrderController::class, 'index'])->name('index');
         Route::get('/create', [App\Http\Controllers\Procurement\PurchaseOrderController::class, 'create'])->name('create');

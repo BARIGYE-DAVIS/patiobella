@@ -58,14 +58,14 @@ class GoodsReceivedController extends Controller
             ->findOrFail($poId);
 
         // Calculate PO total amount
-        $poTotalAmount = $po->items->sum(function($item) {
+        $poTotalAmount = collect($po->items)->sum(function($item) {
             return $item->quantity_ordered * $item->unit_cost;
         });
 
-        $items = $po->items->map(function($item) {
+        $items = collect($po->items)->map(function($item) {
             $orderedAmount = $item->quantity_ordered * $item->unit_cost;
             $remainingToReceive = $item->quantity_ordered - ($item->quantity_received ?? 0);
-            
+
             return [
                 'id' => $item->id,
                 'item_name' => $item->inventoryItem->name ?? 'Unknown Item',
@@ -87,133 +87,139 @@ class GoodsReceivedController extends Controller
     }
 
     // Store GRN
-    public function store(Request $request)
-    {
-        $user = Auth::user();
-        if (!$user->department || $user->department->name !== 'PROCUREMENT') {
-            return redirect()->route('dashboard')->with('error', 'Unauthorized access');
+
+// Store GRN
+public function store(Request $request)
+{
+    $user = Auth::user();
+    if (!$user->department || $user->department->name !== 'PROCUREMENT') {
+        return redirect()->route('dashboard')->with('error', 'Unauthorized access');
+    }
+
+    $request->validate([
+        'purchase_order_id' => 'required|exists:purchase_orders,id',
+        'delivery_note_number' => 'nullable|string|max:255',
+        'received_date' => 'required|date',
+        'notes' => 'nullable|string',
+        'items' => 'required|array|min:1',
+        'items.*.po_item_id' => 'required|exists:purchase_order_items,id',
+        'items.*.quantity_received' => 'required|numeric|min:0',
+        'items.*.quantity_rejected' => 'nullable|numeric|min:0',
+        'items.*.rejection_reason' => 'nullable|string|max:500',
+    ]);
+
+    DB::beginTransaction();
+
+    try {
+        $po = PurchaseOrder::with(['items.inventoryItem'])->findOrFail($request->purchase_order_id);
+        
+        // Calculate PO total amount
+        $poTotalAmount = collect($po->items)->sum(function($item) {
+            return $item->quantity_ordered * $item->unit_cost;
+        });
+        
+        // Generate GRN number
+        $grnNumber = 'GRN-' . date('Ymd') . '-' . str_pad(rand(0, 9999), 4, '0', STR_PAD_LEFT);
+
+        // Calculate total received value
+        $totalReceivedValue = 0;
+        foreach ($request->items as $itemData) {
+            $quantityReceived = floatval($itemData['quantity_received']);
+            $quantityRejected = floatval($itemData['quantity_rejected'] ?? 0);
+            $quantityAccepted = $quantityReceived - $quantityRejected;
+            $poItem = PurchaseOrderItem::find($itemData['po_item_id']);
+            $totalReceivedValue += $poItem->unit_cost * $quantityAccepted;
         }
 
-        $request->validate([
-            'purchase_order_id' => 'required|exists:purchase_orders,id',
-            'delivery_note_number' => 'nullable|string|max:255',
-            'received_date' => 'required|date',
-            'notes' => 'nullable|string',
-            'items' => 'required|array|min:1',
-            'items.*.po_item_id' => 'required|exists:purchase_order_items,id',
-            'items.*.quantity_received' => 'required|numeric|min:0',
-            'items.*.quantity_rejected' => 'nullable|numeric|min:0',
-            'items.*.rejection_reason' => 'nullable|string|max:500',
+        // Create GRN
+        $grn = GoodsReceivedNote::create([
+            'grn_number' => $grnNumber,
+            'purchase_order_id' => $po->id,
+            'vendor_id' => $po->vendor_id,
+            'received_date' => $request->received_date,
+            'delivery_note_number' => $request->delivery_note_number,
+            'po_total_amount' => $poTotalAmount,
+            'grn_total_amount' => $totalReceivedValue,
+            'notes' => $request->notes,
+            'status' => 'completed',
+            'created_by' => Auth::id(),
         ]);
 
-        DB::beginTransaction();
+        $totalReceivedValue = 0;
+        $totalAcceptedQty = 0;
 
-        try {
-            $po = PurchaseOrder::with(['items.inventoryItem'])->findOrFail($request->purchase_order_id);
+        foreach ($request->items as $itemData) {
+            $poItem = PurchaseOrderItem::findOrFail($itemData['po_item_id']);
+            $quantityReceived = floatval($itemData['quantity_received']);
+            $quantityRejected = floatval($itemData['quantity_rejected'] ?? 0);
+            $quantityAccepted = $quantityReceived - $quantityRejected;
             
-            // Calculate PO total amount
-            $poTotalAmount = $po->items->sum(function($item) {
-                return $item->quantity_ordered * $item->unit_cost;
-            });
+            // Calculate PO item total amount (ordered amount)
+            $poItemTotalAmount = $poItem->quantity_ordered * $poItem->unit_cost;
             
-            // Generate GRN number
-            $grnNumber = 'GRN-' . date('Ymd') . '-' . str_pad(rand(0, 9999), 4, '0', STR_PAD_LEFT);
+            // Calculate total cost for accepted items
+            $itemTotalCost = $poItem->unit_cost * $quantityAccepted;
 
-            // Create GRN
-            $grn = GoodsReceivedNote::create([
-                'grn_number' => $grnNumber,
-                'purchase_order_id' => $po->id,
-                'vendor_id' => $po->vendor_id,
-                'received_date' => $request->received_date,
-                'delivery_note_number' => $request->delivery_note_number,
-                'po_total_amount' => $poTotalAmount,
-                'grn_total_amount' => 0,
-                'subtotal' => 0,
-                'tax_amount' => 0,
-                'total_amount' => 0,
-                'notes' => $request->notes,
-                'status' => 'completed',
+            // Create GRN item - WITHOUT unit_id
+            GoodsReceivedNoteItem::create([
+                'goods_received_note_id' => $grn->id,
+                'purchase_order_item_id' => $poItem->id,
+                'inventory_item_id' => $poItem->inventory_item_id,
+                'quantity_ordered' => $poItem->quantity_ordered,
+                'quantity_received' => $quantityReceived,
+                'quantity_accepted' => $quantityAccepted,
+                'quantity_rejected' => $quantityRejected,
+                'rejection_reason' => $itemData['rejection_reason'] ?? null,
+                'unit_cost' => $poItem->unit_cost,
+                'po_item_total_amount' => $poItemTotalAmount,
+                'total_cost' => $itemTotalCost,
+                'notes' => $itemData['notes'] ?? null,
                 'created_by' => Auth::id(),
             ]);
 
-            $totalReceivedValue = 0;
-            $totalAcceptedQty = 0;
+            // Update PO item received quantity
+            $poItem->quantity_received = ($poItem->quantity_received ?? 0) + $quantityAccepted;
+            $poItem->save();
 
-            foreach ($request->items as $itemData) {
-                $poItem = PurchaseOrderItem::findOrFail($itemData['po_item_id']);
-                $quantityReceived = floatval($itemData['quantity_received']);
-                $quantityRejected = floatval($itemData['quantity_rejected'] ?? 0);
-                $quantityAccepted = $quantityReceived - $quantityRejected;
-                
-                // Calculate PO item total amount (ordered amount)
-                $poItemTotalAmount = $poItem->quantity_ordered * $poItem->unit_cost;
-                
-                // Calculate total cost for accepted items
-                $itemTotalCost = $poItem->unit_cost * $quantityAccepted;
-
-                // Create GRN item
-                GoodsReceivedNoteItem::create([
-                    'goods_received_note_id' => $grn->id,
-                    'purchase_order_item_id' => $poItem->id,
-                    'inventory_item_id' => $poItem->inventory_item_id,
-                    'unit_id' => $poItem->unit_id,
-                    'quantity_ordered' => $poItem->quantity_ordered,
-                    'quantity_received' => $quantityReceived,
-                    'quantity_accepted' => $quantityAccepted,
-                    'quantity_rejected' => $quantityRejected,
-                    'rejection_reason' => $itemData['rejection_reason'] ?? null,
-                    'unit_cost' => $poItem->unit_cost,
-                    'po_item_total_amount' => $poItemTotalAmount,
-                    'total_cost' => $itemTotalCost,
-                    'notes' => $itemData['notes'] ?? null,
-                    'created_by' => Auth::id(),
-                ]);
-
-                // Update PO item received quantity
-                $poItem->quantity_received = ($poItem->quantity_received ?? 0) + $quantityAccepted;
-                $poItem->save();
-
-                $totalReceivedValue += $itemTotalCost;
-                $totalAcceptedQty += $quantityAccepted;
-            }
-
-            // Update GRN totals
-            $grn->subtotal = $totalReceivedValue;
-            $grn->total_amount = $totalReceivedValue;
-            $grn->grn_total_amount = $totalReceivedValue;
-            $grn->save();
-
-            // Update PO status if all items fully received
-            $po->refresh();
-            $allItemsFullyReceived = $po->items->every(function($item) {
-                return ($item->quantity_received ?? 0) >= $item->quantity_ordered;
-            });
-
-            if ($allItemsFullyReceived) {
-                $po->status = 'received';
-                $po->save();
-            } elseif ($po->status == 'sent') {
-                $po->status = 'partially_received';
-                $po->save();
-            }
-
-            DB::commit();
-
-            return redirect()->route('procurement.goods-received.show', $grn->id)
-                ->with('success', 'Goods Received Note created successfully. Total value: UGX ' . number_format($totalReceivedValue, 2));
-
-        } catch (\Exception $e) {
-            DB::rollBack();
-            Log::error('Error creating GRN', [
-                'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString(),
-                'user_id' => Auth::id()
-            ]);
-            return redirect()->back()
-                ->withInput()
-                ->with('error', 'Error creating GRN: ' . $e->getMessage());
+            $totalReceivedValue += $itemTotalCost;
+            $totalAcceptedQty += $quantityAccepted;
         }
+
+        // Update GRN totals
+        $grn->grn_total_amount = $totalReceivedValue;
+        $grn->save();
+
+        // Update PO status if all items fully received
+        $po->refresh();
+        $allItemsFullyReceived = $po->items->every(function($item) {
+            return ($item->quantity_received ?? 0) >= $item->quantity_ordered;
+        });
+
+        if ($allItemsFullyReceived) {
+            $po->status = 'received';
+            $po->save();
+        } elseif ($po->status == 'sent') {
+            $po->status = 'partially_received';
+            $po->save();
+        }
+
+        DB::commit();
+
+        return redirect()->route('procurement.goods-received.show', $grn->id)
+            ->with('success', 'Goods Received Note created successfully. Total value: UGX ' . number_format($totalReceivedValue, 2));
+
+    } catch (\Exception $e) {
+        DB::rollBack();
+        Log::error('Error creating GRN', [
+            'error' => $e->getMessage(),
+            'trace' => $e->getTraceAsString(),
+            'user_id' => Auth::id()
+        ]);
+        return redirect()->back()
+            ->withInput()
+            ->with('error', 'Error creating GRN: ' . $e->getMessage());
     }
+}
 
     // Show GRN details
     public function show($id)
@@ -224,9 +230,9 @@ class GoodsReceivedController extends Controller
         }
 
         $grn = GoodsReceivedNote::with([
-            'vendor', 
-            'purchaseOrder', 
-            'items.inventoryItem', 
+            'vendor',
+            'purchaseOrder',
+            'items.inventoryItem',
             'items.unit',
             'createdBy'
         ])->findOrFail($id);
@@ -244,13 +250,11 @@ class GoodsReceivedController extends Controller
 
         try {
             $grn = GoodsReceivedNote::with(['items.inventoryItem'])->findOrFail($id);
-            
-            // Update GRN status if needed
+
             if ($grn->status == 'completed') {
                 // You can add notification/email logic here
-                // For now, just return success
             }
-            
+
             return redirect()->route('procurement.goods-received.show', $grn->id)
                 ->with('success', 'GRN #' . $grn->grn_number . ' has been sent to Store department for inventory update.');
 
@@ -262,7 +266,7 @@ class GoodsReceivedController extends Controller
             return redirect()->back()->with('error', 'Error: ' . $e->getMessage());
         }
     }
-    
+
     // Print GRN
     public function print($id)
     {
@@ -272,9 +276,9 @@ class GoodsReceivedController extends Controller
         }
 
         $grn = GoodsReceivedNote::with([
-            'vendor', 
-            'purchaseOrder', 
-            'items.inventoryItem', 
+            'vendor',
+            'purchaseOrder',
+            'items.inventoryItem',
             'items.unit',
             'createdBy'
         ])->findOrFail($id);

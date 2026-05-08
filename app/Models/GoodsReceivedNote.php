@@ -43,12 +43,10 @@ class GoodsReceivedNote extends Model
         'deleted_at' => 'datetime',
     ];
 
-    // Status constants
     const STATUS_DRAFT = 'draft';
     const STATUS_COMPLETED = 'completed';
     const STATUS_CANCELLED = 'cancelled';
 
-    // Scopes
     public function scopeDraft($query)
     {
         return $query->where('status', self::STATUS_DRAFT);
@@ -64,7 +62,6 @@ class GoodsReceivedNote extends Model
         return $query->whereBetween('received_date', [$startDate, $endDate]);
     }
 
-    // Helper methods
     public function isCompleted(): bool
     {
         return $this->status === self::STATUS_COMPLETED;
@@ -80,9 +77,6 @@ class GoodsReceivedNote extends Model
         return $this->status === self::STATUS_DRAFT && $this->items()->exists();
     }
 
-    /**
-     * Calculate totals from items.
-     */
     public function calculateTotals(): void
     {
         $this->subtotal = $this->items->sum('total_cost');
@@ -112,6 +106,13 @@ class GoodsReceivedNote extends Model
         return $this->belongsTo(User::class, 'received_by');
     }
 
+    // Matches controller eager load: 'createdBy'
+    public function createdBy()
+    {
+        return $this->belongsTo(User::class, 'created_by');
+    }
+
+    // Keep for backward compatibility if used in views
     public function creator()
     {
         return $this->belongsTo(User::class, 'created_by');

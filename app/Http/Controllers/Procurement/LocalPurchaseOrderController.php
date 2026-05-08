@@ -205,6 +205,8 @@ public function convertToEpo($id)
 }
 
 // Store External Purchase Order and send email
+
+
 public function storeExternalPo(Request $request, $id)
 {
     $user = Auth::user();
@@ -219,21 +221,31 @@ public function storeExternalPo(Request $request, $id)
         'delivery_address' => 'nullable|string',
         'delivery_terms' => 'nullable|string',
         'notes' => 'nullable|string',
+        'items' => 'required|array',
+        'items.*.inventory_item_id' => 'required',
+        'items.*.quantity' => 'required|numeric|min:0',
+        'items.*.unit_cost' => 'required|numeric|min:0',
     ]);
 
     DB::beginTransaction();
 
     try {
-        $lpo = Lpo::with(['vendor', 'items.inventoryItem'])->findOrFail($id);
+        $lpo = Lpo::with(['vendor'])->findOrFail($id);
 
         if ($lpo->status !== 'director_approved') {
             throw new \Exception('Only director approved LPOs can be converted to External PO.');
         }
 
+        // Calculate totals from edited items
+        $subtotal = 0;
+        foreach ($request->items as $item) {
+            $subtotal += $item['quantity'] * $item['unit_cost'];
+        }
+
         // Generate External PO Number
         $poNumber = 'PO-' . date('Ymd') . '-' . str_pad(rand(0, 9999), 4, '0', STR_PAD_LEFT);
 
-        // Create External Purchase Order
+        // Create External Purchase Order - FIX STATUS
         $externalPo = PurchaseOrder::create([
             'po_number' => $poNumber,
             'vendor_id' => $lpo->vendor_id,
@@ -244,23 +256,23 @@ public function storeExternalPo(Request $request, $id)
             'delivery_address' => $request->delivery_address,
             'delivery_terms' => $request->delivery_terms,
             'notes' => $request->notes,
-            'subtotal' => $lpo->total_amount,
+            'subtotal' => $subtotal,
             'tax_amount' => 0,
-            'total_amount' => $lpo->total_amount,
-            'status' => 'epo_created',
+            'total_amount' => $subtotal,
+            'status' => 'sent',  // Changed from 'epo_created' to 'sent'
             'created_by' => Auth::id(),
         ]);
 
         // Create External PO Items
-        foreach ($lpo->items as $lpoItem) {
+        foreach ($request->items as $item) {
             PurchaseOrderItem::create([
                 'purchase_order_id' => $externalPo->id,
-                'inventory_item_id' => $lpoItem->inventory_item_id,
-                'quantity_ordered' => $lpoItem->quantity_approved,
-                'unit_cost' => $lpoItem->unit_cost,
-                'total_cost' => $lpoItem->total_cost,
+                'inventory_item_id' => $item['inventory_item_id'],
+                'quantity_ordered' => $item['quantity'],
+                'unit_cost' => $item['unit_cost'],
+                'total_cost' => $item['quantity'] * $item['unit_cost'],
                 'quantity_received' => 0,
-                'notes' => $lpoItem->notes,
+                'notes' => $item['notes'] ?? null,
                 'created_by' => Auth::id(),
             ]);
         }
@@ -276,7 +288,7 @@ public function storeExternalPo(Request $request, $id)
         $this->sendExternalPoEmail($externalPo);
 
         return redirect()->route('procurement.purchase-orders.show', $externalPo->id)
-            ->with('success', 'External Purchase Order created and sent to vendor successfully.');
+            ->with('success', 'External Purchase Order created and sent to vendor successfully. You can download the PDF below.');
 
     } catch (\Exception $e) {
         DB::rollBack();
@@ -287,7 +299,6 @@ public function storeExternalPo(Request $request, $id)
         return redirect()->back()->with('error', 'Error creating External PO: ' . $e->getMessage());
     }
 }
-
 // Send External PO email with PDF
 private function sendExternalPoEmail($purchaseOrder)
 {

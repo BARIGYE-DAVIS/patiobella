@@ -53,7 +53,7 @@
                         </button>
                     </form>
                 @endif
-                <a href="{{ route('procurement.goods-received.index') }}" 
+                <a href="{{ route('procurement.goods-received.index') }}"
                    class="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition">
                     Back to List
                 </a>
@@ -122,7 +122,7 @@
                     </div>
                     <div class="flex justify-between pb-2 border-b">
                         <span class="font-semibold">Created By:</span>
-                        <span>{{ $grn->createdBy->name ?? 'System' }}</span>
+                        <span>{{ $grn->createdBy->name ?? 'Procurement department' }}</span>
                     </div>
                 </div>
             </div>

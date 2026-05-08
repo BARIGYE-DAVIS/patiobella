@@ -41,28 +41,26 @@ class GoodsReceivedNoteItem extends Model
         'updated_at' => 'datetime',
     ];
 
-    /**
-     * Calculate total cost dynamically.
-     */
     public function calculateTotalCost(): float
     {
         return $this->quantity_accepted * $this->unit_cost;
     }
 
-    /**
-     * Get quantity in base unit.
-     */
-    public function getQuantityInBaseUnitAttribute(): float
+    public function getQuantityInBaseUnitAttribute(): ?float
     {
-        if ($this->unit) {
-            return $this->unit->toBaseUnit($this->quantity_accepted);
+        $quantity = $this->quantity_accepted;
+
+        if ($quantity === null) {
+            return null;
         }
-        return $this->quantity_accepted;
+
+        if ($this->unit) {
+            return (float) $this->unit->toBaseUnit((float) $quantity);
+        }
+
+        return (float) $quantity;
     }
 
-    /**
-     * Get total value in base unit currency.
-     */
     public function getTotalValueAttribute(): float
     {
         return $this->quantity_accepted * $this->unit_cost;
@@ -89,6 +87,13 @@ class GoodsReceivedNoteItem extends Model
         return $this->belongsTo(ItemUnit::class, 'unit_id');
     }
 
+    // Matches controller eager load: 'createdBy'
+    public function createdBy()
+    {
+        return $this->belongsTo(User::class, 'created_by');
+    }
+
+    // Keep for backward compatibility
     public function creator()
     {
         return $this->belongsTo(User::class, 'created_by');

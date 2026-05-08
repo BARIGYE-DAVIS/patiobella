@@ -1,5 +1,7 @@
 @extends('layouts.procurement')
+
 @section('title', 'Purchase Order Details')
+
 @section('page-title', 'Purchase Order Details')
 
 @section('content')
@@ -12,6 +14,14 @@
         font-weight: 600;
         text-transform: uppercase;
     }
+    .status-sent {
+        background-color: #dbeafe;
+        color: #1e40af;
+    }
+    .status-epo_created {
+        background-color: #d1fae5;
+        color: #065f46;
+    }
     .status-draft {
         background-color: #fef3c7;
         color: #92400e;
@@ -19,10 +29,6 @@
     .status-approved {
         background-color: #d1fae5;
         color: #065f46;
-    }
-    .status-sent {
-        background-color: #dbeafe;
-        color: #1e40af;
     }
     .status-partially_received {
         background-color: #fed7aa;
@@ -36,31 +42,13 @@
         background-color: #fee2e2;
         color: #991b1b;
     }
-    .info-row {
-        padding: 12px 0;
-        border-bottom: 1px solid #e5e7eb;
-    }
     .info-label {
         font-weight: 600;
         color: #4b5563;
         width: 140px;
         display: inline-block;
     }
-    .info-value {
-        color: #1f2937;
-    }
 </style>
-
-@if(session('error'))
-    <div class="mb-4 bg-red-50 border-l-4 border-red-500 text-red-700 p-4 rounded-lg shadow-sm">
-        <div class="flex items-center">
-            <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/>
-            </svg>
-            {{ session('error') }}
-        </div>
-    </div>
-@endif
 
 @if(session('success'))
     <div class="mb-4 bg-green-50 border-l-4 border-green-500 text-green-700 p-4 rounded-lg shadow-sm">
@@ -73,21 +61,67 @@
     </div>
 @endif
 
+@if(session('error'))
+    <div class="mb-4 bg-red-50 border-l-4 border-red-500 text-red-700 p-4 rounded-lg shadow-sm">
+        <div class="flex items-center">
+            <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/>
+            </svg>
+            {{ session('error') }}
+        </div>
+    </div>
+@endif
+
 <div class="space-y-6">
-    {{-- Header --}}
+    {{-- Header with Actions --}}
     <div class="bg-white rounded-xl shadow-lg overflow-hidden">
         <div class="bg-gradient-to-r from-gray-800 to-gray-700 px-6 py-4 flex justify-between items-center">
             <div>
                 <h2 class="text-xl font-bold text-white">PO #{{ $purchaseOrder->po_number }}</h2>
                 <p class="text-gray-300 text-sm mt-1">Created: {{ $purchaseOrder->created_at->format('F d, Y H:i') }}</p>
             </div>
-            <a href="{{ route('procurement.purchase-orders.index') }}" 
-               class="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition flex items-center">
-                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
-                </svg>
-                Back to List
-            </a>
+            <div class="flex space-x-3">
+                @if($purchaseOrder->status == 'draft')
+                    <a href="{{ route('procurement.purchase-orders.edit', $purchaseOrder->id) }}"
+                       class="px-4 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition flex items-center">
+                        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                        </svg>
+                        Edit PO
+                    </a>
+                    <form action="{{ route('procurement.purchase-orders.send', $purchaseOrder->id) }}" method="POST" class="inline">
+                        @csrf
+                        <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition flex items-center">
+                            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path>
+                            </svg>
+                            Send to Vendor
+                        </button>
+                    </form>
+                @endif
+
+                @if(in_array($purchaseOrder->status, ['draft', 'sent']))
+                    <form action="{{ route('procurement.purchase-orders.destroy', $purchaseOrder->id) }}" method="POST" class="inline"
+                          onsubmit="return confirm('Are you sure you want to delete this PO? This action cannot be undone.')">
+                        @csrf
+                        @method('DELETE')
+                        <button type="submit" class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition flex items-center">
+                            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                            </svg>
+                            Delete PO
+                        </button>
+                    </form>
+                @endif
+
+                <a href="{{ route('procurement.purchase-orders.index') }}"
+                   class="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition flex items-center">
+                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
+                    </svg>
+                    Back to List
+                </a>
+            </div>
         </div>
     </div>
 
@@ -106,6 +140,47 @@
         </div>
     </div>
 
+    {{-- External PO Actions (for sent/EPO status) --}}
+    @if(in_array($purchaseOrder->status, ['sent', 'epo_created']))
+    <div class="bg-white rounded-xl shadow-lg overflow-hidden">
+        <div class="bg-gradient-to-r from-green-600 to-green-700 px-6 py-3">
+            <h3 class="text-lg font-semibold text-white flex items-center">
+                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 13v4m0 0l-2-2m2 2l2-2"/>
+                </svg>
+                External Purchase Order
+            </h3>
+        </div>
+        <div class="p-6">
+            <div class="flex items-center justify-between flex-wrap gap-4">
+                <div>
+                    <p class="text-sm text-green-600">This PO has been sent to the vendor</p>
+                    <p class="text-xs text-gray-500 mt-1">Email was sent to: {{ $purchaseOrder->vendor->email ?? 'N/A' }}</p>
+                </div>
+                <div class="flex gap-3">
+                    <a href="{{ route('procurement.purchase-orders.download-pdf', $purchaseOrder->id) }}"
+                       class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition flex items-center gap-2">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                        </svg>
+                        Download PDF
+                    </a>
+                    <form action="{{ route('procurement.purchase-orders.resend-email', $purchaseOrder->id) }}" method="POST" class="inline">
+                        @csrf
+                        <button type="submit" class="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition flex items-center gap-2">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/>
+                            </svg>
+                            Resend Email
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+    @endif
+
     {{-- Main Content Grid --}}
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {{-- Vendor Information --}}
@@ -113,32 +188,32 @@
             <div class="bg-gradient-to-r from-blue-600 to-blue-700 px-6 py-3">
                 <h3 class="text-lg font-semibold text-white flex items-center">
                     <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/>
                     </svg>
                     Vendor Information
                 </h3>
             </div>
             <div class="p-6">
                 <div class="space-y-3">
-                    <div class="info-row">
+                    <div class="flex">
                         <span class="info-label">Vendor Name:</span>
-                        <span class="info-value">{{ $purchaseOrder->vendor->name ?? 'N/A' }}</span>
+                        <span class="text-gray-800">{{ $purchaseOrder->vendor->name ?? 'N/A' }}</span>
                     </div>
-                    <div class="info-row">
+                    <div class="flex">
                         <span class="info-label">Contact Person:</span>
-                        <span class="info-value">{{ $purchaseOrder->vendor->contact_person ?? 'N/A' }}</span>
+                        <span class="text-gray-800">{{ $purchaseOrder->vendor->contact_person ?? 'N/A' }}</span>
                     </div>
-                    <div class="info-row">
+                    <div class="flex">
                         <span class="info-label">Phone:</span>
-                        <span class="info-value">{{ $purchaseOrder->vendor->phone ?? 'N/A' }}</span>
+                        <span class="text-gray-800">{{ $purchaseOrder->vendor->phone ?? 'N/A' }}</span>
                     </div>
-                    <div class="info-row">
+                    <div class="flex">
                         <span class="info-label">Email:</span>
-                        <span class="info-value">{{ $purchaseOrder->vendor->email ?? 'N/A' }}</span>
+                        <span class="text-gray-800">{{ $purchaseOrder->vendor->email ?? 'N/A' }}</span>
                     </div>
-                    <div class="info-row">
+                    <div class="flex">
                         <span class="info-label">Address:</span>
-                        <span class="info-value">{{ $purchaseOrder->vendor->address ?? 'N/A' }}</span>
+                        <span class="text-gray-800">{{ $purchaseOrder->vendor->address ?? 'N/A' }}</span>
                     </div>
                 </div>
             </div>
@@ -149,7 +224,7 @@
             <div class="bg-gradient-to-r from-green-600 to-green-700 px-6 py-3">
                 <h3 class="text-lg font-semibold text-white flex items-center">
                     <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
                     </svg>
                     Order Summary
                 </h3>
@@ -178,7 +253,7 @@
         <div class="bg-gradient-to-r from-purple-600 to-purple-700 px-6 py-3">
             <h3 class="text-lg font-semibold text-white flex items-center">
                 <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path>
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/>
                 </svg>
                 Delivery Details
             </h3>
@@ -212,7 +287,7 @@
         <div class="bg-gradient-to-r from-indigo-600 to-indigo-700 px-6 py-3">
             <h3 class="text-lg font-semibold text-white flex items-center">
                 <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path>
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
                 </svg>
                 Order Items
             </h3>
@@ -220,7 +295,7 @@
         <div class="p-6 overflow-x-auto">
             <table class="min-w-full border border-gray-200 rounded-lg">
                 <thead class="bg-gray-50">
-                    <tr>
+                    <tr class="border-b border-gray-200">
                         <th class="p-3 border text-left">Item</th>
                         <th class="p-3 border text-center">Quantity Ordered</th>
                         <th class="p-3 border text-center">Unit Cost (UGX)</th>
@@ -233,6 +308,10 @@
                         <tr class="border-b hover:bg-gray-50">
                             <td class="p-3 border font-semibold text-gray-800">
                                 {{ $item->inventoryItem->name ?? 'N/A' }}
+                                @if($item->inventoryItem && $item->inventoryItem->item_code)
+                                    <br>
+                                    <span class="text-xs text-gray-500">Code: {{ $item->inventoryItem->item_code }}</span>
+                                @endif
                             </td>
                             <td class="p-3 border text-center">
                                 {{ number_format($item->quantity_ordered, 2) }}
@@ -273,7 +352,7 @@
         <div class="bg-gradient-to-r from-gray-600 to-gray-700 px-6 py-3">
             <h3 class="text-lg font-semibold text-white flex items-center">
                 <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
                 </svg>
                 Additional Information
             </h3>

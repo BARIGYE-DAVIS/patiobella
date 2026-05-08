@@ -102,10 +102,10 @@ class PurchaseOrderController extends Controller
             $po->subtotal = 0;
             $po->tax_amount = 0;
             $po->total_amount = 0;
-            
+
             // Set status as 'sent' immediately
             $po->status = 'sent';
-            
+
             $po->created_by = Auth::id();
             $po->delivery_address = $request->delivery_address;
             $po->delivery_terms = $request->delivery_terms;
@@ -115,7 +115,7 @@ class PurchaseOrderController extends Controller
             $subtotal = 0;
             $reqItemsByInvId = [];
             $requisition = null;
-            
+
             if ($request->filled('requisition_id')) {
                 $requisition = Requisition::with('items')->find($request->requisition_id);
                 if ($requisition) {
@@ -134,7 +134,7 @@ class PurchaseOrderController extends Controller
                 if ((!$notes || trim($notes) == "") && !empty($itemArr['inventory_item_id']) && isset($reqItemsByInvId[$itemArr['inventory_item_id']])) {
                     $notes = $reqItemsByInvId[$itemArr['inventory_item_id']]->notes ?? null;
                 }
-                
+
                 $line = new PurchaseOrderItem();
                 $line->purchase_order_id = $po->id;
                 $line->inventory_item_id = $itemArr['inventory_item_id'] ?? null;
@@ -162,7 +162,7 @@ class PurchaseOrderController extends Controller
 
             return redirect()->route('procurement.purchase-orders.show', $po->id)
                 ->with('success', 'Purchase Order created successfully and sent to vendor.');
-                
+
         } catch (\Exception $e) {
             DB::rollBack();
             Log::error('Error creating PO', [
@@ -171,7 +171,7 @@ class PurchaseOrderController extends Controller
                 'user_id' => Auth::id(),
                 'request' => $request->all()
             ]);
-            
+
             return redirect()->back()
                 ->withInput()
                 ->with('error', 'Error creating PO: ' . $e->getMessage());
@@ -183,21 +183,21 @@ class PurchaseOrderController extends Controller
     {
         try {
             $po = PurchaseOrder::with(['vendor', 'items.inventoryItem'])->find($purchaseOrder->id);
-            
+
             // Generate PDF
             $pdf = Pdf::loadView('procurement.purchase_orders.pdf', compact('po'));
             $pdfContent = $pdf->output();
-            
-            // Send email using Mailable - FIXED: Use Mail::to()->send()
+
+            // Send email using Mailable
             Mail::to($po->vendor->email)->send(new PurchaseOrderMail($po, $pdfContent));
-            
+
             Log::info('PO email sent successfully', [
-                'po_id' => $po->id, 
+                'po_id' => $po->id,
                 'vendor_email' => $po->vendor->email
             ]);
-            
+
             return true;
-            
+
         } catch (\Exception $e) {
             Log::error('Failed to send PO email', [
                 'po_id' => $purchaseOrder->id,
@@ -227,13 +227,13 @@ class PurchaseOrderController extends Controller
         }
 
         $purchaseOrder = PurchaseOrder::with(['items.inventoryItem', 'vendor'])->findOrFail($id);
-        
+
         // Only allow editing of draft POs
         if ($purchaseOrder->status !== 'draft') {
             return redirect()->route('procurement.purchase-orders.show', $id)
                 ->with('error', 'Only draft POs can be edited.');
         }
-        
+
         $vendors = Vendor::all();
 
         return view('procurement.purchase_orders.edit', compact('purchaseOrder', 'vendors'));
@@ -262,7 +262,7 @@ class PurchaseOrderController extends Controller
         DB::beginTransaction();
         try {
             $po = PurchaseOrder::findOrFail($id);
-            
+
             // Only allow editing of draft POs
             if ($po->status !== 'draft') {
                 throw new \Exception('Only draft POs can be edited.');
@@ -303,7 +303,7 @@ class PurchaseOrderController extends Controller
 
             return redirect()->route('procurement.purchase-orders.show', $po->id)
                 ->with('success', 'Purchase Order updated successfully.');
-                
+
         } catch (\Exception $e) {
             DB::rollBack();
             Log::error('Error updating PO', [
@@ -313,7 +313,7 @@ class PurchaseOrderController extends Controller
                 'user_id' => Auth::id(),
                 'request' => $request->all()
             ]);
-            
+
             return redirect()->back()
                 ->withInput()
                 ->with('error', 'Error updating PO: ' . $e->getMessage());
@@ -329,20 +329,20 @@ class PurchaseOrderController extends Controller
         }
 
         $po = PurchaseOrder::findOrFail($id);
-        
+
         try {
             // Only allow deletion of draft POs
             if ($po->status !== 'draft') {
                 return redirect()->back()
                     ->with('error', 'Only draft POs can be deleted.');
             }
-            
+
             $po->items()->delete();
             $po->delete();
 
             return redirect()->route('procurement.purchase-orders.index')
                 ->with('success', 'Purchase Order deleted successfully.');
-                
+
         } catch (\Exception $e) {
             Log::error('Error deleting PO', [
                 'error' => $e->getMessage(),
@@ -353,7 +353,43 @@ class PurchaseOrderController extends Controller
             return redirect()->back()->with('error', 'Error deleting PO: ' . $e->getMessage());
         }
     }
-    
+
+    // Send PO to vendor (change status from draft to sent)
+    public function send($id)
+    {
+        $user = Auth::user();
+        if (!$user->department || $user->department->name !== 'PROCUREMENT') {
+            return redirect()->route('dashboard')->with('error', 'Unauthorized access');
+        }
+
+        try {
+            $po = PurchaseOrder::with(['vendor', 'items.inventoryItem'])->findOrFail($id);
+
+            if ($po->status !== 'draft') {
+                return redirect()->back()->with('error', 'Only draft POs can be sent.');
+            }
+
+            $po->status = 'sent';
+            $po->save();
+
+            // Generate PDF and send email
+            $pdf = Pdf::loadView('procurement.purchase_orders.pdf', compact('po'));
+            $pdfContent = $pdf->output();
+
+            Mail::to($po->vendor->email)->send(new PurchaseOrderMail($po, $pdfContent));
+
+            return redirect()->route('procurement.purchase-orders.show', $po->id)
+                ->with('success', 'PO sent to vendor successfully.');
+
+        } catch (\Exception $e) {
+            Log::error('Error sending PO', [
+                'error' => $e->getMessage(),
+                'po_id' => $id
+            ]);
+            return redirect()->back()->with('error', 'Error sending PO: ' . $e->getMessage());
+        }
+    }
+
     // Resend PO email
     public function resendEmail($id)
     {
@@ -361,14 +397,19 @@ class PurchaseOrderController extends Controller
         if (!$user->department || $user->department->name !== 'PROCUREMENT') {
             return redirect()->route('dashboard')->with('error', 'Unauthorized access');
         }
-        
+
         try {
             $po = PurchaseOrder::with(['vendor'])->findOrFail($id);
-            
-            $this->sendPurchaseOrderEmail($po);
-            
+
+            // Generate PDF
+            $pdf = Pdf::loadView('procurement.purchase_orders.pdf', compact('po'));
+            $pdfContent = $pdf->output();
+
+            // Send email
+            Mail::to($po->vendor->email)->send(new PurchaseOrderMail($po, $pdfContent));
+
             return redirect()->back()->with('success', 'PO email resent successfully to ' . $po->vendor->email);
-            
+
         } catch (\Exception $e) {
             Log::error('Error resending PO email', [
                 'error' => $e->getMessage(),
@@ -377,7 +418,7 @@ class PurchaseOrderController extends Controller
             return redirect()->back()->with('error', 'Error sending email: ' . $e->getMessage());
         }
     }
-    
+
     // Download PDF
     public function downloadPdf($id)
     {
@@ -385,11 +426,11 @@ class PurchaseOrderController extends Controller
         if (!$user->department || $user->department->name !== 'PROCUREMENT') {
             return redirect()->route('dashboard')->with('error', 'Unauthorized access');
         }
-        
+
         $po = PurchaseOrder::with(['vendor', 'items.inventoryItem'])->findOrFail($id);
-        
+
         $pdf = Pdf::loadView('procurement.purchase_orders.pdf', compact('po'));
-        
+
         return $pdf->download('PO_' . $po->po_number . '.pdf');
     }
 }

@@ -11,6 +11,7 @@
 
     <!-- Font Awesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
 
     <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -178,6 +179,15 @@
             LPOs
         </a>
 
+  <a href="{{ route('procurement.approved-lpos.index') }}"
+   class="flex items-center px-4 py-3 text-sm hover:bg-blue-700 transition sidebar-nav-link
+          {{ request()->routeIs('procurement.approved-lpos.*') ? 'sidebar-active' : '' }}">
+    <i class="fas fa-file-alt mr-3 w-5"></i>
+    Approved LPOs
+    <span class="ml-auto text-xs bg-green-600 px-2 py-0.5 rounded-full">EPO</span>
+</a>
+
+
         <a href="{{ route('procurement.vendors.index') }}"
            class="flex items-center px-4 py-3 text-sm hover:bg-blue-700 transition sidebar-nav-link
                   {{ request()->routeIs('procurement.vendors.*') ? 'sidebar-active' : '' }}">
@@ -198,7 +208,7 @@
     Goods Received
 </a>
 
-     
+
     </nav>
 
     {{-- Sidebar Footer --}}
@@ -215,7 +225,7 @@
             </div>
         </div>
 
-        
+
         <a href="{{ route('logout') }}"
            onclick="event.preventDefault(); document.getElementById('logout-form').submit();"
            class="mt-3 flex items-center text-sm text-blue-300 hover:text-white transition">
