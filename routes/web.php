@@ -106,16 +106,19 @@ Route::prefix('store')->name('store.')->middleware(['auth'])->group(function () 
     // Dashboard
     Route::get('/dashboard', [App\Http\Controllers\Store\StoreDashboardController::class, 'index'])->name('dashboard');
 
-    // Inventory Management
-    Route::prefix('inventory')->name('inventory.')->group(function () {
-        Route::get('/', [App\Http\Controllers\Store\InventoryController::class, 'index'])->name('index');
-        Route::get('/create', [App\Http\Controllers\Store\InventoryController::class, 'create'])->name('create');
-        Route::post('/', [App\Http\Controllers\Store\InventoryController::class, 'store'])->name('store');
-        Route::get('/{id}', [App\Http\Controllers\Store\InventoryController::class, 'show'])->name('show');
-        Route::get('/{id}/edit', [App\Http\Controllers\Store\InventoryController::class, 'edit'])->name('edit');
-        Route::put('/{id}', [App\Http\Controllers\Store\InventoryController::class, 'update'])->name('update');
-        Route::delete('/{id}', [App\Http\Controllers\Store\InventoryController::class, 'destroy'])->name('destroy');
-    });
+ // Inventory Management Routes (Full CRUD)
+Route::prefix('inventory')->name('inventory.')->group(function () {
+    Route::get('/', [App\Http\Controllers\Store\InventoryController::class, 'index'])->name('index');
+    Route::get('/create', [App\Http\Controllers\Store\InventoryController::class, 'create'])->name('create');
+    Route::post('/', [App\Http\Controllers\Store\InventoryController::class, 'store'])->name('store');
+    Route::post('/store-from-grn', [App\Http\Controllers\Store\InventoryController::class, 'storeFromGrn'])->name('store-from-grn');
+    Route::get('/get-grn-items/{grnId}', [App\Http\Controllers\Store\InventoryController::class, 'getGrnItems'])->name('get-grn-items');
+    Route::get('/{id}', [App\Http\Controllers\Store\InventoryController::class, 'show'])->name('show');
+    Route::get('/{id}/edit', [App\Http\Controllers\Store\InventoryController::class, 'edit'])->name('edit');
+    Route::put('/{id}', [App\Http\Controllers\Store\InventoryController::class, 'update'])->name('update');
+    Route::delete('/{id}', [App\Http\Controllers\Store\InventoryController::class, 'destroy'])->name('destroy');
+    Route::post('/{id}/adjust-stock', [App\Http\Controllers\Store\InventoryController::class, 'adjustStock'])->name('adjust-stock');
+});
 
     // Categories Routes
 Route::prefix('categories')->name('categories.')->group(function () {
@@ -128,12 +131,14 @@ Route::prefix('categories')->name('categories.')->group(function () {
 });
 
     // Stock Movements
-    Route::prefix('stock-movements')->name('stock-movements.')->group(function () {
-        Route::get('/', [App\Http\Controllers\Store\StockMovementController::class, 'index'])->name('index');
-        Route::get('/create', [App\Http\Controllers\Store\StockMovementController::class, 'create'])->name('create');
-        Route::post('/', [App\Http\Controllers\Store\StockMovementController::class, 'store'])->name('store');
-        Route::get('/{id}', [App\Http\Controllers\Store\StockMovementController::class, 'show'])->name('show');
-    });
+  // Stock Movements Routes
+Route::prefix('stock-movements')->name('stock-movements.')->group(function () {
+    Route::get('/', [App\Http\Controllers\Store\StockMovementController::class, 'index'])->name('index');
+    Route::get('/create', [App\Http\Controllers\Store\StockMovementController::class, 'create'])->name('create');
+    Route::post('/', [App\Http\Controllers\Store\StockMovementController::class, 'store'])->name('store');
+    Route::get('/{id}', [App\Http\Controllers\Store\StockMovementController::class, 'show'])->name('show');
+    Route::get('/item/{itemId}/movements', [App\Http\Controllers\Store\StockMovementController::class, 'getItemMovements'])->name('item-movements');
+});
 
     // Requisitions (Store requests for stock)
     Route::prefix('requisitions')->name('requisitions.')->group(function () {
@@ -221,6 +226,11 @@ Route::prefix('approved-lpos')->name('approved-lpos.')->group(function () {
         Route::post('/store', [App\Http\Controllers\Procurement\GoodsReceivedController::class, 'store'])->name('store');
         Route::get('/get-po-items/{poId}', [App\Http\Controllers\Procurement\GoodsReceivedController::class, 'getPoItems'])->name('get-po-items');
         Route::get('/{id}', [App\Http\Controllers\Procurement\GoodsReceivedController::class, 'show'])->name('show');
+
+     Route::get('/goods-received/{id}/download-pdf', [App\Http\Controllers\Procurement\GoodsReceivedController::class, 'downloadPdf'])->name('goods-received.download-pdf');
+
+    Route::post('/{id}/send-email', [App\Http\Controllers\Procurement\GoodsReceivedController::class, 'sendEmail'])->name('send-email');
+     Route::get('/{id}/download-pdf', [App\Http\Controllers\Procurement\GoodsReceivedController::class, 'downloadPdf'])->name('download-pdf');
         Route::post('/{id}/send-to-store', [App\Http\Controllers\Procurement\GoodsReceivedController::class, 'sendToStore'])->name('send-to-store');
     });
 

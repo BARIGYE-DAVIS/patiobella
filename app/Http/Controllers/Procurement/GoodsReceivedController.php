@@ -13,6 +13,8 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
+use Barryvdh\DomPDF\Facade\Pdf;
 
 class GoodsReceivedController extends Controller
 {
@@ -112,12 +114,12 @@ public function store(Request $request)
 
     try {
         $po = PurchaseOrder::with(['items.inventoryItem'])->findOrFail($request->purchase_order_id);
-        
+
         // Calculate PO total amount
         $poTotalAmount = collect($po->items)->sum(function($item) {
             return $item->quantity_ordered * $item->unit_cost;
         });
-        
+
         // Generate GRN number
         $grnNumber = 'GRN-' . date('Ymd') . '-' . str_pad(rand(0, 9999), 4, '0', STR_PAD_LEFT);
 
@@ -153,10 +155,10 @@ public function store(Request $request)
             $quantityReceived = floatval($itemData['quantity_received']);
             $quantityRejected = floatval($itemData['quantity_rejected'] ?? 0);
             $quantityAccepted = $quantityReceived - $quantityRejected;
-            
+
             // Calculate PO item total amount (ordered amount)
             $poItemTotalAmount = $poItem->quantity_ordered * $poItem->unit_cost;
-            
+
             // Calculate total cost for accepted items
             $itemTotalCost = $poItem->unit_cost * $quantityAccepted;
 
@@ -240,6 +242,9 @@ public function store(Request $request)
         return view('procurement.goods_received.show', compact('grn'));
     }
 
+
+
+
     // Send to store for inventory update
     public function sendToStore($id)
     {
@@ -267,6 +272,69 @@ public function store(Request $request)
         }
     }
 
+public function sendEmail(Request $request, $id)
+{
+    $user = Auth::user();
+    if (!$user->department || $user->department->name !== 'PROCUREMENT') {
+        return redirect()->route('dashboard')->with('error', 'Unauthorized access');
+    }
+
+    $request->validate([
+        'email'   => 'required|email',
+        'subject' => 'required|string|max:255',
+        'message' => 'nullable|string',
+    ]);
+
+    try {
+        $grn = GoodsReceivedNote::with([
+            'vendor',
+            'purchaseOrder',
+            'items.inventoryItem',
+            'createdBy'
+        ])->findOrFail($id);
+
+        // Generate PDF
+        $pdf = Pdf::loadView('procurement.goods_received.pdf', compact('grn'));
+        $pdfContent = $pdf->output();
+        $fileName = 'GRN_' . $grn->grn_number . '.pdf';
+
+        // Send email with PDF attached
+        Mail::send([], [], function ($mail) use ($request, $grn, $pdfContent, $fileName) {
+            $mail->to($request->email)
+                 ->subject($request->subject)
+                 ->html(
+                    '<p>' . nl2br(e($request->message ?? '')) . '</p>
+                     <br>
+                     <p style="color:#64748b;font-size:12px;">
+                         This email was sent from the Procurement Module.<br>
+                         GRN: <strong>' . $grn->grn_number . '</strong> |
+                         PO: <strong>' . ($grn->purchaseOrder->po_number ?? 'N/A') . '</strong>
+                     </p>'
+                 )
+                 ->attachData($pdfContent, $fileName, [
+                     'mime' => 'application/pdf',
+                 ]);
+        });
+
+        Log::info('GRN email sent', [
+            'grn_id'     => $grn->id,
+            'grn_number' => $grn->grn_number,
+            'sent_to'    => $request->email,
+            'sent_by'    => Auth::id(),
+        ]);
+
+        return redirect()->route('procurement.goods-received.show', $id)
+            ->with('success', 'GRN emailed successfully to ' . $request->email . ' with PDF attached.');
+
+    } catch (\Exception $e) {
+        Log::error('Failed to send GRN email', [
+            'grn_id' => $id,
+            'error'  => $e->getMessage()
+        ]);
+        return redirect()->back()
+            ->with('error', 'Failed to send email: ' . $e->getMessage());
+    }
+}
     // Print GRN
     public function print($id)
     {
@@ -285,4 +353,21 @@ public function store(Request $request)
 
         return view('procurement.goods_received.print', compact('grn'));
     }
+
+// Download GRN PDF
+public function downloadPdf($id)
+{
+    $user = Auth::user();
+    if (!$user->department || $user->department->name !== 'PROCUREMENT') {
+        return redirect()->route('dashboard')->with('error', 'Unauthorized access');
+    }
+
+    $grn = GoodsReceivedNote::with(['vendor', 'purchaseOrder', 'items.inventoryItem'])
+        ->findOrFail($id);
+
+    $pdf = Pdf::loadView('procurement.goods_received.pdf', compact('grn'));
+
+    return $pdf->download('GRN_' . $grn->grn_number . '.pdf');
+}
+
 }

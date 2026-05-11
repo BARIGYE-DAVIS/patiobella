@@ -27,7 +27,6 @@ class InventoryItem extends Model
         'last_purchase_price',
         'selling_price',
         'current_stock',
-        'is_active',
         'is_perishable',
         'is_taxable',
         'shelf_life_days',
@@ -35,49 +34,27 @@ class InventoryItem extends Model
         'manufacturer',
         'brand',
         'notes',
+        'is_active',
         'created_by',
         'updated_by',
+        'deleted_at',
     ];
 
-    protected function casts(): array
-    {
-        return [
-            'minimum_stock' => 'decimal:6',
-            'maximum_stock' => 'decimal:6',
-            'reorder_quantity' => 'decimal:6',
-            'unit_cost' => 'decimal:2',
-            'last_purchase_price' => 'decimal:2',
-            'selling_price' => 'decimal:2',
-            'current_stock' => 'decimal:6',
-            'is_active' => 'boolean',
-            'is_perishable' => 'boolean',
-            'is_taxable' => 'boolean',
-            'shelf_life_days' => 'integer',
-            'created_at' => 'datetime',
-            'updated_at' => 'datetime',
-            'deleted_at' => 'datetime',
-        ];
-    }
-
-    public function scopeActive($query)
-    {
-        return $query->where('is_active', true);
-    }
-
-    public function scopePerishable($query)
-    {
-        return $query->where('is_perishable', true);
-    }
-
-    public function scopeLowStock($query)
-    {
-        return $query->whereColumn('current_stock', '<=', 'minimum_stock');
-    }
-
-    public function needsReorder(): bool
-    {
-        return ($this->current_stock ?? 0) <= ($this->minimum_stock ?? 0);
-    }
+    protected $casts = [
+        'minimum_stock' => 'decimal:6',
+        'maximum_stock' => 'decimal:6',
+        'reorder_quantity' => 'decimal:6',
+        'unit_cost' => 'decimal:2',
+        'last_purchase_price' => 'decimal:2',
+        'selling_price' => 'decimal:2',
+        'current_stock' => 'decimal:6',
+        'is_perishable' => 'boolean',
+        'is_taxable' => 'boolean',
+        'is_active' => 'boolean',
+        'created_at' => 'datetime',
+        'updated_at' => 'datetime',
+        'deleted_at' => 'datetime',
+    ];
 
     // Relationships
     public function category()
@@ -90,7 +67,7 @@ class InventoryItem extends Model
         return $this->belongsTo(SubCategory::class, 'sub_category_id');
     }
 
-    public function unitOfMeasure()
+    public function defaultUnitOfMeasure()
     {
         return $this->belongsTo(UnitOfMeasure::class, 'default_unit_of_measure_id');
     }
@@ -103,21 +80,6 @@ class InventoryItem extends Model
     public function updater()
     {
         return $this->belongsTo(User::class, 'updated_by');
-    }
-
-    public function units()
-    {
-        return $this->hasMany(ItemUnit::class, 'inventory_item_id');
-    }
-
-    public function purchaseOrderItems()
-    {
-        return $this->hasMany(PurchaseOrderItem::class, 'inventory_item_id');
-    }
-
-    public function goodsReceivedNoteItems()
-    {
-        return $this->hasMany(GoodsReceivedNoteItem::class, 'inventory_item_id');
     }
 
     public function stockMovements()
@@ -133,5 +95,51 @@ class InventoryItem extends Model
     public function requisitionItems()
     {
         return $this->hasMany(RequisitionItem::class, 'inventory_item_id');
+    }
+
+    public function purchaseOrderItems()
+    {
+        return $this->hasMany(PurchaseOrderItem::class, 'inventory_item_id');
+    }
+
+    public function goodsReceivedItems()
+    {
+        return $this->hasMany(GoodsReceivedNoteItem::class, 'inventory_item_id');
+    }
+
+    // Scopes
+    public function scopeActive($query)
+    {
+        return $query->where('is_active', true);
+    }
+
+    public function scopeLowStock($query)
+    {
+        return $query->whereColumn('current_stock', '<=', 'minimum_stock');
+    }
+
+    // Accessor for stock status
+    public function getStockStatusAttribute()
+    {
+        if ($this->current_stock <= 0) {
+            return 'out_of_stock';
+        }
+        if ($this->minimum_stock && $this->current_stock <= $this->minimum_stock) {
+            return 'low_stock';
+        }
+        return 'in_stock';
+    }
+
+    // Accessor for stock status color
+    public function getStockStatusColorAttribute()
+    {
+        switch ($this->stock_status) {
+            case 'out_of_stock':
+                return 'red';
+            case 'low_stock':
+                return 'yellow';
+            default:
+                return 'green';
+        }
     }
 }

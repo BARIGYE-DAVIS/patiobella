@@ -1,10 +1,8 @@
-@extends('layouts.store')
+<?php $__env->startSection('title', 'Inventory Item Details'); ?>
 
-@section('title', 'Inventory Item Details')
+<?php $__env->startSection('page-title', 'Inventory Item Details'); ?>
 
-@section('page-title', 'Inventory Item Details')
-
-@section('content')
+<?php $__env->startSection('content'); ?>
 <style>
     .detail-card {
         background-color: #f9fafb;
@@ -63,20 +61,20 @@
 </style>
 
 <div class="bg-white rounded-lg shadow-sm overflow-hidden">
-    {{-- Header --}}
+    
     <div class="px-6 py-4 border-b border-gray-200 bg-gray-50 flex justify-between items-center">
         <div>
-            <h3 class="text-lg font-semibold text-gray-800">{{ $item->name }}</h3>
-            <p class="text-sm text-gray-500">Item Code: {{ $item->item_code ?? $item->code ?? 'N/A' }}</p>
+            <h3 class="text-lg font-semibold text-gray-800"><?php echo e($item->name); ?></h3>
+            <p class="text-sm text-gray-500">Item Code: <?php echo e($item->item_code ?? $item->code ?? 'N/A'); ?></p>
         </div>
         <div class="flex gap-2">
-            <a href="{{ route('store.inventory.index') }}" class="text-gray-600 hover:text-gray-800">
+            <a href="<?php echo e(route('store.inventory.index')); ?>" class="text-gray-600 hover:text-gray-800">
                 <svg class="w-5 h-5 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
                 </svg>
                 Back
             </a>
-            <a href="{{ route('store.inventory.edit', $item->id) }}" class="text-amber-600 hover:text-amber-800">
+            <a href="<?php echo e(route('store.inventory.edit', $item->id)); ?>" class="text-amber-600 hover:text-amber-800">
                 <svg class="w-5 h-5 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
                 </svg>
@@ -86,18 +84,18 @@
     </div>
 
     <div class="p-6">
-        {{-- Status Badges --}}
+        
         <div class="mb-6 flex flex-wrap gap-2">
-            @if($item->is_active)
+            <?php if($item->is_active): ?>
                 <span class="px-3 py-1 text-sm rounded-full bg-green-100 text-green-800">✓ Active</span>
-            @else
+            <?php else: ?>
                 <span class="px-3 py-1 text-sm rounded-full bg-red-100 text-red-800">✗ Inactive</span>
-            @endif
-            @if($item->is_perishable)
+            <?php endif; ?>
+            <?php if($item->is_perishable): ?>
                 <span class="px-3 py-1 text-sm rounded-full bg-yellow-100 text-yellow-800">📅 Perishable</span>
-            @endif
+            <?php endif; ?>
 
-            @php
+            <?php
                 $currentStock = $item->current_stock ?? 0;
                 $minStock = $item->minimum_stock ?? 0;
                 if ($currentStock <= 0) {
@@ -107,10 +105,10 @@
                 } else {
                     echo '<span class="stock-normal">✅ In Stock</span>';
                 }
-            @endphp
+            ?>
         </div>
 
-        {{-- Item Information Card (like Stock Movement Details) --}}
+        
         <div class="detail-card">
             <h4 class="font-semibold text-gray-800 mb-4 flex items-center gap-2">
                 <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -122,43 +120,43 @@
                 <div class="space-y-3">
                     <div>
                         <span class="detail-label">Item Name:</span>
-                        <span class="font-semibold text-gray-800">{{ $item->name }}</span>
+                        <span class="font-semibold text-gray-800"><?php echo e($item->name); ?></span>
                     </div>
                     <div>
                         <span class="detail-label">Item Code:</span>
-                        <span class="font-mono text-sm">{{ $item->item_code ?? 'N/A' }}</span>
+                        <span class="font-mono text-sm"><?php echo e($item->item_code ?? 'N/A'); ?></span>
                     </div>
                     <div>
                         <span class="detail-label">Barcode:</span>
-                        <span>{{ $item->barcode ?? '—' }}</span>
+                        <span><?php echo e($item->barcode ?? '—'); ?></span>
                     </div>
                     <div>
                         <span class="detail-label">Category:</span>
-                        <span>{{ $item->category ? $item->category->name : '—' }}</span>
+                        <span><?php echo e($item->category ? $item->category->name : '—'); ?></span>
                     </div>
                 </div>
                 <div class="space-y-3">
                     <div>
                         <span class="detail-label">Unit of Measure (Base):</span>
-                        <span class="pack-badge">{{ $item->default_unit_of_measure_id ?? 'pieces' }}</span>
+                        <span class="pack-badge"><?php echo e($item->default_unit_of_measure_id ?? 'pieces'); ?></span>
                     </div>
                     <div>
                         <span class="detail-label">Current Stock:</span>
-                        <span class="font-semibold text-blue-600">{{ number_format($currentStock, 2) }} {{ $item->default_unit_of_measure_id ?? 'units' }}</span>
+                        <span class="font-semibold text-blue-600"><?php echo e(number_format($currentStock, 2)); ?> <?php echo e($item->default_unit_of_measure_id ?? 'units'); ?></span>
                     </div>
                     <div>
                         <span class="detail-label">Unit Cost:</span>
-                        <span>UGX {{ number_format($item->unit_cost ?? 0, 2) }}</span>
+                        <span>UGX <?php echo e(number_format($item->unit_cost ?? 0, 2)); ?></span>
                     </div>
                     <div>
                         <span class="detail-label">Selling Price:</span>
-                        <span>UGX {{ number_format($item->selling_price ?? 0, 2) }}</span>
+                        <span>UGX <?php echo e(number_format($item->selling_price ?? 0, 2)); ?></span>
                     </div>
                 </div>
             </div>
         </div>
 
-        {{-- Stock Settings Card --}}
+        
         <div class="detail-card">
             <h4 class="font-semibold text-gray-800 mb-4 flex items-center gap-2">
                 <svg class="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -168,17 +166,17 @@
             </h4>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
-                    <div class="mb-2"><span class="detail-label">Minimum Stock:</span><span>{{ number_format($item->minimum_stock ?? 0, 2) }} {{ $item->default_unit_of_measure_id ?? 'units' }}</span></div>
-                    <div class="mb-2"><span class="detail-label">Maximum Stock:</span><span>{{ number_format($item->maximum_stock ?? 0, 2) }} {{ $item->default_unit_of_measure_id ?? 'units' }}</span></div>
+                    <div class="mb-2"><span class="detail-label">Minimum Stock:</span><span><?php echo e(number_format($item->minimum_stock ?? 0, 2)); ?> <?php echo e($item->default_unit_of_measure_id ?? 'units'); ?></span></div>
+                    <div class="mb-2"><span class="detail-label">Maximum Stock:</span><span><?php echo e(number_format($item->maximum_stock ?? 0, 2)); ?> <?php echo e($item->default_unit_of_measure_id ?? 'units'); ?></span></div>
                 </div>
                 <div>
-                    <div class="mb-2"><span class="detail-label">Reorder Quantity:</span><span>{{ number_format($item->reorder_quantity ?? 0, 2) }} {{ $item->default_unit_of_measure_id ?? 'units' }}</span></div>
-                    @if($item->shelf_life_days)<div class="mb-2"><span class="detail-label">Shelf Life:</span><span>{{ $item->shelf_life_days }} days</span></div>@endif
+                    <div class="mb-2"><span class="detail-label">Reorder Quantity:</span><span><?php echo e(number_format($item->reorder_quantity ?? 0, 2)); ?> <?php echo e($item->default_unit_of_measure_id ?? 'units'); ?></span></div>
+                    <?php if($item->shelf_life_days): ?><div class="mb-2"><span class="detail-label">Shelf Life:</span><span><?php echo e($item->shelf_life_days); ?> days</span></div><?php endif; ?>
                 </div>
             </div>
         </div>
 
-        {{-- Supplier Information Card --}}
+        
         <div class="detail-card">
             <h4 class="font-semibold text-gray-800 mb-4 flex items-center gap-2">
                 <svg class="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -187,13 +185,13 @@
                 Supplier Information
             </h4>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div><span class="detail-label">Manufacturer:</span><span>{{ $item->manufacturer ?? '—' }}</span></div>
-                <div><span class="detail-label">Brand:</span><span>{{ $item->brand ?? '—' }}</span></div>
+                <div><span class="detail-label">Manufacturer:</span><span><?php echo e($item->manufacturer ?? '—'); ?></span></div>
+                <div><span class="detail-label">Brand:</span><span><?php echo e($item->brand ?? '—'); ?></span></div>
             </div>
         </div>
 
-        {{-- Notes --}}
-        @if($item->notes)
+        
+        <?php if($item->notes): ?>
         <div class="detail-card">
             <h4 class="font-semibold text-gray-800 mb-3 flex items-center gap-2">
                 <svg class="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -202,12 +200,12 @@
                 Notes
             </h4>
             <div class="bg-white rounded-lg p-4 border">
-                <p class="text-gray-700">{{ $item->notes }}</p>
+                <p class="text-gray-700"><?php echo e($item->notes); ?></p>
             </div>
         </div>
-        @endif
+        <?php endif; ?>
 
-        {{-- Stock Movement History (EXACT same as Stock Movement Details page) --}}
+        
         <div class="detail-card">
             <h4 class="font-semibold text-gray-800 mb-4 flex items-center gap-2">
                 <svg class="w-5 h-5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -229,70 +227,74 @@
                         </tr>
                     </thead>
                     <tbody>
-                        @forelse($stockMovements as $movement)
+                        <?php $__empty_1 = true; $__currentLoopData = $stockMovements; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $movement): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); $__empty_1 = false; ?>
                         <tr class="movement-row border-b">
-                            <td class="px-4 py-2 font-mono text-xs">{{ $movement->movement_number }}</td>
+                            <td class="px-4 py-2 font-mono text-xs"><?php echo e($movement->movement_number); ?></td>
                             <td class="px-4 py-2">
-                                @if($movement->movementType->sign == '+')
+                                <?php if($movement->movementType->sign == '+'): ?>
                                     <span class="text-green-600">Stock In</span>
-                                @else
+                                <?php else: ?>
                                     <span class="text-red-600">Stock Out</span>
-                                @endif
+                                <?php endif; ?>
                             </td>
                             <td class="px-4 py-2 text-center">
-                                @if($movement->pack_type)
-                                    <span class="font-semibold text-amber-600">{{ number_format($movement->number_of_packs) }}</span>
-                                @else
-                                    <span class="font-semibold">{{ number_format($movement->quantity, 2) }}</span>
-                                @endif
+                                <?php if($movement->pack_type): ?>
+                                    <span class="font-semibold text-amber-600"><?php echo e(number_format($movement->number_of_packs)); ?></span>
+                                <?php else: ?>
+                                    <span class="font-semibold"><?php echo e(number_format($movement->quantity, 2)); ?></span>
+                                <?php endif; ?>
                             </td>
                             <td class="px-4 py-2 text-center">
-                                @if($movement->pack_type)
+                                <?php if($movement->pack_type): ?>
                                     <div class="font-semibold text-amber-600">
-                                        {{ number_format($movement->number_of_packs) }} {{ ucfirst($movement->pack_type) }}(s)
+                                        <?php echo e(number_format($movement->number_of_packs)); ?> <?php echo e(ucfirst($movement->pack_type)); ?>(s)
                                     </div>
                                     <div class="text-xs text-gray-500">
-                                        × {{ number_format($movement->pack_size) }} pieces per {{ $movement->pack_type }}
+                                        × <?php echo e(number_format($movement->pack_size)); ?> pieces per <?php echo e($movement->pack_type); ?>
+
                                     </div>
-                                @else
+                                <?php else: ?>
                                     <div class="text-gray-500 text-sm">
-                                        {{ number_format($movement->quantity, 2) }} {{ $item->default_unit_of_measure_id ?? 'units' }}
+                                        <?php echo e(number_format($movement->quantity, 2)); ?> <?php echo e($item->default_unit_of_measure_id ?? 'units'); ?>
+
                                     </div>
-                                @endif
+                                <?php endif; ?>
                             </td>
                             <td class="px-4 py-2 text-center font-bold text-blue-600">
-                                {{ number_format($movement->quantity_in_base_unit, 2) }} pieces
+                                <?php echo e(number_format($movement->quantity_in_base_unit, 2)); ?> pieces
                             </td>
-                            <td class="px-4 py-2 text-center">{{ $movement->movement_date->format('Y-m-d') }}</td>
+                            <td class="px-4 py-2 text-center"><?php echo e($movement->movement_date->format('Y-m-d')); ?></td>
                             <td class="px-4 py-2 text-center">
-                                <a href="{{ route('store.stock-movements.show', $movement->id) }}" class="text-blue-600 hover:text-blue-800">View</a>
+                                <a href="<?php echo e(route('store.stock-movements.show', $movement->id)); ?>" class="text-blue-600 hover:text-blue-800">View</a>
                             </td>
                         </tr>
-                        @empty
+                        <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); if ($__empty_1): ?>
                         <tr>
                             <td colspan="7" class="px-4 py-8 text-center text-gray-500">No stock movements found for this item.</td>
                         </tr>
-                        @endforelse
+                        <?php endif; ?>
                     </tbody>
                 </table>
             </div>
         </div>
 
-        {{-- Audit Information --}}
+        
         <div class="detail-card">
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                     <span class="text-sm text-gray-500">Created By</span>
-                    <div class="font-medium">{{ $item->creator ? $item->creator->first_name . ' ' . $item->creator->last_name : 'System' }}</div>
-                    <div class="text-xs text-gray-400">{{ $item->created_at ? $item->created_at->format('F d, Y g:i A') : 'N/A' }}</div>
+                    <div class="font-medium"><?php echo e($item->creator ? $item->creator->first_name . ' ' . $item->creator->last_name : 'System'); ?></div>
+                    <div class="text-xs text-gray-400"><?php echo e($item->created_at ? $item->created_at->format('F d, Y g:i A') : 'N/A'); ?></div>
                 </div>
                 <div>
                     <span class="text-sm text-gray-500">Last Updated By</span>
-                    <div class="font-medium">{{ $item->updater ? $item->updater->first_name . ' ' . $item->updater->last_name : 'Never' }}</div>
-                    <div class="text-xs text-gray-400">{{ $item->updated_at ? $item->updated_at->format('F d, Y g:i A') : 'N/A' }}</div>
+                    <div class="font-medium"><?php echo e($item->updater ? $item->updater->first_name . ' ' . $item->updater->last_name : 'Never'); ?></div>
+                    <div class="text-xs text-gray-400"><?php echo e($item->updated_at ? $item->updated_at->format('F d, Y g:i A') : 'N/A'); ?></div>
                 </div>
             </div>
         </div>
     </div>
 </div>
-@endsection
+<?php $__env->stopSection(); ?>
+
+<?php echo $__env->make('layouts.store', array_diff_key(get_defined_vars(), ['__data' => 1, '__path' => 1]))->render(); ?><?php /**PATH C:\xampp\htdocs\patiobella\resources\views/store/inventory/show.blade.php ENDPATH**/ ?>

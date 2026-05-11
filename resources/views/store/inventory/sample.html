@@ -1,0 +1,576 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Enter Inventory - Store Module</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f0f2f5;
+            padding: 20px;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        .header {
+            background: linear-gradient(135deg, #059669 0%, #047857 100%);
+            color: white;
+            padding: 20px 25px;
+        }
+        .header h1 {
+            font-size: 22px;
+            margin-bottom: 5px;
+        }
+        .header p {
+            font-size: 14px;
+            opacity: 0.9;
+        }
+        .form-body {
+            padding: 25px;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            font-weight: 600;
+            color: #374151;
+            margin-bottom: 8px;
+            font-size: 14px;
+        }
+        label .required {
+            color: #ef4444;
+            margin-left: 3px;
+        }
+        input, select, textarea {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid #d1d5db;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: all 0.2s;
+        }
+        input:focus, select:focus {
+            outline: none;
+            border-color: #059669;
+            box-shadow: 0 0 0 3px rgba(5,150,105,0.1);
+        }
+        .row-2 {
+            display: flex;
+            gap: 15px;
+        }
+        .row-2 .form-group {
+            flex: 1;
+        }
+        .info-box {
+            background: #f0fdf4;
+            border-left: 4px solid #059669;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        .info-box p {
+            color: #065f46;
+            font-size: 14px;
+        }
+        .total-box {
+            background: #fef3c7;
+            border-radius: 8px;
+            padding: 15px;
+            text-align: center;
+            margin: 20px 0;
+        }
+        .total-box span {
+            font-size: 28px;
+            font-weight: bold;
+            color: #92400e;
+        }
+        .metrics-selector {
+            background: #f3f4f6;
+            border-radius: 8px;
+            padding: 15px;
+            margin-top: 5px;
+        }
+        .bulk-section {
+            background: #fef3c7;
+            border-radius: 8px;
+            padding: 15px;
+            margin-top: 15px;
+            display: none;
+        }
+        .bulk-section.show {
+            display: block;
+        }
+        .simple-section {
+            background: #e0f2fe;
+            border-radius: 8px;
+            padding: 15px;
+            margin-top: 15px;
+            display: none;
+        }
+        .simple-section.show {
+            display: block;
+        }
+        .cost-pack-section {
+            background: #e0e7ff;
+            border-radius: 8px;
+            padding: 15px;
+            margin-top: 15px;
+            display: none;
+        }
+        .cost-pack-section.show {
+            display: block;
+        }
+        .badge {
+            display: inline-block;
+            background: #e5e7eb;
+            padding: 4px 8px;
+            border-radius: 20px;
+            font-size: 12px;
+            color: #374151;
+        }
+        hr {
+            margin: 15px 0;
+            border-color: #e5e7eb;
+        }
+        .submit-btn {
+            width: 100%;
+            background: linear-gradient(135deg, #059669 0%, #047857 100%);
+            color: white;
+            padding: 14px;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .submit-btn:hover {
+            background: linear-gradient(135deg, #047857 0%, #065f46 100%);
+            transform: translateY(-1px);
+        }
+        .preview-section {
+            margin-top: 20px;
+            padding-top: 20px;
+            border-top: 1px solid #e5e7eb;
+        }
+        .help-text {
+            font-size: 11px;
+            color: #6b7280;
+            margin-top: 4px;
+        }
+        .cost-label-dynamic {
+            font-weight: normal;
+            font-size: 13px;
+            margin-bottom: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📦 Enter Inventory</h1>
+            <p>Receive stock - choose your own metrics (kg, pieces, boxes, cartons, crates, dozens)</p>
+        </div>
+
+        <div class="form-body">
+            {{-- Info Box --}}
+            <div class="info-box">
+                <p>💡 <strong>How it works:</strong></p>
+                <p>• <strong>Single units (kg, litres, pcs, grams):</strong> Just enter quantity directly</p>
+                <p>• <strong>Bulk units (boxes, cartons, crates, dozens, packs, sets):</strong> Tell us how many pieces per pack + number of packs</p>
+                <p>• <strong>Cost options change dynamically based on your selected metric!</strong></p>
+            </div>
+
+            <form id="inventoryForm">
+                {{-- Item Selection --}}
+                <div class="form-group">
+                    <label>Select Item <span class="required">*</span></label>
+                    <select id="item_id" required>
+                        <option value="">-- Choose Item --</option>
+                        <option value="1">Coca Cola</option>
+                        <option value="2">Fanta Orange</option>
+                        <option value="3">Sprite</option>
+                        <option value="4">Mineral Water</option>
+                        <option value="5">Club Beer</option>
+                        <option value="6">Rice - Basmati</option>
+                        <option value="7">Cooking Oil</option>
+                        <option value="8">Chicken Eggs</option>
+                        <option value="9">Beef Mince</option>
+                        <option value="10">Fresh Tomatoes</option>
+                        <option value="11">Onions</option>
+                    </select>
+                </div>
+
+                {{-- Metrics - User Chooses Freely --}}
+                <div class="form-group">
+                    <label>Unit of Measurement (Metrics) <span class="required">*</span></label>
+                    <select id="metrics" required>
+                        <option value="">-- Choose Metrics --</option>
+                        <option value="kg">Kilograms (kg) - Weight</option>
+                        <option value="litres">Litres (L) - Volume</option>
+                        <option value="pcs">Pieces (pcs) - Single items</option>
+                        <option value="grams">Grams (g) - Small weight</option>
+                        <option value="millilitres">Millilitres (ml) - Small volume</option>
+                        <option value="meters">Meters (m) - Length</option>
+                        <option value="box">Box - Contains multiple pieces</option>
+                        <option value="carton">Carton - Contains multiple pieces</option>
+                        <option value="crate">Crate - Contains multiple pieces</option>
+                        <option value="dozen">Dozen (dz) - 12 pieces</option>
+                        <option value="pack">Pack - Contains multiple pieces</option>
+                        <option value="set">Set - Contains multiple pieces</option>
+                        <option value="bag">Bag - Contains multiple pieces</option>
+                        <option value="sack">Sack - Contains multiple pieces</option>
+                    </select>
+                    <div class="help-text">Choose the unit you received the item in</div>
+                </div>
+
+                {{-- Bulk Metrics List (for reference) --}}
+                <div class="metrics-selector">
+                    <p style="font-size: 12px; color: #4b5563;">📌 <strong>Single units:</strong> kg, litres, pcs, grams, millilitres, meters</p>
+                    <p style="font-size: 12px; color: #4b5563;">📦 <strong>Bulk units:</strong> box, carton, crate, dozen, pack, set, bag, sack</p>
+                </div>
+
+                {{-- SINGLE UNIT SECTION (kg, litres, pcs, grams, millilitres, meters) --}}
+                <div id="simpleSection" class="simple-section">
+                    <p style="font-weight: 600; margin-bottom: 12px;">📏 Enter Quantity Directly:</p>
+                    <div class="form-group">
+                        <label>Quantity <span class="required">*</span></label>
+                        <input type="number" id="simple_quantity" step="0.01" min="0" placeholder="e.g., 50">
+                        <div class="help-text">Enter the quantity in the selected unit</div>
+                    </div>
+                </div>
+
+                {{-- BULK UNIT SECTION (box, carton, crate, dozen, pack, set, bag, sack) --}}
+                <div id="bulkSection" class="bulk-section">
+                    <p style="font-weight: 600; margin-bottom: 12px;">📦 Enter Bulk Receipt:</p>
+                    <div class="row-2">
+                        <div class="form-group">
+                            <label>Pieces per Unit <span class="required">*</span></label>
+                            <input type="number" id="pieces_per_unit" step="1" min="1" placeholder="e.g., 24">
+                            <div class="help-text">How many pieces in one box/carton/crate?</div>
+                        </div>
+                        <div class="form-group">
+                            <label>Number of Units <span class="required">*</span></label>
+                            <input type="number" id="number_of_units" step="1" min="1" placeholder="e.g., 5">
+                            <div class="help-text">How many boxes/cartons/crates received?</div>
+                        </div>
+                    </div>
+                </div>
+
+                {{-- Total Quantity - Auto calculated --}}
+                <div class="total-box">
+                    📊 <strong>Total Stock:</strong>
+                    <span id="total_quantity">0.00</span>
+                    <span id="total_unit_label">units</span>
+                </div>
+
+                {{-- COST SECTION - DYNAMIC BASED ON METRIC --}}
+                <div id="costSection">
+                    <!-- Cost per unit - will be updated dynamically -->
+                    <div class="form-group" id="costPerUnitGroup">
+                        <label id="costPerUnitLabel">Cost per unit <span class="required">*</span></label>
+                        <input type="number" id="cost_per_unit" step="0.01" min="0" placeholder="Enter cost">
+                        <div class="help-text" id="costPerUnitHelp">How much per single unit</div>
+                    </div>
+
+                    <!-- Cost per pack - only shows for bulk metrics -->
+                    <div id="costPackSection" class="cost-pack-section">
+                        <label id="costPerPackLabel">OR Cost per pack</label>
+                        <input type="number" id="cost_per_pack" step="0.01" min="0" placeholder="Enter total cost per pack">
+                        <div class="help-text">Enter total cost per box/carton/crate (optional)</div>
+                    </div>
+                </div>
+
+                {{-- Store Location --}}
+                <div class="form-group">
+                    <label>Store Location</label>
+                    <select id="store_id">
+                        <option value="1">Main Store</option>
+                        <option value="2">Bar Store</option>
+                        <option value="3">Cafe Store</option>
+                    </select>
+                </div>
+
+                {{-- Supplier/Vendor --}}
+                <div class="form-group">
+                    <label>Supplier/Vendor</label>
+                    <select id="vendor_id">
+                        <option value="">-- Select Vendor --</option>
+                        <option value="1">GREEN FARM LTD</option>
+                        <option value="2">Coca Cola Distributors</option>
+                        <option value="3">Local Market</option>
+                    </select>
+                </div>
+
+                {{-- Notes --}}
+                <div class="form-group">
+                    <label>Notes (Optional)</label>
+                    <textarea id="notes" rows="2" placeholder="Any additional information... (e.g., batch number, expiry date)"></textarea>
+                </div>
+
+                {{-- Preview Section --}}
+                <div class="preview-section">
+                    <h4 style="margin-bottom: 10px;">📋 Preview</h4>
+                    <div style="background: #f9fafb; padding: 15px; border-radius: 8px;">
+                        <p><span class="badge">Item</span> <strong id="preview_item">—</strong></p>
+                        <p><span class="badge">Metrics</span> <strong id="preview_metrics">—</strong></p>
+                        <p><span class="badge">Receipt Type</span> <strong id="preview_type">—</strong></p>
+                        <p><span class="badge">Total Quantity</span> <strong id="preview_quantity">0.00</strong></p>
+                        <p><span class="badge">Cost per base unit</span> <strong id="preview_cost">UGX 0.00</strong></p>
+                        <p><span class="badge">Total Purchase Cost</span> <strong id="preview_total_cost">UGX 0.00</strong></p>
+                    </div>
+                </div>
+
+                <hr>
+
+                <button type="submit" class="submit-btn">✅ Save to Inventory</button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        // DOM elements
+        const itemSelect = document.getElementById('item_id');
+        const metricsSelect = document.getElementById('metrics');
+        const simpleSection = document.getElementById('simpleSection');
+        const bulkSection = document.getElementById('bulkSection');
+        const costPackSection = document.getElementById('costPackSection');
+        const costPerUnitLabel = document.getElementById('costPerUnitLabel');
+        const costPerUnitHelp = document.getElementById('costPerUnitHelp');
+        const simpleQuantity = document.getElementById('simple_quantity');
+        const piecesPerUnit = document.getElementById('pieces_per_unit');
+        const numberOfUnits = document.getElementById('number_of_units');
+        const totalQuantitySpan = document.getElementById('total_quantity');
+        const totalUnitLabel = document.getElementById('total_unit_label');
+        const costPerUnit = document.getElementById('cost_per_unit');
+        const costPerPack = document.getElementById('cost_per_pack');
+
+        // Bulk metrics list
+        const bulkMetrics = ['box', 'carton', 'crate', 'dozen', 'pack', 'set', 'bag', 'sack'];
+
+        // Single unit metrics
+        const singleMetrics = ['kg', 'litres', 'pcs', 'grams', 'millilitres', 'meters'];
+
+        // Item names mapping
+        const itemNames = {
+            '1': 'Coca Cola',
+            '2': 'Fanta Orange',
+            '3': 'Sprite',
+            '4': 'Mineral Water',
+            '5': 'Club Beer',
+            '6': 'Rice - Basmati',
+            '7': 'Cooking Oil',
+            '8': 'Chicken Eggs',
+            '9': 'Beef Mince',
+            '10': 'Fresh Tomatoes',
+            '11': 'Onions'
+        };
+
+        // Update cost labels based on selected metric
+        function updateCostLabels() {
+            const selectedMetrics = metricsSelect.value;
+            const selectedOption = metricsSelect.options[metricsSelect.selectedIndex];
+            const metricsText = selectedOption ? selectedOption.textContent.split(' -')[0] : '';
+
+            if (bulkMetrics.includes(selectedMetrics)) {
+                // Bulk metrics: show cost per piece
+                costPerUnitLabel.innerHTML = `Cost per piece <span class="required">*</span>`;
+                costPerUnitHelp.innerHTML = `How much per single piece (base unit)`;
+                costPackSection.classList.add('show');
+            } else if (singleMetrics.includes(selectedMetrics)) {
+                // Single metrics: show cost per unit (kg, litre, etc.)
+                costPerUnitLabel.innerHTML = `Cost per ${selectedMetrics} <span class="required">*</span>`;
+                costPerUnitHelp.innerHTML = `How much per ${selectedMetrics}`;
+                costPackSection.classList.remove('show');
+            } else {
+                costPerUnitLabel.innerHTML = `Cost per unit <span class="required">*</span>`;
+                costPerUnitHelp.innerHTML = `How much per single unit`;
+                costPackSection.classList.remove('show');
+            }
+        }
+
+        // Handle metrics selection change
+        metricsSelect.addEventListener('change', function() {
+            const selectedMetrics = this.value;
+            const selectedOption = this.options[this.selectedIndex];
+            const metricsText = selectedOption ? selectedOption.textContent.split(' -')[0] : '';
+
+            document.getElementById('preview_metrics').innerText = metricsText;
+
+            // Show/hide appropriate section based on metrics
+            if (bulkMetrics.includes(selectedMetrics)) {
+                simpleSection.classList.remove('show');
+                bulkSection.classList.add('show');
+                totalUnitLabel.innerText = 'pieces';
+                document.getElementById('preview_type').innerHTML = '<span style="color:#f59e0b;">📦 Bulk Receipt</span>';
+                updateCostLabels();
+            } else if (singleMetrics.includes(selectedMetrics)) {
+                simpleSection.classList.add('show');
+                bulkSection.classList.remove('show');
+                totalUnitLabel.innerText = selectedMetrics;
+                document.getElementById('preview_type').innerHTML = '<span style="color:#3b82f6;">📏 Direct Quantity</span>';
+                updateCostLabels();
+            } else {
+                simpleSection.classList.remove('show');
+                bulkSection.classList.remove('show');
+            }
+
+            calculateTotal();
+            updatePreview();
+        });
+
+        // Calculate total quantity
+        function calculateTotal() {
+            const selectedMetrics = metricsSelect.value;
+            let total = 0;
+
+            if (selectedMetrics && bulkMetrics.includes(selectedMetrics)) {
+                const pieces = parseFloat(piecesPerUnit.value) || 0;
+                const units = parseFloat(numberOfUnits.value) || 0;
+                total = pieces * units;
+                totalUnitLabel.innerText = 'pieces';
+            } else {
+                total = parseFloat(simpleQuantity.value) || 0;
+                totalUnitLabel.innerText = selectedMetrics || 'units';
+            }
+
+            totalQuantitySpan.innerText = total.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+            return total;
+        }
+
+        // Calculate cost per base unit
+        function calculateCostPerPiece() {
+            const selectedMetrics = metricsSelect.value;
+            const total = calculateTotal();
+
+            // If cost per pack is entered and this is bulk item
+            if (costPerPack.value && bulkMetrics.includes(selectedMetrics)) {
+                const costPack = parseFloat(costPerPack.value) || 0;
+                if (total > 0) {
+                    return costPack / total;
+                }
+            }
+
+            // Otherwise use cost per unit
+            return parseFloat(costPerUnit.value) || 0;
+        }
+
+        // Update preview
+        function updatePreview() {
+            const selectedItemId = itemSelect.value;
+            const selectedMetrics = metricsSelect.value;
+            const selectedOption = metricsSelect.options[metricsSelect.selectedIndex];
+            const metricsText = selectedOption ? selectedOption.textContent.split(' -')[0] : '—';
+            const total = calculateTotal();
+            const costPerPiece = calculateCostPerPiece();
+            const totalCost = costPerPiece * total;
+
+            document.getElementById('preview_item').innerText = itemNames[selectedItemId] || '—';
+            document.getElementById('preview_metrics').innerText = metricsText;
+            document.getElementById('preview_quantity').innerText = total.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+            document.getElementById('preview_cost').innerText = `UGX ${costPerPiece.toLocaleString(undefined, {minimumFractionDigits: 2})}`;
+            document.getElementById('preview_total_cost').innerText = `UGX ${totalCost.toLocaleString(undefined, {minimumFractionDigits: 2})}`;
+        }
+
+        // Add event listeners
+        simpleQuantity.addEventListener('input', () => {
+            calculateTotal();
+            updatePreview();
+        });
+        piecesPerUnit.addEventListener('input', () => {
+            calculateTotal();
+            updatePreview();
+        });
+        numberOfUnits.addEventListener('input', () => {
+            calculateTotal();
+            updatePreview();
+        });
+        costPerUnit.addEventListener('input', updatePreview);
+        costPerPack.addEventListener('input', updatePreview);
+        itemSelect.addEventListener('change', updatePreview);
+
+        // Initialize
+        calculateTotal();
+        updatePreview();
+
+        // Form submission
+        document.getElementById('inventoryForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+
+            const selectedItem = itemSelect.value;
+            const selectedMetrics = metricsSelect.value;
+            const itemName = itemNames[selectedItem] || '';
+            const total = calculateTotal();
+            const costPerPiece = calculateCostPerPiece();
+
+            if (!selectedItem) {
+                alert('Please select an item');
+                return;
+            }
+
+            if (!selectedMetrics) {
+                alert('Please select the unit of measurement (metrics)');
+                return;
+            }
+
+            if (bulkMetrics.includes(selectedMetrics)) {
+                const pieces = piecesPerUnit.value;
+                const units = numberOfUnits.value;
+                if (!pieces || pieces <= 0) {
+                    alert('Please enter pieces per unit');
+                    return;
+                }
+                if (!units || units <= 0) {
+                    alert('Please enter number of units');
+                    return;
+                }
+            } else {
+                const quantity = simpleQuantity.value;
+                if (!quantity || quantity <= 0) {
+                    alert('Please enter quantity');
+                    return;
+                }
+            }
+
+            if (costPerPiece <= 0 && (!costPerPack.value || costPerPack.value <= 0)) {
+                alert('Please enter cost (either cost per unit or cost per pack)');
+                return;
+            }
+
+            // Build summary message
+            let message = `✅ Inventory Entry Summary:\n\n`;
+            message += `Item: ${itemName}\n`;
+            message += `Metrics: ${selectedMetrics}\n`;
+
+            if (bulkMetrics.includes(selectedMetrics)) {
+                const pieces = piecesPerUnit.value;
+                const units = numberOfUnits.value;
+                message += `Received: ${units} ${selectedMetrics}(s) × ${pieces} pieces\n`;
+                message += `Total pieces: ${total}\n`;
+            } else {
+                message += `Quantity: ${total} ${selectedMetrics}\n`;
+            }
+
+            message += `\nCost per base unit: UGX ${costPerPiece.toFixed(2)}\n`;
+            message += `Total Purchase Cost: UGX ${(costPerPiece * total).toFixed(2)}\n\n`;
+            message += `Confirm to save to inventory?`;
+
+            if (confirm(message)) {
+                alert('✅ Inventory saved successfully!\n\n(Backend integration will be added)');
+            }
+        });
+    </script>
+</body>
+</html>

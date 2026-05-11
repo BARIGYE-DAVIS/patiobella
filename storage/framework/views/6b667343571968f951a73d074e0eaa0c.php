@@ -1,10 +1,8 @@
-@extends('layouts.store')
+<?php $__env->startSection('title', 'Inventory Items'); ?>
 
-@section('title', 'Inventory Items')
+<?php $__env->startSection('page-title', 'Inventory Management'); ?>
 
-@section('page-title', 'Inventory Management')
-
-@section('content')
+<?php $__env->startSection('content'); ?>
 <style>
     .search-input {
         transition: all 0.3s ease;
@@ -36,7 +34,7 @@
             <p class="text-sm text-gray-500">Manage all stock items in the store</p>
         </div>
         <div class="flex gap-3">
-            {{-- Live Search Input --}}
+            
             <div class="relative">
                 <input type="text"
                        id="liveSearch"
@@ -49,7 +47,7 @@
                     <div class="loading-spinner"></div>
                 </div>
             </div>
-            <a href="{{ route('store.inventory.create') }}"
+            <a href="<?php echo e(route('store.inventory.create')); ?>"
                class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition flex items-center gap-2">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
@@ -74,11 +72,12 @@
                     </tr>
                 </thead>
                 <tbody id="itemsTableBody">
-                    @include('store.inventory.partials.table_rows', ['items' => $items])
+                    <?php echo $__env->make('store.inventory.partials.table_rows', ['items' => $items], array_diff_key(get_defined_vars(), ['__data' => 1, '__path' => 1]))->render(); ?>
                 </tbody>
             </table>
             <div class="mt-4" id="paginationLinks">
-                {{ $items->links() }}
+                <?php echo e($items->links()); ?>
+
             </div>
         </div>
         <div id="noResults" class="hidden text-center py-8 text-gray-500">
@@ -110,7 +109,7 @@
     });
 
     function performSearch(query) {
-        fetch(`{{ route('store.inventory.index') }}?search=${encodeURIComponent(query)}`, {
+        fetch(`<?php echo e(route('store.inventory.index')); ?>?search=${encodeURIComponent(query)}`, {
             headers: {
                 'X-Requested-With': 'XMLHttpRequest'
             }
@@ -147,4 +146,6 @@
         window.location.href = `/store/inventory/${id}`;
     }
 </script>
-@endsection
+<?php $__env->stopSection(); ?>
+
+<?php echo $__env->make('layouts.store', array_diff_key(get_defined_vars(), ['__data' => 1, '__path' => 1]))->render(); ?><?php /**PATH C:\xampp\htdocs\patiobella\resources\views/store/inventory/index.blade.php ENDPATH**/ ?>
