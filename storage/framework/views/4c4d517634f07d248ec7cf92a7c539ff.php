@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="<?php echo e(csrf_token()); ?>">
-    <title><?php echo $__env->yieldContent('title', 'Director Dashboard'); ?> - PaitoBella</title>
+    <title><?php echo $__env->yieldContent('title', 'Kitchen Dashboard'); ?> - PaitoBella</title>
 
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -126,7 +126,7 @@
         <div class="flex justify-between items-center">
             <div>
                 <h2 class="text-xl font-bold">PaitoBella</h2>
-                <p class="text-xs text-blue-300 mt-1">Director Dashboard</p>
+                <p class="text-xs text-blue-300 mt-1">Kitchen Dashboard</p>
             </div>
             <button id="closeSidebarBtn"
                     class="text-white hover:text-gray-300 bg-transparent border-none cursor-pointer p-1 rounded">
@@ -138,9 +138,9 @@
     </div>
 
     <nav class="mt-6">
-        <a href="<?php echo e(route('director.dashboard')); ?>"
+        <a href="<?php echo e(route('kitchen.dashboard')); ?>"
            class="flex items-center px-4 py-3 text-sm hover:bg-blue-700 transition sidebar-nav-link
-                  <?php echo e(request()->routeIs('director.dashboard') ? 'sidebar-active' : ''); ?>">
+                  <?php echo e(request()->routeIs('kitchen.dashboard') ? 'sidebar-active' : ''); ?>">
             <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                       d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/>
@@ -148,14 +148,31 @@
             Dashboard
         </a>
 
-        <a href="<?php echo e(route('director.lpos.index')); ?>"
-           class="flex items-center px-4 py-3 text-sm hover:bg-blue-700 transition sidebar-nav-link
-                  <?php echo e(request()->routeIs('director.lpos.*') ? 'sidebar-active' : ''); ?>">
+        <a href="#"
+           class="flex items-center px-4 py-3 text-sm hover:bg-blue-700 transition sidebar-nav-link">
             <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                       d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
             </svg>
-            Local Purchase Orders
+            Ingredients
+        </a>
+
+        <a href="#"
+           class="flex items-center px-4 py-3 text-sm hover:bg-blue-700 transition sidebar-nav-link">
+            <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                      d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+            </svg>
+            Stock Movements
+        </a>
+
+        <a href="#"
+           class="flex items-center px-4 py-3 text-sm hover:bg-blue-700 transition sidebar-nav-link">
+            <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                      d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/>
+            </svg>
+            Requisitions
         </a>
     </nav>
 
@@ -170,7 +187,7 @@
             </div>
             <div class="ml-3 overflow-hidden">
                 <p class="text-sm font-medium truncate"><?php echo e(Auth::user()->first_name); ?> <?php echo e(Auth::user()->last_name); ?></p>
-                <p class="text-xs text-blue-300">Director</p>
+                <p class="text-xs text-blue-300">Kitchen</p>
             </div>
         </div>
 
@@ -191,6 +208,7 @@
 
 
 <div class="top-bar">
+    
     <div class="top-bar-left">
         <button id="menuIconBtn" aria-label="Open menu">
             <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -198,14 +216,15 @@
             </svg>
         </button>
         <div>
-            <div class="text-base font-semibold text-blue-900">Director Dashboard</div>
+            <div class="text-base font-semibold text-blue-900">Kitchen Dashboard</div>
             <div class="text-xs text-gray-500">PaitoBella</div>
         </div>
     </div>
 
+    
     <div class="flex items-center gap-4">
         <span class="text-sm text-gray-600 hidden sm:inline"><?php echo $__env->yieldContent('page-title'); ?></span>
-        <div class="w-8 h-8 bg-red-600 rounded-full flex items-center justify-center text-white font-bold text-sm">
+        <div class="w-8 h-8 bg-orange-600 rounded-full flex items-center justify-center text-white font-bold text-sm">
             <?php echo e(substr(Auth::user()->first_name, 0, 1)); ?>
 
         </div>
@@ -234,6 +253,7 @@
 </main>
 
 <script>
+    // ── Sidebar toggle ──────────────────────────────────────────────
     const sidebar         = document.getElementById('sidebar');
     const overlay         = document.getElementById('sidebarOverlay');
     const menuIconBtn     = document.getElementById('menuIconBtn');
@@ -262,4 +282,4 @@
 <?php echo $__env->yieldPushContent('scripts'); ?>
 </body>
 </html>
-<?php /**PATH C:\xampp\htdocs\patiobella\resources\views/layouts/director.blade.php ENDPATH**/ ?>
+<?php /**PATH C:\xampp\htdocs\patiobella\resources\views/layouts/kitchen.blade.php ENDPATH**/ ?>

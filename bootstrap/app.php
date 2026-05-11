@@ -8,6 +8,7 @@ use App\Http\Middleware\StoreMiddleware;
 use App\Http\Middleware\DirectorMiddleware;
 use App\Http\Middleware\ProcurementMiddleware;
 use App\Http\Middleware\ManagementMiddleware;
+use App\Http\Middleware\kitchenMiddleware;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -21,6 +22,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'procurement' => ProcurementMiddleware::class,
             'management' => ManagementMiddleware::class,
             'director' => DirectorMiddleware::class,
+            'kitchen' => KitchenMiddleware::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {

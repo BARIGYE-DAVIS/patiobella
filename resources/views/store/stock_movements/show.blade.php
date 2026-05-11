@@ -41,6 +41,9 @@
         border-radius: 20px;
         display: inline-block;
     }
+    .info-value {
+        color: #1f2937;
+    }
 </style>
 
 <div class="bg-white rounded-lg shadow-sm overflow-hidden">
@@ -63,7 +66,7 @@
                 <div>
                     <span class="text-gray-500 text-sm">Movement Type</span>
                     <div class="mt-1">
-                        @if($movement->movementType->sign == '+')
+                        @if($movement->movementType && $movement->movementType->sign == '+')
                             <span class="movement-in">📥 STOCK IN (+)</span>
                         @else
                             <span class="movement-out">📤 STOCK OUT (-)</span>
@@ -103,15 +106,19 @@
                     </div>
                     <div>
                         <span class="detail-label">Item Code:</span>
-                        <span>{{ $movement->inventoryItem->item_code ?? 'N/A' }}</span>
+                        <span class="info-value">{{ $movement->inventoryItem->item_code ?? 'N/A' }}</span>
                     </div>
                     <div>
                         <span class="detail-label">Category:</span>
-                        <span>{{ $movement->inventoryItem->category->name ?? 'N/A' }}</span>
+                        <span class="info-value">{{ $movement->inventoryItem->category->name ?? 'N/A' }}</span>
+                    </div>
+                    <div>
+                        <span class="detail-label">Base Unit:</span>
+                        <span class="pack-badge">{{ $movement->base_unit ?? $movement->inventoryItem->base_unit ?? 'units' }}</span>
                     </div>
                     <div>
                         <span class="detail-label">Current Stock:</span>
-                        <span class="font-semibold text-blue-600">{{ number_format($movement->inventoryItem->current_stock ?? 0, 2) }} units</span>
+                        <span class="font-semibold text-blue-600">{{ number_format($movement->inventoryItem->current_stock ?? 0, 2) }} {{ $movement->base_unit ?? $movement->inventoryItem->base_unit ?? 'units' }}</span>
                     </div>
                 </div>
             </div>
@@ -131,15 +138,15 @@
                     </div>
                     <div>
                         <span class="detail-label">Movement Type:</span>
-                        <span>{{ $movement->movementType->name ?? 'N/A' }}</span>
+                        <span class="info-value">{{ $movement->movementType->name ?? 'N/A' }}</span>
                     </div>
                     <div>
                         <span class="detail-label">Approved By:</span>
-                        <span>{{ $movement->approvedBy->name ?? 'System' }}</span>
+                        <span class="info-value">{{ $movement->approvedBy->name ?? 'System' }}</span>
                     </div>
                     <div>
                         <span class="detail-label">Approved At:</span>
-                        <span>{{ $movement->approved_at ? date('F d, Y g:i A', strtotime($movement->approved_at)) : '—' }}</span>
+                        <span class="info-value">{{ $movement->approved_at ? date('F d, Y g:i A', strtotime($movement->approved_at)) : '—' }}</span>
                     </div>
                 </div>
             </div>
@@ -162,29 +169,29 @@
                             {{ number_format($movement->number_of_packs) }} {{ ucfirst($movement->pack_type) }}(s)
                         </div>
                         <div class="text-sm text-gray-500 mt-1">
-                            × {{ number_format($movement->pack_size) }} pieces per {{ $movement->pack_type }}
+                            × {{ number_format($movement->pack_size) }} {{ $movement->base_unit ?? 'pieces' }} per {{ $movement->pack_type }}
                         </div>
                     @else
                         <div class="text-2xl font-bold text-green-600">
                             {{ number_format($movement->quantity, 2) }}
-                            <span class="text-sm text-gray-500">{{ $movement->inventoryItem->default_unit_of_measure_id ?? 'units' }}</span>
+                            <span class="text-sm text-gray-500">{{ $movement->base_unit ?? $movement->inventoryItem->base_unit ?? 'units' }}</span>
                         </div>
                     @endif
                 </div>
 
-                {{-- Total Pieces / Base Unit --}}
+                {{-- Total Base Units --}}
                 <div class="bg-white rounded-lg p-4 border">
-                    <p class="text-sm text-gray-500 mb-2">Total Pieces (Base Unit)</p>
+                    <p class="text-sm text-gray-500 mb-2">Total (Base Unit)</p>
                     <div class="text-2xl font-bold text-blue-600">
                         {{ number_format($movement->quantity_in_base_unit, 2) }}
-                        <span class="text-sm text-gray-500">pieces</span>
+                        <span class="text-sm text-gray-500">{{ $movement->base_unit ?? $movement->inventoryItem->base_unit ?? 'pieces' }}</span>
                     </div>
                 </div>
             </div>
         </div>
 
         {{-- Financial Details --}}
-        <div class="detail-card hidden">
+        <div class="detail-card">
             <h4 class="font-semibold text-gray-800 mb-4 flex items-center gap-2">
                 <svg class="w-5 h-5 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
@@ -194,11 +201,16 @@
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div class="bg-white rounded-lg p-4 border">
                     <p class="text-sm text-gray-500 mb-2">Unit Cost</p>
-                    <div class="text-xl font-semibold">UGX {{ number_format($movement->unit_cost ?? 0, 2) }}</div>
+                    <div class="text-xl font-semibold">
+                        UGX {{ number_format($movement->unit_cost ?? 0, 2) }}
+                        <span class="text-sm text-gray-500">/ {{ $movement->base_unit ?? $movement->inventoryItem->base_unit ?? 'unit' }}</span>
+                    </div>
                 </div>
                 <div class="bg-white rounded-lg p-4 border">
                     <p class="text-sm text-gray-500 mb-2">Total Value</p>
-                    <div class="text-xl font-semibold text-green-600">UGX {{ number_format($movement->total_value ?? 0, 2) }}</div>
+                    <div class="text-xl font-semibold text-green-600">
+                        UGX {{ number_format($movement->total_value ?? 0, 2) }}
+                    </div>
                 </div>
             </div>
         </div>

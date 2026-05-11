@@ -108,16 +108,20 @@ Route::prefix('store')->name('store.')->middleware(['auth'])->group(function () 
 
  // Inventory Management Routes (Full CRUD)
 Route::prefix('inventory')->name('inventory.')->group(function () {
-    Route::get('/', [App\Http\Controllers\Store\InventoryController::class, 'index'])->name('index');
-    Route::get('/create', [App\Http\Controllers\Store\InventoryController::class, 'create'])->name('create');
-    Route::post('/', [App\Http\Controllers\Store\InventoryController::class, 'store'])->name('store');
-    Route::post('/store-from-grn', [App\Http\Controllers\Store\InventoryController::class, 'storeFromGrn'])->name('store-from-grn');
+    Route::get('/',                   [App\Http\Controllers\Store\InventoryController::class, 'index'])       ->name('index');
+    Route::get('/create',             [App\Http\Controllers\Store\InventoryController::class, 'create'])      ->name('create');
+    Route::post('/',                  [App\Http\Controllers\Store\InventoryController::class, 'store'])       ->name('store');
+    Route::post('/store-from-grn',    [App\Http\Controllers\Store\InventoryController::class, 'storeFromGrn'])->name('store-from-grn');
     Route::get('/get-grn-items/{grnId}', [App\Http\Controllers\Store\InventoryController::class, 'getGrnItems'])->name('get-grn-items');
-    Route::get('/{id}', [App\Http\Controllers\Store\InventoryController::class, 'show'])->name('show');
-    Route::get('/{id}/edit', [App\Http\Controllers\Store\InventoryController::class, 'edit'])->name('edit');
-    Route::put('/{id}', [App\Http\Controllers\Store\InventoryController::class, 'update'])->name('update');
-    Route::delete('/{id}', [App\Http\Controllers\Store\InventoryController::class, 'destroy'])->name('destroy');
-    Route::post('/{id}/adjust-stock', [App\Http\Controllers\Store\InventoryController::class, 'adjustStock'])->name('adjust-stock');
+
+    // ⚠️  {id} routes must come AFTER named static routes
+    Route::get('/{id}',              [App\Http\Controllers\Store\InventoryController::class, 'show'])         ->name('show');
+    Route::get('/{id}/edit',         [App\Http\Controllers\Store\InventoryController::class, 'edit'])         ->name('edit');
+    Route::put('/{id}',              [App\Http\Controllers\Store\InventoryController::class, 'update'])       ->name('update');
+    Route::delete('/{id}',           [App\Http\Controllers\Store\InventoryController::class, 'destroy'])      ->name('destroy');
+
+    // Stock adjustment — accessible as route('store.inventory.adjust', $id)
+    Route::patch('/{id}/adjust',     [App\Http\Controllers\Store\InventoryController::class, 'adjustStock'])  ->name('adjust');
 });
 
     // Categories Routes
@@ -130,14 +134,20 @@ Route::prefix('categories')->name('categories.')->group(function () {
     Route::delete('/{id}', [App\Http\Controllers\Store\CategoryController::class, 'destroy'])->name('destroy');
 });
 
-    // Stock Movements
+
   // Stock Movements Routes
 Route::prefix('stock-movements')->name('stock-movements.')->group(function () {
     Route::get('/', [App\Http\Controllers\Store\StockMovementController::class, 'index'])->name('index');
     Route::get('/create', [App\Http\Controllers\Store\StockMovementController::class, 'create'])->name('create');
     Route::post('/', [App\Http\Controllers\Store\StockMovementController::class, 'store'])->name('store');
-    Route::get('/{id}', [App\Http\Controllers\Store\StockMovementController::class, 'show'])->name('show');
+
+    // Static routes FIRST (must come before {id})
+    Route::get('/export-excel', [App\Http\Controllers\Store\StockMovementController::class, 'exportExcel'])->name('export-excel');
+    Route::get('/export-pdf', [App\Http\Controllers\Store\StockMovementController::class, 'exportPdf'])->name('export-pdf');
     Route::get('/item/{itemId}/movements', [App\Http\Controllers\Store\StockMovementController::class, 'getItemMovements'])->name('item-movements');
+
+    // Dynamic route LAST
+    Route::get('/{id}', [App\Http\Controllers\Store\StockMovementController::class, 'show'])->name('show');
 });
 
     // Requisitions (Store requests for stock)
@@ -274,4 +284,9 @@ Route::prefix('director')->name('director.')->middleware(['auth', 'director'])->
     Route::post('/lpos/{id}/approve', [App\Http\Controllers\Director\LpoController::class, 'approve'])->name('lpos.approve');
     Route::post('/lpos/{id}/reject', [App\Http\Controllers\Director\LpoController::class, 'reject'])->name('lpos.reject');
     Route::get('/lpos/{id}/download-pdf', [App\Http\Controllers\Director\LpoController::class, 'downloadPdf'])->name('lpos.download-pdf');
+});
+
+// Kitchen Module Routes
+Route::prefix('kitchen')->name('kitchen.')->middleware(['auth', 'kitchen'])->group(function () {
+    Route::get('/dashboard', [App\Http\Controllers\Kitchen\KitchenController::class, 'dashboard'])->name('dashboard');
 });

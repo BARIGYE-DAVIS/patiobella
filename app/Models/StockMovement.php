@@ -11,27 +11,30 @@ class StockMovement extends Model
     use HasFactory, SoftDeletes;
 
     protected $fillable = [
-        'movement_number',
-        'inventory_item_id',
-        'store_id',
-        'movement_type_id',
-        'department_id',
-        'quantity',
-        'unit_id',
-        'quantity_in_base_unit',
-        'unit_cost',
-        'total_value',
-        'reason',
-        'movement_date',
-        'approved_at',
-        'approved_by',
-        'purchase_order_id',
-        'goods_received_note_id',
-        'is_reversed',
-        'reversed_by_movement_id',
-        'created_by',
-        'updated_by',
-    ];
+    'movement_number',
+    'inventory_item_id',
+    'store_id',
+    'movement_type_id',
+    'quantity',
+    'pack_type',
+    'pack_size',
+    'number_of_packs',
+    'base_unit',
+    'unit_id',
+    'quantity_in_base_unit',
+    'unit_cost',
+    'total_value',
+    'reason',
+    'movement_date',
+    'approved_at',
+    'approved_by',
+    'purchase_order_id',
+    'goods_received_note_id',
+    'is_reversed',
+    'reversed_by_movement_id',
+    'created_by',
+    'updated_by',
+];
 
     protected function casts(): array
     {
@@ -131,7 +134,7 @@ class StockMovement extends Model
         if (!$this->unit) {
             return $this->quantity;
         }
-        
+
         return $this->unit->toBaseUnit($this->quantity);
     }
 
@@ -143,7 +146,7 @@ class StockMovement extends Model
         $this->approved_at = now();
         $this->approved_by = $approvedByUserId;
         $this->save();
-        
+
         // Update stock balance after approval
         $this->updateStockBalance();
     }
@@ -156,22 +159,22 @@ class StockMovement extends Model
         if (!$this->canReverse()) {
             throw new \Exception('Cannot reverse this stock movement');
         }
-        
+
         // Determine reverse movement type
         $reverseSign = $this->isInbound() ? '-' : '+';
         $reverseTypeCode = $this->getReverseMovementTypeCode();
-        
+
         $reverseType = StockMovementType::where('code', $reverseTypeCode)
             ->where('sign', $reverseSign)
             ->first();
-        
+
         if (!$reverseType) {
             throw new \Exception('Reverse movement type not found');
         }
-        
+
         // Generate reverse movement number
         $reverseNumber = 'REV-' . $this->movement_number;
-        
+
         // Create reverse movement
         $reverseMovement = StockMovement::create([
             'movement_number' => $reverseNumber,
@@ -190,15 +193,15 @@ class StockMovement extends Model
             'approved_by' => $createdByUserId,
             'created_by' => $createdByUserId,
         ]);
-        
+
         // Mark original as reversed
         $this->is_reversed = true;
         $this->reversed_by_movement_id = $reverseMovement->id;
         $this->save();
-        
+
         // Update stock balance
         $reverseMovement->updateStockBalance();
-        
+
         return $reverseMovement;
     }
 
@@ -208,7 +211,7 @@ class StockMovement extends Model
     private function getReverseMovementTypeCode(): string
     {
         $typeCode = $this->movementType->code;
-        
+
         $reverseMap = [
             'PURCHASE' => 'RETURN_TO_VENDOR',
             'GRN' => 'RETURN_TO_VENDOR',
@@ -219,7 +222,7 @@ class StockMovement extends Model
             'ADJUSTMENT_OUT' => 'ADJUSTMENT_IN',
             'WASTE' => 'ADJUSTMENT_IN',
         ];
-        
+
         return $reverseMap[$typeCode] ?? 'ADJUSTMENT_OUT';
     }
 
@@ -231,18 +234,18 @@ class StockMovement extends Model
         $balanceDate = $this->movement_date;
         $storeId = $this->store_id;
         $itemId = $this->inventory_item_id;
-        
+
         // Get the latest balance before this movement date
         $latestBalance = StockBalance::where('inventory_item_id', $itemId)
             ->where('store_id', $storeId)
             ->where('balance_date', '<=', $balanceDate)
             ->orderBy('balance_date', 'desc')
             ->first();
-        
+
         $currentQuantity = $latestBalance ? $latestBalance->quantity : 0;
         $currentAverageCost = $latestBalance ? $latestBalance->average_cost : 0;
         $currentTotalValue = $currentQuantity * $currentAverageCost;
-        
+
         // Calculate new quantity based on movement sign
         if ($this->isInbound()) {
             $newQuantity = $currentQuantity + $this->quantity_in_base_unit;
@@ -251,9 +254,9 @@ class StockMovement extends Model
             $newQuantity = $currentQuantity - $this->quantity_in_base_unit;
             $newTotalValue = $currentTotalValue - $this->total_value;
         }
-        
+
         $newAverageCost = $newQuantity > 0 ? $newTotalValue / $newQuantity : 0;
-        
+
         // Create or update balance for this date
         StockBalance::updateOrCreate(
             [
