@@ -14,9 +14,10 @@ use Illuminate\Support\Facades\Log;
 
 class DepartmentRequisitionController extends Controller
 {
-    /**
-     * Display a listing of requisitions from all departments.
-     */
+    // ─────────────────────────────────────────────────────────────────────────────
+    // INDEX
+    // ─────────────────────────────────────────────────────────────────────────────
+
     public function index(Request $request)
     {
         $user = Auth::user();
@@ -27,26 +28,24 @@ class DepartmentRequisitionController extends Controller
 
         $query = DepartmentRequisition::with(['department', 'requestedBy', 'items']);
 
-        // Filter by status — if none selected, return ALL statuses
         if ($request->filled('status')) {
             $query->where('status', $request->status);
         }
 
-        // Filter by department
         if ($request->filled('department_id')) {
             $query->where('department_id', $request->department_id);
         }
 
         $requisitions = $query->orderBy('created_at', 'desc')->paginate(20);
-
-        $departments = \App\Models\Department::whereIn('name', ['KITCHEN', 'BAR', 'CAFE'])->get();
+        $departments  = \App\Models\Department::whereIn('name', ['KITCHEN', 'BAR', 'CAFE'])->get();
 
         return view('store.department_requisitions.index', compact('requisitions', 'departments'));
     }
 
-    /**
-     * Display the specified requisition.
-     */
+    // ─────────────────────────────────────────────────────────────────────────────
+    // SHOW
+    // ─────────────────────────────────────────────────────────────────────────────
+
     public function show($id)
     {
         $user = Auth::user();
@@ -61,9 +60,10 @@ class DepartmentRequisitionController extends Controller
         return view('store.department_requisitions.show', compact('requisition'));
     }
 
-    /**
-     * Approve a requisition.
-     */
+    // ─────────────────────────────────────────────────────────────────────────────
+    // APPROVE
+    // ─────────────────────────────────────────────────────────────────────────────
+
     public function approve($id)
     {
         $user = Auth::user();
@@ -81,7 +81,7 @@ class DepartmentRequisitionController extends Controller
                 return redirect()->back()->with('error', 'Only pending requisitions can be approved.');
             }
 
-            $requisition->status = 'approved';
+            $requisition->status      = 'approved';
             $requisition->approved_by = Auth::id();
             $requisition->approved_at = now();
             $requisition->save();
@@ -89,9 +89,9 @@ class DepartmentRequisitionController extends Controller
             DB::commit();
 
             Log::info('Department requisition approved', [
-                'user_id' => Auth::id(),
-                'requisition_id' => $requisition->id,
-                'requisition_number' => $requisition->requisition_number
+                'user_id'             => Auth::id(),
+                'requisition_id'      => $requisition->id,
+                'requisition_number'  => $requisition->requisition_number,
             ]);
 
             return redirect()->route('store.department-requisitions.show', $requisition->id)
@@ -99,17 +99,15 @@ class DepartmentRequisitionController extends Controller
 
         } catch (\Exception $e) {
             DB::rollBack();
-            Log::error('Error approving requisition', [
-                'requisition_id' => $id,
-                'error' => $e->getMessage()
-            ]);
+            Log::error('Error approving requisition', ['requisition_id' => $id, 'error' => $e->getMessage()]);
             return redirect()->back()->with('error', 'Error approving requisition: ' . $e->getMessage());
         }
     }
 
-    /**
-     * Reject a requisition.
-     */
+    // ─────────────────────────────────────────────────────────────────────────────
+    // REJECT
+    // ─────────────────────────────────────────────────────────────────────────────
+
     public function reject(Request $request, $id)
     {
         $user = Auth::user();
@@ -118,9 +116,7 @@ class DepartmentRequisitionController extends Controller
             return redirect()->route('dashboard')->with('error', 'Unauthorized access');
         }
 
-        $request->validate([
-            'rejection_reason' => 'required|string|max:500'
-        ]);
+        $request->validate(['rejection_reason' => 'required|string|max:500']);
 
         DB::beginTransaction();
 
@@ -131,18 +127,18 @@ class DepartmentRequisitionController extends Controller
                 return redirect()->back()->with('error', 'Only pending requisitions can be rejected.');
             }
 
-            $requisition->status = 'rejected';
+            $requisition->status           = 'rejected';
             $requisition->rejection_reason = $request->rejection_reason;
-            $requisition->approved_by = Auth::id();
-            $requisition->approved_at = now();
+            $requisition->approved_by      = Auth::id();
+            $requisition->approved_at      = now();
             $requisition->save();
 
             DB::commit();
 
             Log::info('Department requisition rejected', [
-                'user_id' => Auth::id(),
+                'user_id'        => Auth::id(),
                 'requisition_id' => $requisition->id,
-                'reason' => $request->rejection_reason
+                'reason'         => $request->rejection_reason,
             ]);
 
             return redirect()->route('store.department-requisitions.index')
@@ -150,17 +146,15 @@ class DepartmentRequisitionController extends Controller
 
         } catch (\Exception $e) {
             DB::rollBack();
-            Log::error('Error rejecting requisition', [
-                'requisition_id' => $id,
-                'error' => $e->getMessage()
-            ]);
+            Log::error('Error rejecting requisition', ['requisition_id' => $id, 'error' => $e->getMessage()]);
             return redirect()->back()->with('error', 'Error rejecting requisition: ' . $e->getMessage());
         }
     }
 
-    /**
-     * Show form to issue items.
-     */
+    // ─────────────────────────────────────────────────────────────────────────────
+    // ISSUE FORM
+    // ─────────────────────────────────────────────────────────────────────────────
+
     public function issueForm($id)
     {
         $user = Auth::user();
@@ -172,6 +166,12 @@ class DepartmentRequisitionController extends Controller
         $requisition = DepartmentRequisition::with(['items.inventoryItem', 'department'])
             ->findOrFail($id);
 
+        // ── Block access if already fully issued ──────────────────────────────
+        if ($requisition->status === 'issued') {
+            return redirect()->route('store.department-requisitions.show', $requisition->id)
+                ->with('error', 'This requisition has already been fully issued.');
+        }
+
         if (!in_array($requisition->status, ['approved', 'partially_issued'])) {
             return redirect()->route('store.department-requisitions.show', $requisition->id)
                 ->with('error', 'Only approved requisitions can be issued.');
@@ -180,367 +180,366 @@ class DepartmentRequisitionController extends Controller
         return view('store.department_requisitions.issue', compact('requisition'));
     }
 
-    /**
-     * Process issuing items.
-     */
-public function issue(Request $request, $id)
-{
-    $user = Auth::user();
+    // ─────────────────────────────────────────────────────────────────────────────
+    // ISSUE — Process issuing items
+    // ─────────────────────────────────────────────────────────────────────────────
 
-    if (!$user->department || $user->department->name !== 'STORE') {
-        return redirect()->route('dashboard')->with('error', 'Unauthorized access');
-    }
+    public function issue(Request $request, $id)
+    {
+        $user = Auth::user();
 
-    $request->validate([
-        'items'                       => 'required|array',
-        'items.*.item_id'             => 'required|exists:department_requisition_items,id',
-        'items.*.quantity_issued'     => 'required|numeric|min:0',
-        'items.*.pack_type'           => 'nullable|string',
-        'items.*.pack_size'           => 'nullable|numeric|min:1',
-        'taken_by'                    => 'required|string|max:255',  // NEW VALIDATION
-        'store_notes'                 => 'nullable|string',
-    ]);
+        if (!$user->department || $user->department->name !== 'STORE') {
+            return redirect()->route('dashboard')->with('error', 'Unauthorized access');
+        }
 
-    DB::beginTransaction();
+        $request->validate([
+            'items'                    => 'required|array',
+            'items.*.item_id'          => 'required|exists:department_requisition_items,id',
+            'items.*.quantity_issued'  => 'required|numeric|min:0',
+            'items.*.pack_type'        => 'nullable|string',
+            'items.*.pack_size'        => 'nullable|numeric|min:1',
+            'taken_by'                 => 'required|string|max:255',
+            'store_notes'              => 'nullable|string',
+        ]);
 
-    try {
-        $requisition = DepartmentRequisition::findOrFail($id);
-        $allFullyIssued = true;
-        $anyIssued = false;
+        DB::beginTransaction();
 
-        foreach ($request->items as $itemData) {
-            $reqItem        = DepartmentRequisitionItem::findOrFail($itemData['item_id']);
-            $quantityIssued = $itemData['quantity_issued'];
-            $packType       = $itemData['pack_type'] ?? null;
-            $packSize       = $itemData['pack_size'] ?? null;
+        try {
+            $requisition = DepartmentRequisition::findOrFail($id);
 
-            // Calculate total pieces issued
-            $totalPiecesIssued = $packType && $packSize
-                ? $quantityIssued * $packSize
-                : $quantityIssued;
+            // ── Hard block — cannot issue a fully issued requisition ───────────
+            if ($requisition->status === 'issued') {
+                return redirect()->route('store.department-requisitions.show', $requisition->id)
+                    ->with('error', 'This requisition has already been fully issued. No further issuing is allowed.');
+            }
 
-            // Update requisition item
-            $reqItem->quantity_issued      = $quantityIssued;
-            $reqItem->issued_pack_type     = $packType;
-            $reqItem->issued_pack_size     = $packSize;
-            $reqItem->issued_total_pieces  = $totalPiecesIssued;
-            $reqItem->save();
+            $allFullyIssued = true;
+            $anyIssued      = false;
 
-            // Decrease inventory
-            $inventoryItem = InventoryItem::find($reqItem->inventory_item_id);
-            $previousStock = $inventoryItem->current_stock ?? 0;
-            $inventoryItem->current_stock = $previousStock - $totalPiecesIssued;
-            $inventoryItem->save();
+            foreach ($request->items as $itemData) {
+                $reqItem        = DepartmentRequisitionItem::findOrFail($itemData['item_id']);
+                $quantityIssued = (float) $itemData['quantity_issued'];
+                $packType       = $itemData['pack_type'] ?? null;
+                $packSize       = isset($itemData['pack_size']) ? (float) $itemData['pack_size'] : null;
 
-            // Record stock movement
-            $movementNumber = 'ISS-' . date('Ymd') . '-' . str_pad(rand(0, 9999), 4, '0', STR_PAD_LEFT);
+                // Skip items with zero quantity
+                if ($quantityIssued <= 0) {
+                    // If this item was not previously fully issued, mark allFullyIssued false
+                    if ($reqItem->quantity_issued < $reqItem->quantity_requested) {
+                        $allFullyIssued = false;
+                    }
+                    continue;
+                }
 
-            StockMovement::create([
-                'movement_number'      => $movementNumber,
-                'inventory_item_id'    => $inventoryItem->id,
-                'store_id'             => 1,
-                'movement_type_id'     => 4,
-                'quantity'             => $quantityIssued,
-                'pack_type'            => $packType,
-                'pack_size'            => $packSize,
-                'number_of_packs'      => $quantityIssued,
-                'base_unit'            => $reqItem->metrics ?? 'units',
-                'quantity_in_base_unit'=> $totalPiecesIssued,
-                'unit_cost'            => $inventoryItem->unit_cost,
-                'total_value'          => $totalPiecesIssued * ($inventoryItem->unit_cost ?? 0),
-                'reason'               => 'Issued to ' . $requisition->department->name . ' - Req: ' . $requisition->requisition_number,
-                'movement_date'        => now(),
-                'approved_at'          => now(),
-                'approved_by'          => Auth::id(),
-                'created_by'           => Auth::id(),
-                'taken_by'             => $request->taken_by,  // NEW FIELD
-            ]);
+                // Calculate total pieces
+                $totalPiecesIssued = ($packType && $packSize)
+                    ? $quantityIssued * $packSize
+                    : $quantityIssued;
 
-            if ($quantityIssued > 0) {
+                // Update requisition item
+                $reqItem->quantity_issued     = $quantityIssued;
+                $reqItem->issued_pack_type    = $packType;
+                $reqItem->issued_pack_size    = $packSize;
+                $reqItem->issued_total_pieces = $totalPiecesIssued;
+                $reqItem->save();
+
+                // ── Stock before/after ────────────────────────────────────────
+                $inventoryItem = InventoryItem::find($reqItem->inventory_item_id);
+                $stockBefore   = (float) ($inventoryItem->current_stock ?? 0);
+                $stockAfter    = max(0, $stockBefore - $totalPiecesIssued);
+
+                // Deduct inventory
+                $inventoryItem->current_stock = $stockAfter;
+                $inventoryItem->save();
+
+                // Record stock movement
+                $movementNumber = 'ISS-' . date('Ymd') . '-' . str_pad(rand(0, 9999), 4, '0', STR_PAD_LEFT);
+
+                StockMovement::create([
+                    'movement_number'       => $movementNumber,
+                    'inventory_item_id'     => $inventoryItem->id,
+                    'store_id'              => 1,
+                    'movement_type_id'      => 5,   // SALE / ISSUE OUT
+                    'quantity'              => $quantityIssued,
+                    'pack_type'             => $packType,
+                    'pack_size'             => $packSize,
+                    'number_of_packs'       => $packType ? $quantityIssued : null,
+                    'base_unit'             => $inventoryItem->base_unit ?? 'units',
+                    'unit_id'               => null,
+                    'quantity_in_base_unit' => $totalPiecesIssued,
+                    'unit_cost'             => $inventoryItem->unit_cost ?? 0,
+                    'total_value'           => $totalPiecesIssued * ($inventoryItem->unit_cost ?? 0),
+                    'reason'                => 'Issued to ' . ($requisition->department->name ?? 'Department') . ' - Req: ' . $requisition->requisition_number,
+                    'movement_date'         => now(),
+                    'approved_at'           => now(),
+                    'approved_by'           => Auth::id(),
+                    'created_by'            => Auth::id(),
+                    'taken_by'              => $request->taken_by,
+                    'stock_before'          => $stockBefore,
+                    'stock_after'           => $stockAfter,
+                ]);
+
+                Log::info('Item issued to department', [
+                    'user_id'          => Auth::id(),
+                    'requisition_id'   => $requisition->id,
+                    'item_id'          => $inventoryItem->id,
+                    'quantity_issued'  => $quantityIssued,
+                    'total_pieces'     => $totalPiecesIssued,
+                    'stock_before'     => $stockBefore,
+                    'stock_after'      => $stockAfter,
+                    'taken_by'         => $request->taken_by,
+                ]);
+
                 $anyIssued = true;
+
+                if ($reqItem->quantity_issued < $reqItem->quantity_requested) {
+                    $allFullyIssued = false;
+                }
             }
 
-            if ($reqItem->quantity_issued < $reqItem->quantity_requested) {
-                $allFullyIssued = false;
-            }
-        }
-
-        // Update requisition status
-        if ($allFullyIssued && $anyIssued) {
-            $requisition->status = 'issued';
-        } elseif ($anyIssued) {
-            $requisition->status = 'partially_issued';
-        }
-
-        if ($request->filled('store_notes')) {
-            $requisition->store_notes = $request->store_notes;
-        }
-
-        $requisition->save();
-
-        DB::commit();
-
-        Log::info('Items issued to department', [
-            'user_id'          => Auth::id(),
-            'requisition_id'   => $requisition->id,
-            'requisition_number' => $requisition->requisition_number,
-            'taken_by'         => $request->taken_by,
-        ]);
-
-        return redirect()->route('store.department-requisitions.show', $requisition->id)
-            ->with('success', 'Items issued successfully. Taken by: ' . $request->taken_by);
-
-    } catch (\Exception $e) {
-        DB::rollBack();
-        Log::error('Error issuing items', [
-            'requisition_id' => $id,
-            'error'          => $e->getMessage(),
-            'trace'          => $e->getTraceAsString(),
-        ]);
-        return redirect()->back()->with('error', 'Error issuing items: ' . $e->getMessage());
-    }
-}
-
-    /**
- * Show form to process returns from department.
- */
-public function returnForm($id)
-{
-    $user = Auth::user();
-
-    if (!$user->department || $user->department->name !== 'STORE') {
-        return redirect()->route('dashboard')->with('error', 'Unauthorized access');
-    }
-
-    $requisition = DepartmentRequisition::with(['items.inventoryItem', 'department'])
-        ->whereIn('status', ['issued', 'partially_returned'])
-        ->findOrFail($id);
-
-    // The issued_pack_type and issued_pack_size are already in the items
-    // No need to reassign them - they are accessible directly from $item->issued_pack_type
-
-    // For debugging - you can remove this after testing
-    foreach ($requisition->items as $item) {
-        \Illuminate\Support\Facades\Log::info('Return form item data', [
-            'item_id' => $item->id,
-            'item_name' => $item->inventoryItem->name ?? 'N/A',
-            'issued_pack_type' => $item->issued_pack_type,
-            'issued_pack_size' => $item->issued_pack_size,
-            'quantity_issued' => $item->quantity_issued,
-            'quantity_returned' => $item->quantity_returned,
-            'issued_total_pieces' => $item->issued_total_pieces,
-        ]);
-    }
-
-    return view('store.department_requisitions.return', compact('requisition'));
-}
-
-
-/**
- * Process returns from department (Stock IN).
- */
-/**
- * Process returns from department (Stock IN).
- */
-
-/**
- * Process returns from department (Stock IN).
- * Supports returning in packs, individual pieces, or a combination of both.
- */
-public function processReturn(Request $request, $id)
-{
-    $user = Auth::user();
-
-    if (!$user->department || $user->department->name !== 'STORE') {
-        return redirect()->route('dashboard')->with('error', 'Unauthorized access');
-    }
-
-    $request->validate([
-        'items' => 'required|array',
-        'items.*.item_id' => 'required|exists:department_requisition_items,id',
-        'items.*.inventory_item_id' => 'required|exists:inventory_items,id',
-        'items.*.pack_size' => 'nullable|numeric|min:1',
-        'items.*.number_of_packs' => 'nullable|numeric|min:0',
-        'items.*.quantity_returned' => 'nullable|numeric|min:0',
-        'items.*.total_pieces' => 'nullable|numeric|min:0',
-        'items.*.return_reason' => 'nullable|string',
-        'global_return_reason' => 'nullable|string',
-        'returned_by' => 'required|string|max:255',
-        'store_notes' => 'nullable|string',
-    ]);
-
-    DB::beginTransaction();
-
-    try {
-        $requisition = DepartmentRequisition::findOrFail($id);
-        $anyReturned = false;
-        $globalReason = $request->global_return_reason;
-
-        foreach ($request->items as $itemData) {
-            // Get the requisition item
-            $reqItem = DepartmentRequisitionItem::findOrFail($itemData['item_id']);
-            $inventoryItem = InventoryItem::find($itemData['inventory_item_id']);
-
-            // Get pack information (from when it was issued)
-            $packSize = $reqItem->issued_pack_size ?? 1;
-            $packType = $reqItem->issued_pack_type ?? 'unit';
-
-            // Calculate total pieces being returned
-            // Option 1: Return in packs (number_of_packs × pack_size)
-            $packsReturned = isset($itemData['number_of_packs']) ? (float) $itemData['number_of_packs'] : 0;
-            $packReturnPieces = $packsReturned * $packSize;
-
-            // Option 2: Return individual pieces (quantity_returned)
-            $pieceReturnPieces = isset($itemData['quantity_returned']) ? (float) $itemData['quantity_returned'] : 0;
-
-            // Total pieces returned = packs + individual pieces
-            $totalPiecesReturned = $packReturnPieces + $pieceReturnPieces;
-
-            // Skip if nothing is being returned
-            if ($totalPiecesReturned <= 0) {
-                continue;
+            // ── Update requisition status ─────────────────────────────────────
+            if ($allFullyIssued && $anyIssued) {
+                $requisition->status = 'issued';
+            } elseif ($anyIssued) {
+                $requisition->status = 'partially_issued';
             }
 
-            // Calculate available to return (issued - already returned)
-            $alreadyReturnedPieces = $reqItem->returned_total_pieces ?? 0;
-            $availableToReturn = $reqItem->issued_total_pieces - $alreadyReturnedPieces;
-
-            // Validate not exceeding available
-            if ($totalPiecesReturned > $availableToReturn) {
-                throw new \Exception(
-                    "Cannot return more than available. Item: {$reqItem->inventoryItem->name}, " .
-                    "Available: {$availableToReturn} pieces, Attempting to return: {$totalPiecesReturned} pieces"
-                );
+            if ($request->filled('store_notes')) {
+                $requisition->store_notes = $request->store_notes;
             }
 
-            // Update requisition item with return information
-            // Store the total pieces returned (can be from packs + pieces)
-            $newTotalReturnedPieces = $alreadyReturnedPieces + $totalPiecesReturned;
-            $reqItem->returned_total_pieces = $newTotalReturnedPieces;
+            $requisition->save();
 
-            // Also store the pack return separately for tracking
-            if ($packsReturned > 0) {
-                $reqItem->quantity_returned = ($reqItem->quantity_returned ?? 0) + $packsReturned;
-                $reqItem->returned_pack_type = $packType;
-                $reqItem->returned_pack_size = $packSize;
-            }
+            DB::commit();
 
-            // Store return reason (use item-specific or global)
-            $reqItem->return_reason = $itemData['return_reason'] ?? $globalReason;
-            $reqItem->returned_at = now();
-
-            // Calculate consumed = issued_total_pieces - returned_total_pieces
-            $reqItem->quantity_consumed = $reqItem->issued_total_pieces - $newTotalReturnedPieces;
-            $reqItem->save();
-
-            // Create STOCK IN movement (add back to inventory)
-            $previousStock = $inventoryItem->current_stock ?? 0;
-            $newStock = $previousStock + $totalPiecesReturned;
-            $inventoryItem->current_stock = $newStock;
-            $inventoryItem->save();
-
-            // Record stock movement
-            $movementNumber = 'RET-' . date('Ymd') . '-' . str_pad(rand(0, 9999), 4, '0', STR_PAD_LEFT);
-
-            // Build reason message with return details
-            $returnDetails = [];
-            if ($packsReturned > 0) {
-                $returnDetails[] = "{$packsReturned} {$packType}(s) ({$packReturnPieces} pieces)";
-            }
-            if ($pieceReturnPieces > 0) {
-                $returnDetails[] = "{$pieceReturnPieces} individual pieces";
-            }
-            $returnDetailsText = implode(' + ', $returnDetails);
-
-            StockMovement::create([
-                'movement_number' => $movementNumber,
-                'inventory_item_id' => $inventoryItem->id,
-                'store_id' => 1,
-                'movement_type_id' => 2, // STOCK IN (+)
-                'quantity' => $totalPiecesReturned,
-                'pack_type' => $packsReturned > 0 ? $packType : null,
-                'pack_size' => $packSize,
-                'number_of_packs' => $packsReturned > 0 ? $packsReturned : null,
-                'base_unit' => $inventoryItem->base_unit ?? 'units',
-                'quantity_in_base_unit' => $totalPiecesReturned,
-                'unit_cost' => $inventoryItem->unit_cost,
-                'total_value' => $totalPiecesReturned * ($inventoryItem->unit_cost ?? 0),
-                'reason' => 'RETURN from ' . $requisition->department->name .
-                           ' - Req: ' . $requisition->requisition_number .
-                           ' - Returned: ' . $returnDetailsText .
-                           ($globalReason ? ' - ' . $globalReason : ''),
-                'movement_date' => now(),
-                'approved_at' => now(),
-                'approved_by' => Auth::id(),
-                'created_by' => Auth::id(),
-                'returned_by' => $request->returned_by,
-                'department_requisition_id' => $requisition->id,
+            Log::info('Items issued to department', [
+                'user_id'             => Auth::id(),
+                'requisition_id'      => $requisition->id,
+                'requisition_number'  => $requisition->requisition_number,
+                'taken_by'            => $request->taken_by,
             ]);
 
-            Log::info('Items returned', [
-                'user_id' => Auth::id(),
-                'requisition_id' => $requisition->id,
-                'item_id' => $reqItem->id,
-                'item_name' => $inventoryItem->name,
-                'packs_returned' => $packsReturned,
-                'pack_type' => $packType,
-                'pack_size' => $packSize,
-                'pack_return_pieces' => $packReturnPieces,
-                'piece_return_pieces' => $pieceReturnPieces,
-                'total_pieces_returned' => $totalPiecesReturned,
-                'returned_by' => $request->returned_by,
+            return redirect()->route('store.department-requisitions.show', $requisition->id)
+                ->with('success', 'Items issued successfully. Taken by: ' . $request->taken_by);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('Error issuing items', [
+                'requisition_id' => $id,
+                'error'          => $e->getMessage(),
+                'trace'          => $e->getTraceAsString(),
             ]);
-
-            $anyReturned = true;
+            return redirect()->back()->with('error', 'Error issuing items: ' . $e->getMessage());
         }
-
-        // Update requisition status
-        if ($anyReturned) {
-            // Check if all items are fully returned
-            $allItemsFullyReturned = $requisition->items->every(function($item) {
-                return ($item->returned_total_pieces ?? 0) >= ($item->issued_total_pieces ?? 0);
-            });
-
-            if ($allItemsFullyReturned) {
-                $requisition->status = 'returned';
-            } else {
-                $requisition->status = 'partially_returned';
-            }
-        }
-
-        // Save returned_by to requisition
-        $requisition->returned_by = $request->returned_by;
-
-        // Append store notes
-        if ($request->filled('store_notes')) {
-            $existingNotes = $requisition->store_notes;
-            $newNote = "Return Notes: " . $request->store_notes;
-            $requisition->store_notes = $existingNotes
-                ? $existingNotes . "\n\n" . $newNote
-                : $newNote;
-        }
-        $requisition->save();
-
-        DB::commit();
-
-        // Build success message
-        $message = 'Items returned successfully by: ' . $request->returned_by . '. Stock added back to inventory.';
-
-        return redirect()->route('store.department-requisitions.show', $requisition->id)
-            ->with('success', $message);
-
-    } catch (\Exception $e) {
-        DB::rollBack();
-        Log::error('Error processing return', [
-            'requisition_id' => $id,
-            'error' => $e->getMessage(),
-            'trace' => $e->getTraceAsString(),
-            'request_data' => $request->all(),
-        ]);
-        return redirect()->back()
-            ->with('error', 'Error processing return: ' . $e->getMessage())
-            ->withInput();
     }
-}
 
+    // ─────────────────────────────────────────────────────────────────────────────
+    // RETURN FORM
+    // ─────────────────────────────────────────────────────────────────────────────
+
+    public function returnForm($id)
+    {
+        $user = Auth::user();
+
+        if (!$user->department || $user->department->name !== 'STORE') {
+            return redirect()->route('dashboard')->with('error', 'Unauthorized access');
+        }
+
+        // Allow return for any status where items have been issued
+        $requisition = DepartmentRequisition::with(['items.inventoryItem', 'department'])
+            ->whereIn('status', ['issued', 'partially_issued', 'partially_returned'])
+            ->findOrFail($id);
+
+        foreach ($requisition->items as $item) {
+            Log::info('Return form item data', [
+                'item_id'             => $item->id,
+                'item_name'           => $item->inventoryItem->name ?? 'N/A',
+                'issued_pack_type'    => $item->issued_pack_type,
+                'issued_pack_size'    => $item->issued_pack_size,
+                'quantity_issued'     => $item->quantity_issued,
+                'quantity_returned'   => $item->quantity_returned,
+                'issued_total_pieces' => $item->issued_total_pieces,
+            ]);
+        }
+
+        return view('store.department_requisitions.return', compact('requisition'));
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────────
+    // PROCESS RETURN
+    // ─────────────────────────────────────────────────────────────────────────────
+
+    public function processReturn(Request $request, $id)
+    {
+        $user = Auth::user();
+
+        if (!$user->department || $user->department->name !== 'STORE') {
+            return redirect()->route('dashboard')->with('error', 'Unauthorized access');
+        }
+
+        $request->validate([
+            'items'                        => 'required|array',
+            'items.*.item_id'              => 'required|exists:department_requisition_items,id',
+            'items.*.inventory_item_id'    => 'required|exists:inventory_items,id',
+            'items.*.pack_size'            => 'nullable|numeric|min:1',
+            'items.*.number_of_packs'      => 'nullable|numeric|min:0',
+            'items.*.quantity_returned'    => 'nullable|numeric|min:0',
+            'items.*.total_pieces'         => 'nullable|numeric|min:0',
+            'items.*.return_reason'        => 'nullable|string',
+            'global_return_reason'         => 'nullable|string',
+            'returned_by'                  => 'required|string|max:255',
+            'store_notes'                  => 'nullable|string',
+        ]);
+
+        DB::beginTransaction();
+
+        try {
+            $requisition  = DepartmentRequisition::findOrFail($id);
+            $anyReturned  = false;
+            $globalReason = $request->global_return_reason;
+
+            foreach ($request->items as $itemData) {
+                $reqItem       = DepartmentRequisitionItem::findOrFail($itemData['item_id']);
+                $inventoryItem = InventoryItem::find($itemData['inventory_item_id']);
+
+                $packSize = $reqItem->issued_pack_size ?? 1;
+                $packType = $reqItem->issued_pack_type ?? 'unit';
+
+                // Calculate total pieces being returned
+                $packsReturned    = isset($itemData['number_of_packs']) ? (float) $itemData['number_of_packs'] : 0;
+                $packReturnPieces = $packsReturned * $packSize;
+                $pieceReturnPieces = isset($itemData['quantity_returned']) ? (float) $itemData['quantity_returned'] : 0;
+                $totalPiecesReturned = $packReturnPieces + $pieceReturnPieces;
+
+                // Skip if nothing being returned
+                if ($totalPiecesReturned <= 0) {
+                    continue;
+                }
+
+                // Validate not exceeding available
+                $alreadyReturnedPieces = (float) ($reqItem->returned_total_pieces ?? 0);
+                $availableToReturn     = (float) ($reqItem->issued_total_pieces ?? 0) - $alreadyReturnedPieces;
+
+                if ($totalPiecesReturned > $availableToReturn) {
+                    throw new \Exception(
+                        'Cannot return more than available. Item: ' . ($reqItem->inventoryItem->name ?? 'N/A') .
+                        ', Available: ' . $availableToReturn . ' pieces' .
+                        ', Attempting: ' . $totalPiecesReturned . ' pieces'
+                    );
+                }
+
+                // Update requisition item
+                $newTotalReturnedPieces          = $alreadyReturnedPieces + $totalPiecesReturned;
+                $reqItem->returned_total_pieces  = $newTotalReturnedPieces;
+
+                if ($packsReturned > 0) {
+                    $reqItem->quantity_returned  = ($reqItem->quantity_returned ?? 0) + $packsReturned;
+                    $reqItem->returned_pack_type = $packType;
+                    $reqItem->returned_pack_size = $packSize;
+                }
+
+                $reqItem->return_reason   = $itemData['return_reason'] ?? $globalReason;
+                $reqItem->returned_at     = now();
+                $reqItem->quantity_consumed = (float) ($reqItem->issued_total_pieces ?? 0) - $newTotalReturnedPieces;
+                $reqItem->save();
+
+                // ── Stock before/after ────────────────────────────────────────
+                $stockBefore = (float) ($inventoryItem->current_stock ?? 0);
+                $stockAfter  = $stockBefore + $totalPiecesReturned;
+
+                // Add back to inventory
+                $inventoryItem->current_stock = $stockAfter;
+                $inventoryItem->save();
+
+                // Build reason text
+                $returnDetails = [];
+                if ($packsReturned > 0) {
+                    $returnDetails[] = "{$packsReturned} {$packType}(s) ({$packReturnPieces} pieces)";
+                }
+                if ($pieceReturnPieces > 0) {
+                    $returnDetails[] = "{$pieceReturnPieces} individual pieces";
+                }
+                $returnDetailsText = implode(' + ', $returnDetails);
+
+                // Record stock movement
+                $movementNumber = 'RET-' . date('Ymd') . '-' . str_pad(rand(0, 9999), 4, '0', STR_PAD_LEFT);
+
+                StockMovement::create([
+                    'movement_number'       => $movementNumber,
+                    'inventory_item_id'     => $inventoryItem->id,
+                    'store_id'              => 1,
+                    'movement_type_id'      => 2,   // MANUAL_IN / STOCK IN
+                    'quantity'              => $totalPiecesReturned,
+                    'pack_type'             => $packsReturned > 0 ? $packType : null,
+                    'pack_size'             => $packSize,
+                    'number_of_packs'       => $packsReturned > 0 ? $packsReturned : null,
+                    'base_unit'             => $inventoryItem->base_unit ?? 'units',
+                    'unit_id'               => null,
+                    'quantity_in_base_unit' => $totalPiecesReturned,
+                    'unit_cost'             => $inventoryItem->unit_cost ?? 0,
+                    'total_value'           => $totalPiecesReturned * ($inventoryItem->unit_cost ?? 0),
+                    'reason'                => 'RETURN from ' . ($requisition->department->name ?? 'Department') .
+                                              ' - Req: ' . $requisition->requisition_number .
+                                              ' - ' . $returnDetailsText .
+                                              ($globalReason ? ' - ' . $globalReason : ''),
+                    'movement_date'         => now(),
+                    'approved_at'           => now(),
+                    'approved_by'           => Auth::id(),
+                    'created_by'            => Auth::id(),
+                    'returned_by'           => $request->returned_by,
+                    'stock_before'          => $stockBefore,
+                    'stock_after'           => $stockAfter,
+                ]);
+
+                Log::info('Items returned to store', [
+                    'user_id'              => Auth::id(),
+                    'requisition_id'       => $requisition->id,
+                    'item_id'              => $inventoryItem->id,
+                    'item_name'            => $inventoryItem->name,
+                    'packs_returned'       => $packsReturned,
+                    'piece_return_pieces'  => $pieceReturnPieces,
+                    'total_pieces'         => $totalPiecesReturned,
+                    'stock_before'         => $stockBefore,
+                    'stock_after'          => $stockAfter,
+                    'returned_by'          => $request->returned_by,
+                ]);
+
+                $anyReturned = true;
+            }
+
+            // ── Update requisition status ─────────────────────────────────────
+            if ($anyReturned) {
+                $allFullyReturned = $requisition->items->every(function ($item) {
+                    return ((float) ($item->returned_total_pieces ?? 0)) >= ((float) ($item->issued_total_pieces ?? 0));
+                });
+
+                $requisition->status      = $allFullyReturned ? 'returned' : 'partially_returned';
+                $requisition->returned_by = $request->returned_by;
+            }
+
+            if ($request->filled('store_notes')) {
+                $existing = $requisition->store_notes;
+                $newNote  = 'Return Notes: ' . $request->store_notes;
+                $requisition->store_notes = $existing ? $existing . "\n\n" . $newNote : $newNote;
+            }
+
+            $requisition->save();
+
+            DB::commit();
+
+            return redirect()->route('store.department-requisitions.show', $requisition->id)
+                ->with('success', 'Items returned successfully by: ' . $request->returned_by . '. Stock added back to inventory.');
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('Error processing return', [
+                'requisition_id' => $id,
+                'error'          => $e->getMessage(),
+                'trace'          => $e->getTraceAsString(),
+            ]);
+            return redirect()->back()
+                ->with('error', 'Error processing return: ' . $e->getMessage())
+                ->withInput();
+        }
+    }
 }

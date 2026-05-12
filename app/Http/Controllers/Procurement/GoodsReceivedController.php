@@ -198,7 +198,7 @@ public function store(Request $request)
         });
 
         if ($allItemsFullyReceived) {
-            $po->status = 'received';
+            $po->status = 'fully_received';
             $po->save();
         } elseif ($po->status == 'sent') {
             $po->status = 'partially_received';

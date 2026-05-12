@@ -183,54 +183,42 @@
         </div>
     </div>
 
-    {{-- Action Buttons --}}
-    @if($requisition->status === 'pending')
-    <div class="flex justify-end gap-3">
-        <button type="button" onclick="document.getElementById('rejectModal').classList.remove('hidden')"
-                class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-red-600 border border-red-200 rounded-lg hover:bg-red-50 transition">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                <path d="M18 6 6 18M6 6l12 12"/>
-            </svg>
-            Reject
+{{-- Approve / Reject --}}
+@if($requisition->status === 'pending')
+<div class="flex justify-end gap-3">
+    <button type="button" onclick="document.getElementById('rejectModal').classList.remove('hidden')"
+            class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-red-600 border border-red-200 rounded-lg hover:bg-red-50 transition">
+        Reject
+    </button>
+    <form action="{{ route('store.department-requisitions.approve', $requisition->id) }}" method="POST">
+        @csrf
+        <button type="submit"
+                class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition">
+            Approve Requisition
         </button>
-        <form action="{{ route('store.department-requisitions.approve', $requisition->id) }}" method="POST">
-            @csrf
-            <button type="submit"
-                    class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                    <path d="M5 13l4 4L19 7"/>
-                </svg>
-                Approve Requisition
-            </button>
-        </form>
-    </div>
-    @endif
+    </form>
+</div>
+@endif
 
-    @if(in_array($requisition->status, ['approved', 'partially_issued']))
-    <div class="flex justify-end">
-        <a href="{{ route('store.department-requisitions.issue-form', $requisition->id) }}"
-           class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-lg hover:bg-green-700 transition">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                <path d="M20 7H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/>
-            </svg>
-            Issue Items
-        </a>
-    </div>
-    @endif
+{{-- Issue Items — only before any issuing has happened --}}
+@if($requisition->items->sum('quantity_issued') == 0 && in_array($requisition->status, ['approved']))
+<div class="flex justify-end">
+    <a href="{{ route('store.department-requisitions.issue-form', $requisition->id) }}"
+       class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-lg hover:bg-green-700 transition">
+        Issue Items
+    </a>
+</div>
+@endif
 
-    {{-- Return Button - Only for issued or partially_returned requisitions --}}
-    @if(in_array($requisition->status, ['issued', 'partially_returned']))
-    <div class="flex justify-end mt-4">
-        <a href="{{ route('store.department-requisitions.return-form', $requisition->id) }}"
-           class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-orange-600 rounded-lg hover:bg-orange-700 transition">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                <path d="M3 10h10a8 8 0 0 1 0 16H3m0 0 4-4m-4 4 4 4"/>
-            </svg>
-            Process Return
-        </a>
-    </div>
-    @endif
-
+{{-- Process Return — show whenever anything has been issued --}}
+@if(in_array($requisition->status, ['issued', 'partially_issued', 'partially_returned']))
+<div class="flex justify-end mt-2">
+    <a href="{{ route('store.department-requisitions.return-form', $requisition->id) }}"
+       class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-orange-600 rounded-lg hover:bg-orange-700 transition">
+        Process Return
+    </a>
+</div>
+@endif
 </div>
 
 {{-- Rejection Modal --}}

@@ -129,6 +129,9 @@ public function getRemainingToReceiveAttribute()
     return $this->quantity_ordered - $this->quantity_received;
 }
 
-
+public function requisitions()
+{
+    return $this->hasMany(DepartmentRequisition::class, 'department_id');
+}
 
 }

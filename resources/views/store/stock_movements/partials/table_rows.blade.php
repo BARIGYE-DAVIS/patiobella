@@ -1,26 +1,17 @@
-@forelse($movements as $item)
+@forelse($movements as $movement)
 @php
-    $movement = $item->movement;
-    $stockBefore = $item->stock_before;
-    $stockAfter = $item->stock_after;
+    $stockBefore = $movement->stock_before;
+    $stockAfter = $movement->stock_after;
     $isIn = $movement->movementType && $movement->movementType->sign == '+';
     $receivingUnit = $movement->inventoryItem->default_unit_of_measure_id ?? 'units';
     $baseUnit = $movement->base_unit ?? $movement->inventoryItem->base_unit ?? 'units';
 
-    // Format breakdown display
-    $breakdownMain = '';
-    $breakdownSub = '';
-
     if ($movement->pack_type) {
-        // Bulk item (carton, box, crate, etc.)
         $breakdownMain = number_format($movement->number_of_packs) . ' ' . ucfirst($movement->pack_type);
-        if ($movement->pack_size) {
-            $breakdownSub = '× ' . number_format($movement->pack_size) . ' ' . $baseUnit . '/' . $movement->pack_type;
-        } else {
-            $breakdownSub = '<span class="text-red-400">(pack size not recorded)</span>';
-        }
+        $breakdownSub = $movement->pack_size
+            ? '× ' . number_format($movement->pack_size) . ' ' . $baseUnit . '/' . $movement->pack_type
+            : '<span class="text-red-400">(pack size not recorded)</span>';
     } else {
-        // Direct entry (kg, litres, pcs)
         $breakdownMain = number_format($movement->quantity, 2) . ' ' . $receivingUnit;
         $breakdownSub = '';
     }
@@ -77,8 +68,6 @@
 </tr>
 @empty
 <tr>
-    <td colspan="11" class="text-center py-8 text-gray-400 text-xs">
-        No stock movements found
-    </tr>
+    <td colspan="11" class="text-center py-8 text-gray-400 text-xs">No stock movements found</td>
 </tr>
 @endforelse

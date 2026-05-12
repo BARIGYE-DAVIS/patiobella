@@ -10,7 +10,7 @@ use Illuminate\Support\Facades\Auth;
 use App\Http\Controllers\RoleController;
 use App\Http\Controllers\Procurement\PurchaseOrderController;
 use App\Http\Controllers\Store\StoreDashboardController;
-
+use App\Http\Controllers\Management\ManagerStockMovementController;
 // =====================================================
 // GUEST ROUTES
 // =====================================================
@@ -263,28 +263,86 @@ Route::prefix('approved-lpos')->name('approved-lpos.')->group(function () {
 // MANAGEMENT MODULE Routes
 // =====================================================
 Route::prefix('management')->name('management.')->middleware(['auth', 'management'])->group(function () {
+
     Route::get('/dashboard', [App\Http\Controllers\Management\ManagementController::class, 'dashboard'])->name('dashboard');
     Route::get('/reports/purchase-orders', [App\Http\Controllers\Management\ManagementController::class, 'reportsPurchaseOrders'])->name('reports.purchase-orders');
     Route::get('/analytics/procurement', [App\Http\Controllers\Management\ManagementController::class, 'analyticsProcurement'])->name('analytics.procurement');
     Route::get('/vendors', [App\Http\Controllers\Management\ManagementController::class, 'vendorsIndex'])->name('vendors.index');
-
-
     Route::get('/vendors/{id}', [App\Http\Controllers\Management\ManagementController::class, 'vendorsShow'])->name('vendors.show');
 
-    // In routes/web.php - inside the management group
-Route::prefix('requisitions')->name('requisitions.')->group(function () {
-    Route::get('/', [App\Http\Controllers\Management\ManagementRequisitionController::class, 'index'])->name('index');
-    Route::get('/all', [App\Http\Controllers\Management\ManagementRequisitionController::class, 'all'])->name('all');
-    Route::get('/{id}', [App\Http\Controllers\Management\ManagementRequisitionController::class, 'show'])->name('show');
-    Route::get('/{id}/approve', [App\Http\Controllers\Management\ManagementRequisitionController::class, 'approveForm'])->name('approve-form');
-    Route::post('/{id}/approve', [App\Http\Controllers\Management\ManagementRequisitionController::class, 'approve'])->name('approve');
-    Route::get('/requisitions/{id}/edit', [App\Http\Controllers\Management\ManagementRequisitionController::class, 'edit'])->name('requisitions.edit');
-    Route::put('/requisitions/{id}', [App\Http\Controllers\Management\ManagementRequisitionController::class, 'update'])->name('requisitions.update');
-    Route::post('/{id}/reject', [App\Http\Controllers\Management\ManagementRequisitionController::class, 'reject'])->name('reject');
-});
+    // Requisitions routes
+    Route::prefix('requisitions')->name('requisitions.')->group(function () {
+        Route::get('/', [App\Http\Controllers\Management\ManagementRequisitionController::class, 'index'])->name('index');
+        Route::get('/all', [App\Http\Controllers\Management\ManagementRequisitionController::class, 'all'])->name('all');
+        Route::get('/{id}', [App\Http\Controllers\Management\ManagementRequisitionController::class, 'show'])->name('show');
+        Route::get('/{id}/approve', [App\Http\Controllers\Management\ManagementRequisitionController::class, 'approveForm'])->name('approve-form');
+        Route::post('/{id}/approve', [App\Http\Controllers\Management\ManagementRequisitionController::class, 'approve'])->name('approve');
+        Route::get('/{id}/edit', [App\Http\Controllers\Management\ManagementRequisitionController::class, 'edit'])->name('edit');
+        Route::put('/{id}', [App\Http\Controllers\Management\ManagementRequisitionController::class, 'update'])->name('update');
+        Route::post('/{id}/reject', [App\Http\Controllers\Management\ManagementRequisitionController::class, 'reject'])->name('reject');
+    });
+
+    // ============================================================
+    // STOCK MOVEMENTS & DISTRIBUTION (for Management/Manager)
+    // ============================================================
+    Route::prefix('stock-movements')->name('stock-movements.')->group(function () {
+
+        // Main index page with analytics
+        Route::get('/', [ManagerStockMovementController::class, 'index'])
+            ->name('index');
+
+        // Single movement details
+        Route::get('/{id}', [ManagerStockMovementController::class, 'show'])
+            ->name('show');
+
+        // AJAX endpoint for department distribution data
+        Route::get('/distribution/by-department', [ManagerStockMovementController::class, 'getDistributionByDepartment'])
+            ->name('distribution.by-department');
+
+        // Export routes
+        Route::get('/export/excel', [ManagerStockMovementController::class, 'exportExcel'])
+            ->name('export.excel');
+
+        Route::get('/export/pdf', [ManagerStockMovementController::class, 'exportPdf'])
+            ->name('export.pdf');
+    });
+
+        Route::prefix('purchase-orders')->name('purchase-orders.')->group(function () {
+
+        // Main index page with list and charts
+        Route::get('/', [App\Http\Controllers\Management\ManagerPurchaseOrderController::class, 'index'])
+            ->name('index');
+
+        // Single purchase order details
+        Route::get('/{id}', [App\Http\Controllers\Management\ManagerPurchaseOrderController::class, 'show'])
+            ->name('show');
+
+        // Export routes
+        Route::get('/export/excel', [App\Http\Controllers\Management\ManagerPurchaseOrderController::class, 'exportExcel'])
+            ->name('export.excel');
+
+        Route::get('/export/pdf', [App\Http\Controllers\Management\ManagerPurchaseOrderController::class, 'exportPdf'])
+            ->name('export.pdf');
+    });
 
 
+        Route::prefix('grns')->name('grns.')->group(function () {
 
+        // Main index page with list and charts
+        Route::get('/', [App\Http\Controllers\Management\ManagerGrnController::class, 'index'])
+            ->name('index');
+
+        // Single GRN details
+        Route::get('/{id}', [App\Http\Controllers\Management\ManagerGrnController::class, 'show'])
+            ->name('show');
+
+        // Export routes
+        Route::get('/export/excel', [App\Http\Controllers\Management\ManagerGrnController::class, 'exportExcel'])
+            ->name('export.excel');
+
+        Route::get('/export/pdf', [App\Http\Controllers\Management\ManagerGrnController::class, 'exportPdf'])
+            ->name('export.pdf');
+    });
 });
 
 
@@ -312,7 +370,6 @@ Route::prefix('kitchen')->name('kitchen.')->middleware(['auth', 'kitchen'])->gro
         Route::delete('/{id}/cancel', [App\Http\Controllers\Kitchen\RequisitionController::class, 'cancel'])->name('cancel');
     });
 });
-
 
 
 
