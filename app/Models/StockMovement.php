@@ -34,6 +34,8 @@ class StockMovement extends Model
     'reversed_by_movement_id',
     'created_by',
     'updated_by',
+    'taken_by',
+    'returned_by',
 ];
 
     protected function casts(): array

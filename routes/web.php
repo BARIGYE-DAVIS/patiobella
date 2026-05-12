@@ -124,6 +124,18 @@ Route::prefix('inventory')->name('inventory.')->group(function () {
     Route::patch('/{id}/adjust',     [App\Http\Controllers\Store\InventoryController::class, 'adjustStock'])  ->name('adjust');
 });
 
+// Store - Department Requisitions Routes
+Route::prefix('department-requisitions')->name('department-requisitions.')->group(function () {
+    Route::get('/', [App\Http\Controllers\Store\DepartmentRequisitionController::class, 'index'])->name('index');
+    Route::get('/{id}', [App\Http\Controllers\Store\DepartmentRequisitionController::class, 'show'])->name('show');
+    Route::post('/{id}/approve', [App\Http\Controllers\Store\DepartmentRequisitionController::class, 'approve'])->name('approve');
+    Route::post('/{id}/reject', [App\Http\Controllers\Store\DepartmentRequisitionController::class, 'reject'])->name('reject');
+    Route::get('/{id}/issue-form', [App\Http\Controllers\Store\DepartmentRequisitionController::class, 'issueForm'])->name('issue-form');
+    Route::post('/{id}/issue', [App\Http\Controllers\Store\DepartmentRequisitionController::class, 'issue'])->name('issue');
+    Route::get('/{id}/return-form', [App\Http\Controllers\Store\DepartmentRequisitionController::class, 'returnForm'])->name('return-form');
+    Route::post('/{id}/return', [App\Http\Controllers\Store\DepartmentRequisitionController::class, 'processReturn'])->name('process-return');
+});
+
     // Categories Routes
 Route::prefix('categories')->name('categories.')->group(function () {
     Route::get('/', [App\Http\Controllers\Store\CategoryController::class, 'index'])->name('index');
@@ -286,7 +298,21 @@ Route::prefix('director')->name('director.')->middleware(['auth', 'director'])->
     Route::get('/lpos/{id}/download-pdf', [App\Http\Controllers\Director\LpoController::class, 'downloadPdf'])->name('lpos.download-pdf');
 });
 
+
 // Kitchen Module Routes
 Route::prefix('kitchen')->name('kitchen.')->middleware(['auth', 'kitchen'])->group(function () {
     Route::get('/dashboard', [App\Http\Controllers\Kitchen\KitchenController::class, 'dashboard'])->name('dashboard');
+
+    // Kitchen Requisitions Routes
+    Route::prefix('requisitions')->name('requisitions.')->group(function () {
+        Route::get('/', [App\Http\Controllers\Kitchen\RequisitionController::class, 'index'])->name('index');
+        Route::get('/create', [App\Http\Controllers\Kitchen\RequisitionController::class, 'create'])->name('create');
+        Route::post('/', [App\Http\Controllers\Kitchen\RequisitionController::class, 'store'])->name('store');
+        Route::get('/{id}', [App\Http\Controllers\Kitchen\RequisitionController::class, 'show'])->name('show');
+        Route::delete('/{id}/cancel', [App\Http\Controllers\Kitchen\RequisitionController::class, 'cancel'])->name('cancel');
+    });
 });
+
+
+
+
