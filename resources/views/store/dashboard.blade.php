@@ -20,22 +20,6 @@
     .stat-card .value { font-size: 1.5rem; font-weight: bold; }
     .stat-card .trend { font-size: 0.7rem; margin-top: 0.25rem; }
 
-    .alert-card {
-        background: #fef2f2;
-        border-left: 4px solid #ef4444;
-        border-radius: 10px;
-        padding: 0.75rem;
-        margin-bottom: 0.5rem;
-    }
-    .alert-warning {
-        background: #fffbeb;
-        border-left-color: #f59e0b;
-    }
-    .alert-info {
-        background: #eff6ff;
-        border-left-color: #3b82f6;
-    }
-
     .badge-urgent { background: #dc2626; color: white; padding: 2px 8px; border-radius: 20px; font-size: 0.6rem; }
     .badge-pending { background: #f59e0b; color: white; padding: 2px 8px; border-radius: 20px; font-size: 0.6rem; }
     .badge-approved { background: #10b981; color: white; padding: 2px 8px; border-radius: 20px; font-size: 0.6rem; }
@@ -48,11 +32,11 @@
         text-align: center;
         transition: all 0.2s;
         cursor: pointer;
+        display: block;
+        text-decoration: none;
+        color: #374151;
     }
-    .quick-action-btn:hover {
-        background: #e5e7eb;
-        transform: translateY(-2px);
-    }
+    .quick-action-btn:hover { background: #e5e7eb; transform: translateY(-2px); }
 
     .data-table { width: 100%; border-collapse: collapse; font-size: 0.75rem; }
     .data-table th { background: #f8fafc; padding: 0.75rem; text-align: left; font-weight: 600; color: #475569; border-bottom: 2px solid #e2e8f0; }
@@ -63,19 +47,81 @@
     .trend-up { color: #10b981; }
     .trend-down { color: #ef4444; }
 
-    .kpi-card {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        color: white;
-        border-radius: 12px;
-        padding: 1rem;
-    }
-
     .stock-health { width: 100%; background: #e5e7eb; border-radius: 10px; height: 8px; overflow: hidden; }
-    .stock-health-fill { height: 100%; border-radius: 10px; transition: width 0.3s; }
+    .stock-health-fill { height: 100%; border-radius: 10px; }
     .health-good { background: #10b981; }
     .health-warning { background: #f59e0b; }
     .health-critical { background: #ef4444; }
+
+    .two-col { display: flex; gap: 1.5rem; margin-bottom: 1.5rem; }
+    .col { flex: 1; }
+    .three-col { display: flex; gap: 1rem; margin-bottom: 1.5rem; }
+
+    .chart-container {
+        background: white;
+        border-radius: 12px;
+        padding: 1rem;
+        border: 1px solid #e5e7eb;
+        margin-bottom: 1.5rem;
+    }
+    .chart-title {
+        font-size: 0.8rem;
+        font-weight: 600;
+        color: #374151;
+        margin-bottom: 1rem;
+        text-align: center;
+    }
+
+    .main-tabs {
+        display: flex;
+        gap: 0.5rem;
+        border-bottom: 2px solid #e5e7eb;
+        margin-bottom: 1.5rem;
+        flex-wrap: wrap;
+    }
+    .main-tab-btn {
+        padding: 0.6rem 1.2rem;
+        font-size: 0.8rem;
+        font-weight: 500;
+        background: transparent;
+        border: none;
+        border-bottom: 2px solid transparent;
+        cursor: pointer;
+        transition: all 0.2s;
+        color: #6b7280;
+        margin-bottom: -2px;
+    }
+    .main-tab-btn:hover { color: #374151; }
+    .main-tab-btn.active {
+        color: #3b82f6;
+        border-bottom-color: #3b82f6;
+    }
+    .main-tab-content { display: none; }
+    .main-tab-content.active { display: block; }
+
+    .sub-tabs { display: flex; gap: 0.5rem; margin-bottom: 1rem; border-bottom: 1px solid #e5e7eb; padding-bottom: 0.5rem; flex-wrap: wrap; }
+    .sub-tab-btn { padding: 0.3rem 1rem; font-size: 0.7rem; background: #f3f4f6; border: none; border-radius: 20px; cursor: pointer; transition: all 0.2s; color: #6b7280; }
+    .sub-tab-btn:hover { background: #e5e7eb; }
+    .sub-tab-btn.active { background: #3b82f6; color: white; }
+    .sub-tab-content { display: none; }
+    .sub-tab-content.active { display: block; }
+
+    .pie-row { display: flex; gap: 1rem; margin-bottom: 1.5rem; flex-wrap: wrap; }
+    .pie-card {
+        flex: 1;
+        min-width: 250px;
+        background: white;
+        border-radius: 12px;
+        padding: 1rem;
+        border: 1px solid #e5e7eb;
+    }
+    .pie-card h4 { font-size: 0.75rem; font-weight: 600; text-align: center; margin-bottom: 1rem; }
+
+    .font-mono { font-family: monospace; }
 </style>
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 
 <div class="space-y-6">
 
@@ -83,104 +129,190 @@
     <div class="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-xl p-5 text-white">
         <div class="flex justify-between items-center">
             <div>
-                <h2 class="text-xl font-bold">Welcome back, {{ Auth::user()->first_name ?? 'Store Manager' }}!</h2>
+                <h2 class="text-xl font-bold"><i class="fas fa-chart-line mr-2"></i> Welcome, {{ Auth::user()->first_name ?? 'Store Manager' }}!</h2>
                 <p class="text-blue-100 mt-1">{{ now()->format('l, F d, Y') }} | {{ now()->format('h:i A') }}</p>
             </div>
             <div class="text-right">
-                <p class="text-sm">Today's Activity</p>
+                <p class="text-sm"><i class="fas fa-exchange-alt mr-1"></i> Today's Activity</p>
                 <p class="text-2xl font-bold">{{ $todayIssuesCount ?? 0 }} Issues | {{ $todayReturnsCount ?? 0 }} Returns</p>
             </div>
         </div>
     </div>
 
-    {{-- KPI Cards Row --}}
+    {{-- KPI Cards --}}
     <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
         <div class="stat-card" style="border-left-color: #3b82f6;">
-            <h3>Total Stock Value</h3>
+            <h3><i class="fas fa-dollar-sign mr-1"></i> Stock Value</h3>
             <div class="value">UGX {{ number_format($totalStockValue ?? 0, 2) }}</div>
-            <div class="trend {{ ($stockValueChange ?? 0) >= 0 ? 'trend-up' : 'trend-down' }}">
-                {{ ($stockValueChange ?? 0) >= 0 ? '↑' : '↓' }} {{ number_format(abs($stockValueChange ?? 0), 1) }}% from yesterday
-            </div>
         </div>
         <div class="stat-card" style="border-left-color: #10b981;">
-            <h3>Stock IN Today</h3>
+            <h3><i class="fas fa-arrow-down mr-1"></i> Stock IN Today</h3>
             <div class="value">{{ number_format($stockInToday ?? 0) }} units</div>
-            <div class="trend">+{{ number_format($stockInGrowth ?? 0) }}% vs yesterday</div>
         </div>
-        <div class="stat-card" style="border-left-color: #f59e0b;">
-            <h3>Stock OUT Today</h3>
+        <div class="stat-card" style="border-left-color: #ef4444;">
+            <h3><i class="fas fa-arrow-up mr-1"></i> Stock OUT Today</h3>
             <div class="value">{{ number_format($stockOutToday ?? 0) }} units</div>
-            <div class="trend">{{ ($stockOutGrowth ?? 0) >= 0 ? '+' : '' }}{{ number_format($stockOutGrowth ?? 0) }}% vs yesterday</div>
         </div>
         <div class="stat-card" style="border-left-color: #8b5cf6;">
-            <h3>Net Change Today</h3>
+            <h3><i class="fas fa-chart-line mr-1"></i> Net Change</h3>
             <div class="value {{ ($netChangeToday ?? 0) >= 0 ? 'trend-up' : 'trend-down' }}">
                 {{ ($netChangeToday ?? 0) >= 0 ? '+' : '' }}{{ number_format($netChangeToday ?? 0) }} units
             </div>
-            <div class="trend">Stock {{ ($netChangeToday ?? 0) >= 0 ? 'increased' : 'decreased' }} today</div>
         </div>
     </div>
 
-    {{-- Two Column Layout --}}
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    {{-- PIE CHARTS SECTION --}}
+    <div class="pie-row">
+        <div class="pie-card">
+            <h4><i class="fas fa-chart-pie mr-1"></i> Stock Health</h4>
+            <canvas id="stockHealthPieChart" height="200"></canvas>
+            <div class="text-center mt-2 text-xs">
+                <span class="text-green-600">Healthy: {{ $healthyStockPercent ?? 0 }}%</span> |
+                <span class="text-orange-600">Low: {{ $lowStockPercent ?? 0 }}%</span> |
+                <span class="text-red-600">Out: {{ $outOfStockPercent ?? 0 }}%</span>
+            </div>
+        </div>
+        <div class="pie-card">
+            <h4><i class="fas fa-calendar-day mr-1"></i> Today's Activity</h4>
+            <canvas id="todayActivityPieChart" height="200"></canvas>
+        </div>
+        <div class="pie-card">
+            <h4><i class="fas fa-building mr-1"></i> Dept Consumption</h4>
+            <canvas id="deptConsumptionPieChart" height="200"></canvas>
+        </div>
+    </div>
 
-        {{-- LEFT COLUMN: Alerts & Pending --}}
-        <div class="lg:col-span-2 space-y-6">
+    <div class="pie-row">
+        <div class="pie-card">
+            <h4><i class="fas fa-truck mr-1"></i> Stock IN Source</h4>
+            <canvas id="inventorySourcePieChart" height="200"></canvas>
+        </div>
+        <div class="pie-card">
+            <h4><i class="fas fa-clock mr-1"></i> Pending Requisitions by Dept</h4>
+            <canvas id="pendingRequisitionPieChart" height="200"></canvas>
+        </div>
+        <div class="pie-card">
+            <h4><i class="fas fa-chart-simple mr-1"></i> Issues vs Returns</h4>
+            <canvas id="issuesReturnsPieChart" height="200"></canvas>
+        </div>
+    </div>
 
-            {{-- LOW STOCK ALERTS --}}
-            @if(($lowStockItems ?? collect())->count() > 0)
-            <div class="bg-white rounded-xl border border-red-200 overflow-hidden">
-                <div class="bg-red-50 px-4 py-3 border-b border-red-200">
-                    <h3 class="font-semibold text-red-700">⚠️ Low Stock Alerts (Reorder Required)</h3>
-                </div>
-                <div class="p-4">
-                    @foreach($lowStockItems ?? [] as $item)
-                    <div class="alert-card">
-                        <div class="flex justify-between items-center">
-                            <div>
-                                <span class="font-medium">{{ $item->name }}</span>
-                                <span class="text-xs text-gray-500 ml-2">Code: {{ $item->item_code }}</span>
-                            </div>
-                            <div class="text-right">
-                                <span class="text-sm font-bold text-red-600">{{ number_format($item->current_stock, 2) }}</span>
-                                <span class="text-xs text-gray-500"> / Min: {{ number_format($item->minimum_stock, 2) }}</span>
-                            </div>
-                        </div>
-                        <div class="mt-2">
-                            <div class="stock-health">
-                                <div class="stock-health-fill health-critical" style="width: {{ min(100, ($item->current_stock / $item->minimum_stock) * 100) }}%"></div>
-                            </div>
-                        </div>
-                        <div class="mt-2 flex justify-end">
-                            <a href="{{ route('store.inventory.adjust', $item->id) }}" class="text-xs text-blue-600 hover:underline">Reorder Now →</a>
-                        </div>
+    {{-- MAIN TABS --}}
+    <div class="main-tabs">
+        <button class="main-tab-btn active" data-tab="trends-tab"><i class="fas fa-chart-line mr-1"></i> Stock Trends</button>
+        <button class="main-tab-btn" data-tab="alerts-tab"><i class="fas fa-bell mr-1"></i> Alerts & Requests</button>
+        <button class="main-tab-btn" data-tab="activity-tab"><i class="fas fa-history mr-1"></i> Today's Activity</button>
+    </div>
+
+    {{-- TAB 1: STOCK TRENDS --}}
+    <div id="trends-tab" class="main-tab-content active">
+        <div class="sub-tabs">
+            <button class="sub-tab-btn active" data-subtab="daily-trend">📅 Daily (30 Days)</button>
+            <button class="sub-tab-btn" data-subtab="weekly-trend">📆 Weekly (12 Weeks)</button>
+            <button class="sub-tab-btn" data-subtab="monthly-trend">📊 Monthly (6 Months)</button>
+        </div>
+
+        {{-- DAILY TRENDS --}}
+        <div id="daily-trend" class="sub-tab-content active">
+            <div class="two-col">
+                <div class="chart-container">
+                    <div class="chart-title"><i class="fas fa-boxes mr-1"></i> Inventory Updates - Daily Value</div>
+                    <canvas id="dailyStockChart" height="250"></canvas>
+                    <div class="text-center mt-2 text-xs">
+                        <span class="trend-up"><i class="fas fa-arrow-down mr-1"></i> Avg IN: {{ number_format($avgDailyStockIn ?? 0, 0) }} units</span>
+                        <span class="trend-down ml-3"><i class="fas fa-arrow-up mr-1"></i> Avg OUT: {{ number_format($avgDailyStockOut ?? 0, 0) }} units</span>
                     </div>
-                    @endforeach
+                </div>
+                <div class="chart-container">
+                    <div class="chart-title"><i class="fas fa-exchange-alt mr-1"></i> Department Movements - Daily Value</div>
+                    <canvas id="dailyDeptChart" height="250"></canvas>
+                    <div class="text-center mt-2 text-xs">
+                        <span class="trend-up"><i class="fas fa-arrow-down mr-1"></i> Avg Issues: {{ number_format($avgDailyIssues ?? 0, 0) }} units</span>
+                        <span class="trend-down ml-3"><i class="fas fa-arrow-up mr-1"></i> Avg Returns: {{ number_format($avgDailyReturns ?? 0, 0) }} units</span>
+                    </div>
                 </div>
             </div>
-            @endif
+        </div>
 
-            {{-- OUT OF STOCK ALERTS --}}
-            @if(($outOfStockItems ?? collect())->count() > 0)
-            <div class="bg-white rounded-xl border border-red-400 overflow-hidden">
-                <div class="bg-red-100 px-4 py-3 border-b border-red-300">
-                    <h3 class="font-semibold text-red-800">❌ Out of Stock Items (Critical)</h3>
+        {{-- WEEKLY TRENDS --}}
+        <div id="weekly-trend" class="sub-tab-content">
+            <div class="two-col">
+                <div class="chart-container">
+                    <div class="chart-title"><i class="fas fa-boxes mr-1"></i> Inventory Updates - Weekly Value</div>
+                    <canvas id="weeklyStockChart" height="250"></canvas>
+                    <div class="text-center mt-2 text-xs">
+                        <span class="trend-up"><i class="fas fa-arrow-down mr-1"></i> Avg IN: {{ number_format($avgWeeklyStockIn ?? 0, 0) }} units</span>
+                        <span class="trend-down ml-3"><i class="fas fa-arrow-up mr-1"></i> Avg OUT: {{ number_format($avgWeeklyStockOut ?? 0, 0) }} units</span>
+                        <div class="mt-1">
+                            <span class="trend-up">WoW IN: {{ ($wowStockInChange ?? 0) >= 0 ? '+' : '' }}{{ number_format($wowStockInChange ?? 0, 1) }}%</span>
+                            <span class="trend-down ml-3">WoW OUT: {{ ($wowStockOutChange ?? 0) >= 0 ? '+' : '' }}{{ number_format($wowStockOutChange ?? 0, 1) }}%</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="chart-container">
+                    <div class="chart-title"><i class="fas fa-exchange-alt mr-1"></i> Department Movements - Weekly Value</div>
+                    <canvas id="weeklyDeptChart" height="250"></canvas>
+                    <div class="text-center mt-2 text-xs">
+                        <span class="trend-up">WoW Issues: {{ ($wowIssuesChange ?? 0) >= 0 ? '+' : '' }}{{ number_format($wowIssuesChange ?? 0, 1) }}%</span>
+                        <span class="trend-down ml-3">WoW Returns: {{ ($wowReturnsChange ?? 0) >= 0 ? '+' : '' }}{{ number_format($wowReturnsChange ?? 0, 1) }}%</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        {{-- MONTHLY TRENDS --}}
+        <div id="monthly-trend" class="sub-tab-content">
+            <div class="two-col">
+                <div class="chart-container">
+                    <div class="chart-title"><i class="fas fa-boxes mr-1"></i> Inventory Updates - Monthly Value</div>
+                    <canvas id="monthlyStockChart" height="250"></canvas>
+                    <div class="text-center mt-2 text-xs">
+                        <span class="trend-up"><i class="fas fa-arrow-down mr-1"></i> Avg IN: {{ number_format($avgMonthlyStockIn ?? 0, 0) }} units</span>
+                        <span class="trend-down ml-3"><i class="fas fa-arrow-up mr-1"></i> Avg OUT: {{ number_format($avgMonthlyStockOut ?? 0, 0) }} units</span>
+                        <div class="mt-1">
+                            <span class="trend-up">MoM IN: {{ ($momStockInChange ?? 0) >= 0 ? '+' : '' }}{{ number_format($momStockInChange ?? 0, 1) }}%</span>
+                            <span class="trend-down ml-3">MoM OUT: {{ ($momStockOutChange ?? 0) >= 0 ? '+' : '' }}{{ number_format($momStockOutChange ?? 0, 1) }}%</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="chart-container">
+                    <div class="chart-title"><i class="fas fa-exchange-alt mr-1"></i> Department Movements - Monthly Value</div>
+                    <canvas id="monthlyDeptChart" height="250"></canvas>
+                    <div class="text-center mt-2 text-xs">
+                        <span class="trend-up">MoM Issues: {{ ($momIssuesChange ?? 0) >= 0 ? '+' : '' }}{{ number_format($momIssuesChange ?? 0, 1) }}%</span>
+                        <span class="trend-down ml-3">MoM Returns: {{ ($momReturnsChange ?? 0) >= 0 ? '+' : '' }}{{ number_format($momReturnsChange ?? 0, 1) }}%</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {{-- TAB 2: ALERTS & REQUESTS --}}
+    <div id="alerts-tab" class="main-tab-content">
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {{-- LOW STOCK ALERTS --}}
+            @if(($lowStockItems ?? collect())->count() > 0 || ($outOfStockItems ?? collect())->count() > 0)
+            <div class="bg-white rounded-xl border border-red-200 overflow-hidden">
+                <div class="bg-red-50 px-4 py-3 border-b border-red-200">
+                    <h3 class="font-semibold text-red-700"><i class="fas fa-exclamation-triangle mr-2"></i> Stock Alerts</h3>
                 </div>
                 <div class="p-4">
-                    <div class="grid gap-2">
-                        @foreach($outOfStockItems ?? [] as $item)
-                        <div class="flex justify-between items-center p-2 bg-red-50 rounded-lg">
-                            <div>
-                                <span class="font-medium">{{ $item->name }}</span>
-                                <span class="text-xs text-gray-500 ml-2">Code: {{ $item->item_code }}</span>
-                            </div>
-                            <div>
-                                <span class="text-sm font-bold text-red-700">0 units left</span>
-                                <a href="{{ route('store.inventory.adjust', $item->id) }}" class="ml-3 text-xs bg-red-600 text-white px-2 py-1 rounded hover:bg-red-700">Order Now</a>
-                            </div>
-                        </div>
-                        @endforeach
+                    @if($lowStockItems->count() > 0)
+                    <h4 class="text-sm font-semibold text-orange-600 mb-2"><i class="fas fa-hourglass-half mr-1"></i> Low Stock ({{ $lowStockItems->count() }})</h4>
+                    @foreach($lowStockItems as $item)
+                    <div class="flex justify-between items-center text-sm mb-2">
+                        <span>{{ $item->name }}</span>
+                        <span class="text-orange-600 font-bold">{{ number_format($item->current_stock) }} / {{ number_format($item->minimum_stock) }}</span>
                     </div>
+                    <div class="stock-health mb-2"><div class="stock-health-fill health-warning" style="width: {{ ($item->current_stock / $item->minimum_stock) * 100 }}%"></div></div>
+                    @endforeach
+                    @endif
+                    @if($outOfStockItems->count() > 0)
+                    <h4 class="text-sm font-semibold text-red-600 mb-2 mt-3"><i class="fas fa-ban mr-1"></i> Out of Stock ({{ $outOfStockItems->count() }})</h4>
+                    @foreach($outOfStockItems as $item)
+                    <div class="flex justify-between items-center text-sm mb-1"><span>{{ $item->name }}</span><span class="text-red-600 font-bold">0 units</span></div>
+                    @endforeach
+                    @endif
                 </div>
             </div>
             @endif
@@ -188,220 +320,198 @@
             {{-- PENDING REQUISITIONS --}}
             <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
                 <div class="bg-gray-50 px-4 py-3 border-b border-gray-200 flex justify-between items-center">
-                    <h3 class="font-semibold text-gray-700">📋 Pending Requisitions</h3>
-                    <a href="{{ route('store.department-requisitions.index') }}" class="text-xs text-blue-600 hover:underline">View All →</a>
+                    <h3 class="font-semibold text-gray-700"><i class="fas fa-clock mr-2"></i> Pending Requisitions</h3>
+                    <a href="{{ route('store.department-requisitions.index') }}" class="text-xs text-blue-600 hover:underline">View All</a>
                 </div>
-                <div class="p-0">
+                <div class="overflow-x-auto">
                     <table class="data-table">
-                        <thead><tr><th>Date</th><th>Requisition #</th><th>Department</th><th>Items</th><th>Date Needed</th><th>Status</th><th>Action</th></tr></thead>
+                        <thead><tr><th>Date</th><th>Requisition #</th><th>Dept</th><th>Date Needed</th><th>Status</th></tr></thead>
                         <tbody>
                             @forelse($pendingRequisitions ?? [] as $req)
                             <tr>
                                 <td>{{ $req->created_at->format('Y-m-d') }}</td>
                                 <td class="font-mono">{{ $req->requisition_number }}</td>
                                 <td><span class="badge-pending">{{ $req->department->name ?? 'N/A' }}</span></td>
-                                <td>{{ $req->items->count() }} items</td>
-                                <td class="{{ $req->date_needed && $req->date_needed <= now() ? 'text-red-600 font-bold' : '' }}">
-                                    {{ $req->date_needed ? $req->date_needed->format('Y-m-d') : 'Not set' }}
-                                    @if($req->date_needed && $req->date_needed <= now()) <span class="badge-urgent ml-1">URGENT</span> @endif
-                                </td>
-                                <td><span class="badge-pending">Pending Approval</span></td>
-                                <td><a href="{{ route('store.department-requisitions.show', $req->id) }}" class="text-blue-600 text-xs hover:underline">View</a></td>
+                                <td class="{{ $req->date_needed && $req->date_needed <= now() ? 'text-red-600 font-bold' : '' }}">{{ $req->date_needed ? $req->date_needed->format('Y-m-d') : 'Not set' }}</td>
+                                <td><span class="badge-pending">Pending</span></td>
                             </tr>
                             @empty
-                            <tr><td colspan="7" class="text-center text-gray-500 py-4">No pending requisitions</td></tr>
-                            @endforelse
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-
-            {{-- URGENT REQUESTS (Date needed today/tomorrow) --}}
-            @if(($urgentRequests ?? collect())->count() > 0)
-            <div class="bg-white rounded-xl border border-orange-200 overflow-hidden">
-                <div class="bg-orange-50 px-4 py-3 border-b border-orange-200">
-                    <h3 class="font-semibold text-orange-700">🚨 Urgent Requests (Date Needed Today/Tomorrow)</h3>
-                </div>
-                <div class="p-0">
-                    <table class="data-table">
-                        <thead><tr><th>Dept</th><th>Requisition #</th><th>Item</th><th>Qty</th><th>Date Needed</th><th>Action</th></tr></thead>
-                        <tbody>
-                            @foreach($urgentRequests ?? [] as $req)
-                            @foreach($req->items as $item)
-                            <tr>
-                                <td>{{ $req->department->name ?? 'N/A' }}</td>
-                                <td class="font-mono">{{ $req->requisition_number }}</td>
-                                <td>{{ $item->inventoryItem->name ?? 'N/A' }}</td>
-                                <td>{{ number_format($item->quantity_requested, 2) }} {{ $item->metrics ?? 'units' }}</td>
-                                <td><span class="badge-urgent">{{ $req->date_needed->format('Y-m-d') }}</span></td>
-                                <td><a href="{{ route('store.department-requisitions.show', $req->id) }}" class="bg-orange-600 text-white px-2 py-1 rounded text-xs hover:bg-orange-700">Process Now</a></td>
-                            </tr>
-                            @endforeach
-                            @endforeach
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-            @endif
-
-            {{-- TODAY'S ACTIVITY --}}
-            <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
-                <div class="bg-gray-50 px-4 py-3 border-b border-gray-200">
-                    <h3 class="font-semibold text-gray-700">🔄 Today's Issues & Returns</h3>
-                </div>
-                <div class="p-0">
-                    <table class="data-table">
-                        <thead><tr><th>Time</th><th>Type</th><th>Department</th><th>Item</th><th>Qty</th><th>Taken/Returned By</th><th>Reference</th></tr></thead>
-                        <tbody>
-                            @forelse($todayActivities ?? [] as $activity)
-                            <tr>
-                                <td>{{ $activity->created_at->format('h:i A') }}</td>
-                                <td>
-                                    @if($activity->movementType && $activity->movementType->sign == '-')
-                                        <span class="badge-approved">ISSUE</span>
-                                    @else
-                                        <span class="badge-pending">RETURN</span>
-                                    @endif
-                                </td>
-                                <td>{{ $activity->department->name ?? 'N/A' }}</td>
-                                <td>{{ $activity->inventoryItem->name ?? 'N/A' }}</td>
-                                <td class="text-right">{{ number_format($activity->quantity_in_base_unit ?? 0, 2) }}</td>
-                                <td>{{ $activity->taken_by ?? $activity->returned_by ?? $activity->createdBy->name ?? 'System' }}</td>
-                                <td class="font-mono text-xs">{{ $activity->movement_number }}</td>
-                            </tr>
-                            @empty
-                            <tr><td colspan="7" class="text-center text-gray-500 py-4">No activities today</td></tr>
+                            <tr><td colspan="5" class="text-center text-gray-500 py-4">No pending requisitions</td></tr>
                             @endforelse
                         </tbody>
                     </table>
                 </div>
             </div>
         </div>
+    </div>
 
-        {{-- RIGHT COLUMN: Charts & Quick Actions --}}
-        <div class="space-y-6">
-
-            {{-- Quick Actions --}}
-            <div class="bg-white rounded-xl border border-gray-200 p-4">
-                <h3 class="font-semibold text-gray-700 mb-3">⚡ Quick Actions</h3>
-                <div class="grid grid-cols-2 gap-3">
-                    <a href="{{ route('store.inventory.adjust', 0) }}" class="quick-action-btn">
-                        <div class="text-2xl">➕</div>
-                        <div class="text-xs font-medium">Stock Take</div>
-                    </a>
-                    <a href="{{ route('store.department-requisitions.index') }}?status=approved" class="quick-action-btn">
-                        <div class="text-2xl">📦</div>
-                        <div class="text-xs font-medium">Quick Issue</div>
-                    </a>
-                    <a href="{{ route('store.department-requisitions.index') }}?status=issued" class="quick-action-btn">
-                        <div class="text-2xl">🔄</div>
-                        <div class="text-xs font-medium">Quick Return</div>
-                    </a>
-                    <a href="{{ route('store.inventory.index') }}" class="quick-action-btn">
-                        <div class="text-2xl">📊</div>
-                        <div class="text-xs font-medium">Inventory Report</div>
-                    </a>
-                </div>
+    {{-- TAB 3: TODAY'S ACTIVITY --}}
+    <div id="activity-tab" class="main-tab-content">
+        <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+            <div class="bg-gray-50 px-4 py-3 border-b border-gray-200">
+                <h3 class="font-semibold text-gray-700"><i class="fas fa-history mr-2"></i> Today's Activity Log</h3>
             </div>
-
-            {{-- Today's Activity Pie Chart --}}
-            <div class="bg-white rounded-xl border border-gray-200 p-4">
-                <h3 class="font-semibold text-gray-700 mb-3 text-center">Today's Activity</h3>
-                <canvas id="todayActivityChart" height="200"></canvas>
-                <div class="text-center mt-3">
-                    <div class="grid grid-cols-3 gap-2 text-xs">
-                        <div><span class="inline-block w-3 h-3 rounded-full bg-green-500"></span> Issues: {{ $todayIssuesCount ?? 0 }}</div>
-                        <div><span class="inline-block w-3 h-3 rounded-full bg-orange-500"></span> Returns: {{ $todayReturnsCount ?? 0 }}</div>
-                        <div><span class="inline-block w-3 h-3 rounded-full bg-blue-500"></span> Stock IN: {{ $todayStockInCount ?? 0 }}</div>
-                    </div>
-                </div>
-            </div>
-
-            {{-- Department Request Volume --}}
-            <div class="bg-white rounded-xl border border-gray-200 p-4">
-                <h3 class="font-semibold text-gray-700 mb-3 text-center">Department Request Volume</h3>
-                <canvas id="deptRequestChart" height="200"></canvas>
-                <div class="mt-3 text-xs text-center text-gray-500">
-                    Pending requisitions by department
-                </div>
-            </div>
-
-            {{-- Stock Health Gauge --}}
-            <div class="bg-white rounded-xl border border-gray-200 p-4">
-                <h3 class="font-semibold text-gray-700 mb-3 text-center">Stock Health Overview</h3>
-                <div class="space-y-3">
-                    <div>
-                        <div class="flex justify-between text-xs mb-1">
-                            <span>Healthy Stock</span>
-                            <span>{{ $healthyStockPercent ?? 0 }}%</span>
-                        </div>
-                        <div class="stock-health"><div class="stock-health-fill health-good" style="width: {{ $healthyStockPercent ?? 0 }}%"></div></div>
-                    </div>
-                    <div>
-                        <div class="flex justify-between text-xs mb-1">
-                            <span>Low Stock</span>
-                            <span>{{ $lowStockPercent ?? 0 }}%</span>
-                        </div>
-                        <div class="stock-health"><div class="stock-health-fill health-warning" style="width: {{ $lowStockPercent ?? 0 }}%"></div></div>
-                    </div>
-                    <div>
-                        <div class="flex justify-between text-xs mb-1">
-                            <span>Out of Stock</span>
-                            <span>{{ $outOfStockPercent ?? 0 }}%</span>
-                        </div>
-                        <div class="stock-health"><div class="stock-health-fill health-critical" style="width: {{ $outOfStockPercent ?? 0 }}%"></div></div>
-                    </div>
-                </div>
-                <div class="mt-3 pt-3 border-t text-center">
-                    <div class="grid grid-cols-3 gap-2 text-xs">
-                        <div><span class="font-bold text-green-600">{{ $healthyStockCount ?? 0 }}</span><br>Healthy</div>
-                        <div><span class="font-bold text-orange-600">{{ $lowStockCount ?? 0 }}</span><br>Low</div>
-                        <div><span class="font-bold text-red-600">{{ $outOfStockCount ?? 0 }}</span><br>Out</div>
-                    </div>
-                </div>
-            </div>
-
-            {{-- Top Moving Items Today --}}
-            <div class="bg-white rounded-xl border border-gray-200 p-4">
-                <h3 class="font-semibold text-gray-700 mb-3">🏆 Top Moving Items Today</h3>
-                <div class="space-y-2">
-                    @forelse($topItemsToday ?? [] as $item)
-                    <div class="flex justify-between items-center">
-                        <div class="text-sm">{{ $item['name'] }}</div>
-                        <div class="text-sm font-bold text-blue-600">{{ $item['quantity'] }} units</div>
-                    </div>
-                    <div class="stock-health"><div class="stock-health-fill health-good" style="width: {{ min(100, ($item['quantity'] / max($topItemsTodayMax ?? 1, 1)) * 100) }}%"></div></div>
-                    @empty
-                    <div class="text-center text-gray-500 py-2">No activity yet today</div>
-                    @endforelse
-                </div>
+            <div class="overflow-x-auto">
+                <table class="data-table">
+                    <thead><tr><th>Time</th><th>Type</th><th>Item</th><th>Qty</th><th>Department</th><th>By</th></tr></thead>
+                    <tbody>
+                        @forelse($todayActivities ?? [] as $activity)
+                        <tr>
+                            <td>{{ $activity->created_at->format('h:i A') }}</td>
+                            <td><span class="badge-approved">{{ $activity->movementType->name ?? 'N/A' }}</span></td>
+                            <td>{{ $activity->inventoryItem->name ?? 'N/A' }}</td>
+                            <td>{{ number_format($activity->quantity_in_base_unit ?? 0, 2) }}</td>
+                            <td>{{ $activity->department->name ?? 'N/A' }}</td>
+                            <td>{{ $activity->taken_by ?? $activity->returned_by ?? $activity->createdBy->name ?? 'System' }}</td>
+                        </tr>
+                        @empty
+                        <tr><td colspan="6" class="text-center text-gray-500 py-4">No activities today</td></tr>
+                        @endforelse
+                    </tbody>
+                </table>
             </div>
         </div>
     </div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // Today's Activity Pie Chart
-    new Chart(document.getElementById('todayActivityChart'), {
-        type: 'pie',
-        data: {
-            labels: ['Issues', 'Returns', 'Stock IN'],
-            datasets: [{ data: [{{ $todayIssuesCount ?? 0 }}, {{ $todayReturnsCount ?? 0 }}, {{ $todayStockInCount ?? 0 }}], backgroundColor: ['#10b981', '#f59e0b', '#3b82f6'] }]
-        },
-        options: { responsive: true, maintainAspectRatio: true, plugins: { legend: { position: 'bottom' } } }
+    // ========== MAIN TAB SWITCHING ==========
+    const mainTabBtns = document.querySelectorAll('.main-tab-btn');
+    const mainTabContents = document.querySelectorAll('.main-tab-content');
+
+    mainTabBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+            const tabId = btn.getAttribute('data-tab');
+            mainTabBtns.forEach(b => b.classList.remove('active'));
+            mainTabContents.forEach(c => c.classList.remove('active'));
+            btn.classList.add('active');
+            document.getElementById(tabId).classList.add('active');
+        });
     });
 
-    // Department Request Volume Bar Chart
-    new Chart(document.getElementById('deptRequestChart'), {
-        type: 'bar',
-        data: {
-            labels: {!! json_encode($deptRequestLabels ?? []) !!},
-            datasets: [{ label: 'Pending Requests', data: {!! json_encode($deptRequestData ?? []) !!}, backgroundColor: '#8b5cf6', borderRadius: 8 }]
-        },
-        options: { responsive: true, maintainAspectRatio: true, plugins: { legend: { display: false } } }
+    // ========== SUB TAB SWITCHING ==========
+    const subTabBtns = document.querySelectorAll('.sub-tab-btn');
+    const subTabContents = document.querySelectorAll('.sub-tab-content');
+
+    subTabBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+            const tabId = btn.getAttribute('data-subtab');
+            subTabBtns.forEach(b => b.classList.remove('active'));
+            subTabContents.forEach(c => c.classList.remove('active'));
+            btn.classList.add('active');
+            document.getElementById(tabId).classList.add('active');
+
+            setTimeout(() => {
+                if (window.dailyStockChart) window.dailyStockChart.resize();
+                if (window.dailyDeptChart) window.dailyDeptChart.resize();
+                if (window.weeklyStockChart) window.weeklyStockChart.resize();
+                if (window.weeklyDeptChart) window.weeklyDeptChart.resize();
+                if (window.monthlyStockChart) window.monthlyStockChart.resize();
+                if (window.monthlyDeptChart) window.monthlyDeptChart.resize();
+            }, 100);
+        });
     });
+
+    // ========== PIE CHARTS ==========
+    new Chart(document.getElementById('stockHealthPieChart'), {
+        type: 'pie',
+        data: { labels: {!! json_encode($stockHealthData['labels'] ?? []) !!}, datasets: [{ data: {!! json_encode($stockHealthData['data'] ?? []) !!}, backgroundColor: {!! json_encode($stockHealthData['colors'] ?? []) !!}, borderWidth: 0 }] },
+        options: { responsive: true, maintainAspectRatio: true, plugins: { legend: { position: 'bottom', labels: { font: { size: 10 } } } } }
+    });
+
+    new Chart(document.getElementById('todayActivityPieChart'), {
+        type: 'pie',
+        data: { labels: {!! json_encode($todayActivityData['labels'] ?? []) !!}, datasets: [{ data: {!! json_encode($todayActivityData['data'] ?? []) !!}, backgroundColor: {!! json_encode($todayActivityData['colors'] ?? []) !!}, borderWidth: 0 }] },
+        options: { responsive: true, maintainAspectRatio: true, plugins: { legend: { position: 'bottom', labels: { font: { size: 10 } } } } }
+    });
+
+    new Chart(document.getElementById('deptConsumptionPieChart'), {
+        type: 'pie',
+        data: { labels: {!! json_encode($deptConsumptionData['labels'] ?? []) !!}, datasets: [{ data: {!! json_encode($deptConsumptionData['data'] ?? []) !!}, backgroundColor: {!! json_encode($deptConsumptionData['colors'] ?? []) !!}, borderWidth: 0 }] },
+        options: { responsive: true, maintainAspectRatio: true, plugins: { legend: { position: 'bottom', labels: { font: { size: 10 } } } } }
+    });
+
+    new Chart(document.getElementById('inventorySourcePieChart'), {
+        type: 'pie',
+        data: { labels: {!! json_encode($inventorySourceData['labels'] ?? []) !!}, datasets: [{ data: {!! json_encode($inventorySourceData['data'] ?? []) !!}, backgroundColor: {!! json_encode($inventorySourceData['colors'] ?? []) !!}, borderWidth: 0 }] },
+        options: { responsive: true, maintainAspectRatio: true, plugins: { legend: { position: 'bottom', labels: { font: { size: 10 } } } } }
+    });
+
+    new Chart(document.getElementById('pendingRequisitionPieChart'), {
+        type: 'pie',
+        data: { labels: {!! json_encode($pendingRequisitionData['labels'] ?? []) !!}, datasets: [{ data: {!! json_encode($pendingRequisitionData['data'] ?? []) !!}, backgroundColor: {!! json_encode($pendingRequisitionData['colors'] ?? []) !!}, borderWidth: 0 }] },
+        options: { responsive: true, maintainAspectRatio: true, plugins: { legend: { position: 'bottom', labels: { font: { size: 10 } } } } }
+    });
+
+    new Chart(document.getElementById('issuesReturnsPieChart'), {
+        type: 'pie',
+        data: { labels: ['Issues to Departments', 'Returns from Departments'], datasets: [{ data: [{{ array_sum($dailyIssuesValues ?? [0]) }}, {{ array_sum($dailyReturnsValues ?? [0]) }}], backgroundColor: ['#f59e0b', '#10b981'], borderWidth: 0 }] },
+        options: { responsive: true, maintainAspectRatio: true, plugins: { legend: { position: 'bottom', labels: { font: { size: 10 } } } } }
+    });
+
+    // ========== DAILY CHARTS ==========
+    @if(isset($dailyLabels) && count($dailyLabels) > 0)
+    window.dailyStockChart = new Chart(document.getElementById('dailyStockChart'), {
+        type: 'line',
+        data: { labels: {!! json_encode($dailyLabels) !!}, datasets: [
+            { label: 'Stock IN', data: {!! json_encode($dailyStockInValues) !!}, borderColor: '#10b981', backgroundColor: 'rgba(16, 185, 129, 0.1)', fill: true, tension: 0.4 },
+            { label: 'Stock OUT', data: {!! json_encode($dailyStockOutValues) !!}, borderColor: '#ef4444', backgroundColor: 'rgba(239, 68, 68, 0.1)', fill: true, tension: 0.4 }
+        ] },
+        options: { responsive: true, maintainAspectRatio: true, plugins: { legend: { position: 'top' } } }
+    });
+
+    window.dailyDeptChart = new Chart(document.getElementById('dailyDeptChart'), {
+        type: 'bar',
+        data: { labels: {!! json_encode($dailyLabels) !!}, datasets: [
+            { label: 'Issues to Departments', data: {!! json_encode($dailyIssuesValues) !!}, backgroundColor: '#f59e0b', borderRadius: 4 },
+            { label: 'Returns from Departments', data: {!! json_encode($dailyReturnsValues) !!}, backgroundColor: '#10b981', borderRadius: 4 }
+        ] },
+        options: { responsive: true, maintainAspectRatio: true, plugins: { legend: { position: 'top' } } }
+    });
+    @endif
+
+    // ========== WEEKLY CHARTS ==========
+    @if(isset($weeklyLabels) && count($weeklyLabels) > 0)
+    window.weeklyStockChart = new Chart(document.getElementById('weeklyStockChart'), {
+        type: 'line',
+        data: { labels: {!! json_encode($weeklyLabels) !!}, datasets: [
+            { label: 'Stock IN', data: {!! json_encode($weeklyStockInValues) !!}, borderColor: '#10b981', backgroundColor: 'rgba(16, 185, 129, 0.1)', fill: true, tension: 0.4 },
+            { label: 'Stock OUT', data: {!! json_encode($weeklyStockOutValues) !!}, borderColor: '#ef4444', backgroundColor: 'rgba(239, 68, 68, 0.1)', fill: true, tension: 0.4 }
+        ] },
+        options: { responsive: true, maintainAspectRatio: true, plugins: { legend: { position: 'top' } } }
+    });
+
+    window.weeklyDeptChart = new Chart(document.getElementById('weeklyDeptChart'), {
+        type: 'bar',
+        data: { labels: {!! json_encode($weeklyLabels) !!}, datasets: [
+            { label: 'Issues', data: {!! json_encode($weeklyIssuesValues) !!}, backgroundColor: '#f59e0b', borderRadius: 4 },
+            { label: 'Returns', data: {!! json_encode($weeklyReturnsValues) !!}, backgroundColor: '#10b981', borderRadius: 4 }
+        ] },
+        options: { responsive: true, maintainAspectRatio: true, plugins: { legend: { position: 'top' } } }
+    });
+    @endif
+
+    // ========== MONTHLY CHARTS ==========
+    @if(isset($monthlyLabels) && count($monthlyLabels) > 0)
+    window.monthlyStockChart = new Chart(document.getElementById('monthlyStockChart'), {
+        type: 'line',
+        data: { labels: {!! json_encode($monthlyLabels) !!}, datasets: [
+            { label: 'Stock IN', data: {!! json_encode($monthlyStockInValues) !!}, borderColor: '#10b981', backgroundColor: 'rgba(16, 185, 129, 0.1)', fill: true, tension: 0.4 },
+            { label: 'Stock OUT', data: {!! json_encode($monthlyStockOutValues) !!}, borderColor: '#ef4444', backgroundColor: 'rgba(239, 68, 68, 0.1)', fill: true, tension: 0.4 }
+        ] },
+        options: { responsive: true, maintainAspectRatio: true, plugins: { legend: { position: 'top' } } }
+    });
+
+    window.monthlyDeptChart = new Chart(document.getElementById('monthlyDeptChart'), {
+        type: 'bar',
+        data: { labels: {!! json_encode($monthlyLabels) !!}, datasets: [
+            { label: 'Issues', data: {!! json_encode($monthlyIssuesValues) !!}, backgroundColor: '#f59e0b', borderRadius: 4 },
+            { label: 'Returns', data: {!! json_encode($monthlyReturnsValues) !!}, backgroundColor: '#10b981', borderRadius: 4 }
+        ] },
+        options: { responsive: true, maintainAspectRatio: true, plugins: { legend: { position: 'top' } } }
+    });
+    @endif
 });
 </script>
 @endsection

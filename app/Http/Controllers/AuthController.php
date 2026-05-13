@@ -93,6 +93,11 @@ protected function redirectBasedOnDepartment($user)
             return redirect()->route('kitchen.dashboard')
                 ->with('success', 'Welcome to Kitchen Dashboard, ' . $user->first_name);
         }
+
+        if ($departmentName === 'RESTAURANT') {
+            return redirect()->route('restaurant.dashboard')
+                ->with('success', 'Welcome to Restaurant Dashboard, ' . $user->first_name);
+        }
     }
 
     return redirect()->route('dashboard')

@@ -7,21 +7,40 @@
 
 @php
     $statusConfig = [
-        'pending'          => ['pill' => 'bg-amber-50 text-amber-700 border-amber-200',   'label' => 'Pending'],
-        'approved'         => ['pill' => 'bg-blue-50 text-blue-700 border-blue-200',      'label' => 'Approved'],
-        'issued'           => ['pill' => 'bg-green-50 text-green-700 border-green-200',   'label' => 'Issued'],
-        'partially_issued' => ['pill' => 'bg-orange-50 text-orange-700 border-orange-200','label' => 'Partially Issued'],
-        'partially_returned' => ['pill' => 'bg-purple-50 text-purple-700 border-purple-200','label' => 'Partially Returned'],
-        'returned'         => ['pill' => 'bg-gray-100 text-gray-600 border-gray-200',     'label' => 'Returned'],
-        'rejected'         => ['pill' => 'bg-red-50 text-red-700 border-red-200',         'label' => 'Rejected'],
-        'cancelled'        => ['pill' => 'bg-gray-100 text-gray-500 border-gray-200',     'label' => 'Cancelled'],
+        'pending'            => ['pill' => 'bg-amber-50 text-amber-700 border-amber-200',    'label' => 'Pending'],
+        'approved'           => ['pill' => 'bg-blue-50 text-blue-700 border-blue-200',       'label' => 'Approved'],
+        'issued'             => ['pill' => 'bg-green-50 text-green-700 border-green-200',    'label' => 'Issued'],
+        'partially_issued'   => ['pill' => 'bg-orange-50 text-orange-700 border-orange-200', 'label' => 'Partially Issued'],
+        'partially_returned' => ['pill' => 'bg-purple-50 text-purple-700 border-purple-200', 'label' => 'Partially Returned'],
+        'returned'           => ['pill' => 'bg-gray-100 text-gray-600 border-gray-200',      'label' => 'Returned'],
+        'rejected'           => ['pill' => 'bg-red-50 text-red-700 border-red-200',          'label' => 'Rejected'],
+        'cancelled'          => ['pill' => 'bg-gray-100 text-gray-500 border-gray-200',      'label' => 'Cancelled'],
     ];
     $sc = $statusConfig[$requisition->status] ?? ['pill' => 'bg-gray-100 text-gray-500 border-gray-200', 'label' => ucfirst($requisition->status)];
+
+    // Pull "taken_by" from the most recent ISS- stock movement for this requisition
+    $issueMovement = \App\Models\StockMovement::whereHas('inventoryItem', function($q) use ($requisition) {
+            $q->whereIn('id', $requisition->items->pluck('inventory_item_id'));
+        })
+        ->where('movement_type_id', 5)
+        ->where('reason', 'like', '%' . $requisition->requisition_number . '%')
+        ->orderBy('created_at', 'desc')
+        ->first();
+
+    $takenBy = $issueMovement->taken_by ?? null;
+
+    // Approver name
+    $approver = $requisition->approved_by
+        ? \App\Models\User::find($requisition->approved_by)
+        : null;
+    $approverName = $approver
+        ? trim(($approver->first_name ?? '') . ' ' . ($approver->last_name ?? ''))
+        : null;
 @endphp
 
 <div class="space-y-4">
 
-    {{-- Page Header --}}
+    {{-- ── Page Header ──────────────────────────────────────────────────────── --}}
     <div class="bg-white rounded-xl border border-gray-200 shadow-sm px-6 py-4 flex items-center justify-between flex-wrap gap-3">
         <div class="flex items-center gap-3">
             <a href="{{ route('store.department-requisitions.index') }}"
@@ -46,7 +65,7 @@
         </span>
     </div>
 
-    {{-- Rejection Banner --}}
+    {{-- ── Rejection Banner ─────────────────────────────────────────────────── --}}
     @if($requisition->status === 'rejected' && $requisition->rejection_reason)
     <div class="bg-red-50 border border-red-200 rounded-xl px-5 py-4 flex gap-3 items-start">
         <svg class="w-4 h-4 text-red-500 mt-0.5 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
@@ -59,7 +78,7 @@
     </div>
     @endif
 
-    {{-- Info Cards --}}
+    {{-- ── Info Cards Row ───────────────────────────────────────────────────── --}}
     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
 
         {{-- Requisition Info --}}
@@ -67,11 +86,11 @@
             <h3 class="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-4">Requisition Information</h3>
             <dl class="space-y-3">
                 <div class="flex items-start gap-2">
-                    <dt class="text-xs font-medium text-gray-500 w-32 shrink-0 pt-0.5">Requisition No</dt>
+                    <dt class="text-xs font-medium text-gray-500 w-36 shrink-0 pt-0.5">Requisition No</dt>
                     <dd class="text-sm font-mono font-semibold text-gray-800">{{ $requisition->requisition_number }}</dd>
                 </div>
                 <div class="flex items-start gap-2">
-                    <dt class="text-xs font-medium text-gray-500 w-32 shrink-0 pt-0.5">Department</dt>
+                    <dt class="text-xs font-medium text-gray-500 w-36 shrink-0 pt-0.5">Department</dt>
                     <dd>
                         <span class="inline-block px-2.5 py-0.5 text-xs font-medium rounded-full bg-gray-100 text-gray-600 border border-gray-200">
                             {{ $requisition->department->name ?? 'N/A' }}
@@ -79,149 +98,322 @@
                     </dd>
                 </div>
                 <div class="flex items-start gap-2">
-                    <dt class="text-xs font-medium text-gray-500 w-32 shrink-0 pt-0.5">Requested By</dt>
+                    <dt class="text-xs font-medium text-gray-500 w-36 shrink-0 pt-0.5">Requested By</dt>
                     <dd class="text-sm text-gray-800">
                         {{ trim(($requisition->requestedBy->first_name ?? '') . ' ' . ($requisition->requestedBy->last_name ?? '')) ?: '—' }}
                     </dd>
                 </div>
                 <div class="flex items-start gap-2">
-                    <dt class="text-xs font-medium text-gray-500 w-32 shrink-0 pt-0.5">Date Needed</dt>
+                    <dt class="text-xs font-medium text-gray-500 w-36 shrink-0 pt-0.5">Date Needed</dt>
                     <dd class="text-sm text-gray-800">
                         {{ $requisition->date_needed ? date('F d, Y', strtotime($requisition->date_needed)) : 'Not specified' }}
                     </dd>
                 </div>
+                <div class="flex items-start gap-2">
+                    <dt class="text-xs font-medium text-gray-500 w-36 shrink-0 pt-0.5">Date Created</dt>
+                    <dd class="text-sm text-gray-800">{{ $requisition->created_at->format('F d, Y \a\t h:i A') }}</dd>
+                </div>
             </dl>
         </div>
 
-        {{-- Notes --}}
+        {{-- Processing Info --}}
         <div class="bg-white rounded-xl border border-gray-200 shadow-sm px-6 py-5">
-            <h3 class="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-4">Department Notes</h3>
+            <h3 class="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-4">Processing Information</h3>
+            <dl class="space-y-3">
+
+                {{-- Approved By --}}
+                @if($approverName)
+                <div class="flex items-start gap-2">
+                    <dt class="text-xs font-medium text-gray-500 w-36 shrink-0 pt-0.5">Approved By</dt>
+                    <dd class="text-sm text-gray-800">{{ $approverName }}</dd>
+                </div>
+                @endif
+                @if($requisition->approved_at)
+                <div class="flex items-start gap-2">
+                    <dt class="text-xs font-medium text-gray-500 w-36 shrink-0 pt-0.5">Approved At</dt>
+                    <dd class="text-sm text-gray-800">
+                        {{ \Carbon\Carbon::parse($requisition->approved_at)->format('F d, Y \a\t h:i A') }}
+                    </dd>
+                </div>
+                @endif
+
+                {{-- Taken By --}}
+                @if($takenBy)
+                <div class="flex items-start gap-2">
+                    <dt class="text-xs font-medium text-gray-500 w-36 shrink-0 pt-0.5">Taken By</dt>
+                    <dd>
+                        <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 text-xs font-semibold rounded-full bg-green-50 text-green-700 border border-green-200">
+                            <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                                <path d="M5 13l4 4L19 7"/>
+                            </svg>
+                            {{ $takenBy }}
+                        </span>
+                    </dd>
+                </div>
+                @endif
+
+                {{-- Returned By --}}
+                @if($requisition->returned_by)
+                <div class="flex items-start gap-2">
+                    <dt class="text-xs font-medium text-gray-500 w-36 shrink-0 pt-0.5">Returned By</dt>
+                    <dd>
+                        <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 text-xs font-semibold rounded-full bg-purple-50 text-purple-700 border border-purple-200">
+                            <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                                <path d="M3 10h10a8 8 0 018 8v2M3 10l6 6M3 10l6-6"/>
+                            </svg>
+                            {{ $requisition->returned_by }}
+                        </span>
+                    </dd>
+                </div>
+                @endif
+
+                {{-- No processing yet --}}
+                @if(!$approverName && !$takenBy && !$requisition->returned_by)
+                <p class="text-sm text-gray-400 italic">No processing activity yet.</p>
+                @endif
+
+            </dl>
+        </div>
+    </div>
+
+    {{-- ── Notes Row ────────────────────────────────────────────────────────── --}}
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div class="bg-white rounded-xl border border-gray-200 shadow-sm px-6 py-5">
+            <h3 class="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-3">Department Notes</h3>
             <p class="text-sm text-gray-700 leading-relaxed">
                 {{ $requisition->department_notes ?: 'No notes provided.' }}
             </p>
         </div>
+        @if($requisition->store_notes)
+        <div class="bg-white rounded-xl border border-amber-200 shadow-sm px-6 py-5">
+            <h3 class="text-xs font-semibold uppercase tracking-wider text-amber-500 mb-3">Store Notes</h3>
+            <p class="text-sm text-gray-700 leading-relaxed whitespace-pre-line">{{ $requisition->store_notes }}</p>
+        </div>
+        @endif
     </div>
 
-    {{-- Items Table with Returned Column --}}
+    {{-- ── Items Table ──────────────────────────────────────────────────────── --}}
     <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
         <div class="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
             <h3 class="text-xs font-semibold uppercase tracking-wider text-gray-400">Requested Items</h3>
-            <span class="text-xs text-gray-500">{{ $requisition->items->count() }} item{{ $requisition->items->count() !== 1 ? 's' : '' }}</span>
+            <span class="text-xs text-gray-500">
+                {{ $requisition->items->count() }} item{{ $requisition->items->count() !== 1 ? 's' : '' }}
+            </span>
         </div>
         <div class="overflow-x-auto">
             <table class="w-full text-sm">
                 <thead class="bg-gray-50 border-b border-gray-200">
                     <tr>
-                        <th class="px-4 py-3 text-left text-[10px] font-semibold uppercase tracking-wider text-gray-500">Item</th>
-                        <th class="px-4 py-3 text-left text-[10px] font-semibold uppercase tracking-wider text-gray-500">Metrics</th>
+                        <th class="px-4 py-3 text-left   text-[10px] font-semibold uppercase tracking-wider text-gray-500">Item</th>
+                        <th class="px-4 py-3 text-left   text-[10px] font-semibold uppercase tracking-wider text-gray-500">Metrics</th>
                         <th class="px-4 py-3 text-center text-[10px] font-semibold uppercase tracking-wider text-gray-500">Requested</th>
-                        <th class="px-4 py-3 text-center text-[10px] font-semibold uppercase tracking-wider text-gray-500">Pack Type</th>
-                        <th class="px-4 py-3 text-center text-[10px] font-semibold uppercase tracking-wider text-gray-500">Pcs / Pack</th>
-                        <th class="px-4 py-3 text-center text-[10px] font-semibold uppercase tracking-wider text-gray-500">Issued</th>
-                        <th class="px-4 py-3 text-center text-[10px] font-semibold uppercase tracking-wider text-gray-500">Returned</th>
-                        <th class="px-4 py-3 text-left text-[10px] font-semibold uppercase tracking-wider text-gray-500">Notes</th>
+
+                        {{-- Issued group header --}}
+                        <th colspan="3" class="px-4 py-3 text-center text-[10px] font-semibold uppercase tracking-wider text-green-600 border-l border-gray-200 bg-green-50">
+                            Issued
+                        </th>
+
+                        {{-- Returned group header --}}
+                        <th colspan="2" class="px-4 py-3 text-center text-[10px] font-semibold uppercase tracking-wider text-purple-600 border-l border-gray-200 bg-purple-50">
+                            Returned
+                        </th>
+
+                        <th class="px-4 py-3 text-center text-[10px] font-semibold uppercase tracking-wider text-orange-600 border-l border-gray-200 bg-orange-50">
+                            Consumed
+                        </th>
+                    </tr>
+                    <tr class="border-b border-gray-200">
+                        <th class="px-4 py-2 bg-gray-50"></th>
+                        <th class="px-4 py-2 bg-gray-50"></th>
+                        <th class="px-4 py-2 bg-gray-50 text-center text-[10px] text-gray-400">Qty</th>
+
+                        {{-- Issued sub-headers --}}
+                        <th class="px-4 py-2 bg-green-50 border-l border-gray-200 text-center text-[10px] text-green-500">Packs</th>
+                        <th class="px-4 py-2 bg-green-50 text-center text-[10px] text-green-500">Pack Type &times; Size</th>
+                        <th class="px-4 py-2 bg-green-50 text-center text-[10px] text-green-500">Total Pcs</th>
+
+                        {{-- Returned sub-headers --}}
+                        <th class="px-4 py-2 bg-purple-50 border-l border-gray-200 text-center text-[10px] text-purple-500">Packs</th>
+                        <th class="px-4 py-2 bg-purple-50 text-center text-[10px] text-purple-500">Total Pcs</th>
+
+                        {{-- Consumed --}}
+                        <th class="px-4 py-2 bg-orange-50 border-l border-gray-200 text-center text-[10px] text-orange-500">Pcs</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-100">
                     @foreach($requisition->items as $item)
                     @php
-                        $requested = $item->quantity_requested;
-                        $issued    = $item->quantity_issued;
-                        $returned  = $item->quantity_returned;
-                        $fullyIssued = $issued >= $requested;
-                        $partlyIssued = $issued > 0 && !$fullyIssued;
+                        $requested       = (float) $item->quantity_requested;
+                        $issuedPacks     = (float) ($item->quantity_issued ?? 0);
+                        $issuedPackType  = $item->issued_pack_type;
+                        $issuedPackSize  = (float) ($item->issued_pack_size ?? 0);
+                        $issuedTotalPcs  = (float) ($item->issued_total_pieces ?? 0);
+
+                        $returnedPacks   = (float) ($item->quantity_returned ?? 0);
+                        $returnedTotalPcs = (float) ($item->returned_total_pieces ?? 0);
+                        $consumed        = (float) ($item->quantity_consumed ?? ($issuedTotalPcs - $returnedTotalPcs));
+
+                        $fullyIssued  = $issuedPacks >= $requested;
+                        $partlyIssued = $issuedPacks > 0 && !$fullyIssued;
                     @endphp
                     <tr class="hover:bg-gray-50 transition-colors">
+
+                        {{-- Item name / code --}}
                         <td class="px-4 py-3">
                             <p class="font-medium text-gray-800 text-sm">{{ $item->inventoryItem->name ?? 'N/A' }}</p>
                             <p class="text-xs text-gray-400 mt-0.5 font-mono">{{ $item->inventoryItem->item_code ?? '' }}</p>
                         </td>
+
+                        {{-- Metrics --}}
                         <td class="px-4 py-3 text-gray-500 text-sm">{{ $item->metrics ?: '—' }}</td>
+
+                        {{-- Requested --}}
                         <td class="px-4 py-3 text-center tabular-nums font-semibold text-gray-800">
                             {{ number_format($requested, 2) }}
                         </td>
-                        <td class="px-4 py-3 text-center text-gray-600">
-                            {{ $item->requested_pack_type ? ucfirst($item->requested_pack_type) : '—' }}
-                        </td>
-                        <td class="px-4 py-3 text-center tabular-nums text-gray-600">
-                            {{ $item->requested_pack_size ? number_format($item->requested_pack_size) : '—' }}
-                        </td>
-                        <td class="px-4 py-3 text-center tabular-nums font-semibold">
-                            @if($fullyIssued)
-                                <span class="text-green-600">{{ number_format($issued, 2) }}</span>
-                            @elseif($partlyIssued)
-                                <span class="text-orange-500">{{ number_format($issued, 2) }}</span>
+
+                        {{-- ── Issued columns ───────────────────────────────── --}}
+                        <td class="px-4 py-3 text-center tabular-nums font-semibold border-l border-gray-100">
+                            @if($issuedPacks > 0)
+                                <span class="{{ $fullyIssued ? 'text-green-600' : 'text-orange-500' }}">
+                                    {{ number_format($issuedPacks, 2) }}
+                                </span>
                             @else
-                                <span class="text-gray-400">{{ number_format($issued, 2) }}</span>
+                                <span class="text-gray-300">—</span>
                             @endif
                         </td>
-                        <td class="px-4 py-3 text-center tabular-nums font-semibold text-purple-600">
-                            {{ number_format($returned, 2) }}
+
+                        <td class="px-4 py-3 text-center text-gray-600">
+                            @if($issuedPackType && $issuedPackSize)
+                                <span class="inline-block px-2 py-0.5 text-xs rounded bg-green-50 text-green-700 border border-green-100 font-mono">
+                                    {{ ucfirst($issuedPackType) }} &times; {{ number_format($issuedPackSize) }}
+                                </span>
+                            @else
+                                <span class="text-gray-300">—</span>
+                            @endif
                         </td>
-                        <td class="px-4 py-3 text-gray-500 text-sm">{{ $item->notes ?: '—' }}</td>
+
+                        <td class="px-4 py-3 text-center tabular-nums font-semibold">
+                            @if($issuedTotalPcs > 0)
+                                <span class="{{ $fullyIssued ? 'text-green-600' : 'text-orange-500' }}">
+                                    {{ number_format($issuedTotalPcs, 2) }}
+                                </span>
+                            @else
+                                <span class="text-gray-300">—</span>
+                            @endif
+                        </td>
+
+                        {{-- ── Returned columns ─────────────────────────────── --}}
+                        <td class="px-4 py-3 text-center tabular-nums font-semibold text-purple-600 border-l border-gray-100">
+                            @if($returnedPacks > 0)
+                                {{ number_format($returnedPacks, 2) }}
+                            @else
+                                <span class="text-gray-300">—</span>
+                            @endif
+                        </td>
+
+                        <td class="px-4 py-3 text-center tabular-nums font-semibold text-purple-600">
+                            @if($returnedTotalPcs > 0)
+                                {{ number_format($returnedTotalPcs, 2) }}
+                            @else
+                                <span class="text-gray-300">—</span>
+                            @endif
+                        </td>
+
+                        {{-- ── Consumed ──────────────────────────────────────── --}}
+                        <td class="px-4 py-3 text-center tabular-nums font-semibold border-l border-gray-100">
+                            @if($consumed > 0)
+                                <span class="text-orange-600">{{ number_format($consumed, 2) }}</span>
+                            @elseif($issuedTotalPcs > 0)
+                                <span class="text-gray-400">0.00</span>
+                            @else
+                                <span class="text-gray-300">—</span>
+                            @endif
+                        </td>
+
                     </tr>
                     @endforeach
                 </tbody>
-                <tfoot class="bg-gray-50 border-t border-gray-200">
+
+                {{-- Totals footer --}}
+                <tfoot class="bg-gray-50 border-t-2 border-gray-200">
                     <tr>
                         <td colspan="2" class="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Totals</td>
+
+                        {{-- Requested total --}}
                         <td class="px-4 py-3 text-center tabular-nums font-bold text-gray-800">
                             {{ number_format($requisition->items->sum('quantity_requested'), 2) }}
                         </td>
-                        <td class="px-4 py-3"></td>
-                        <td class="px-4 py-3"></td>
-                        <td class="px-4 py-3 text-center tabular-nums font-bold text-green-600">
+
+                        {{-- Issued: packs + pack type (blank) + total pcs --}}
+                        <td class="px-4 py-3 text-center tabular-nums font-bold text-green-600 border-l border-gray-200">
                             {{ number_format($requisition->items->sum('quantity_issued'), 2) }}
                         </td>
-                        <td class="px-4 py-3 text-center tabular-nums font-bold text-purple-600">
+                        <td class="px-4 py-3"></td>
+                        <td class="px-4 py-3 text-center tabular-nums font-bold text-green-600">
+                            {{ number_format($requisition->items->sum('issued_total_pieces'), 2) }}
+                        </td>
+
+                        {{-- Returned: packs + total pcs --}}
+                        <td class="px-4 py-3 text-center tabular-nums font-bold text-purple-600 border-l border-gray-200">
                             {{ number_format($requisition->items->sum('quantity_returned'), 2) }}
                         </td>
-                        <td class="px-4 py-3"></td>
+                        <td class="px-4 py-3 text-center tabular-nums font-bold text-purple-600">
+                            {{ number_format($requisition->items->sum('returned_total_pieces'), 2) }}
+                        </td>
+
+                        {{-- Consumed total --}}
+                        <td class="px-4 py-3 text-center tabular-nums font-bold text-orange-600 border-l border-gray-200">
+                            {{ number_format($requisition->items->sum('quantity_consumed'), 2) }}
+                        </td>
                     </tr>
                 </tfoot>
             </table>
         </div>
     </div>
 
-{{-- Approve / Reject --}}
-@if($requisition->status === 'pending')
-<div class="flex justify-end gap-3">
-    <button type="button" onclick="document.getElementById('rejectModal').classList.remove('hidden')"
-            class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-red-600 border border-red-200 rounded-lg hover:bg-red-50 transition">
-        Reject
-    </button>
-    <form action="{{ route('store.department-requisitions.approve', $requisition->id) }}" method="POST">
-        @csrf
-        <button type="submit"
-                class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition">
-            Approve Requisition
+    {{-- ── Action Buttons ───────────────────────────────────────────────────── --}}
+
+    {{-- Approve / Reject --}}
+    @if($requisition->status === 'pending')
+    <div class="flex justify-end gap-3">
+        <button type="button" onclick="document.getElementById('rejectModal').classList.remove('hidden')"
+                class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-red-600 border border-red-200 rounded-lg hover:bg-red-50 transition">
+            Reject
         </button>
-    </form>
-</div>
-@endif
+        <form action="{{ route('store.department-requisitions.approve', $requisition->id) }}" method="POST">
+            @csrf
+            <button type="submit"
+                    class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition">
+                Approve Requisition
+            </button>
+        </form>
+    </div>
+    @endif
 
-{{-- Issue Items — only before any issuing has happened --}}
-@if($requisition->items->sum('quantity_issued') == 0 && in_array($requisition->status, ['approved']))
-<div class="flex justify-end">
-    <a href="{{ route('store.department-requisitions.issue-form', $requisition->id) }}"
-       class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-lg hover:bg-green-700 transition">
-        Issue Items
-    </a>
-</div>
-@endif
+    {{-- Issue Items --}}
+    @if($requisition->items->sum('quantity_issued') == 0 && in_array($requisition->status, ['approved']))
+    <div class="flex justify-end">
+        <a href="{{ route('store.department-requisitions.issue-form', $requisition->id) }}"
+           class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-lg hover:bg-green-700 transition">
+            Issue Items
+        </a>
+    </div>
+    @endif
 
-{{-- Process Return — show whenever anything has been issued --}}
-@if(in_array($requisition->status, ['issued', 'partially_issued', 'partially_returned']))
-<div class="flex justify-end mt-2">
-    <a href="{{ route('store.department-requisitions.return-form', $requisition->id) }}"
-       class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-orange-600 rounded-lg hover:bg-orange-700 transition">
-        Process Return
-    </a>
-</div>
-@endif
+    {{-- Process Return --}}
+    @if(in_array($requisition->status, ['issued', 'partially_issued', 'partially_returned']))
+    <div class="flex justify-end mt-2">
+        <a href="{{ route('store.department-requisitions.return-form', $requisition->id) }}"
+           class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-orange-600 rounded-lg hover:bg-orange-700 transition">
+            Process Return
+        </a>
+    </div>
+    @endif
+
 </div>
 
-{{-- Rejection Modal --}}
+{{-- ── Rejection Modal ──────────────────────────────────────────────────────── --}}
 <div id="rejectModal" class="fixed inset-0 z-50 flex items-center justify-center hidden" style="background:rgba(0,0,0,0.45)">
     <div class="bg-white rounded-xl shadow-xl w-full max-w-md mx-4 overflow-hidden">
         <div class="px-6 py-4 border-b border-gray-200 flex items-center justify-between">

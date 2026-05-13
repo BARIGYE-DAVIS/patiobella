@@ -23,6 +23,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'management' => ManagementMiddleware::class,
             'director' => DirectorMiddleware::class,
             'kitchen' => KitchenMiddleware::class,
+            'restaurant' => \App\Http\Middleware\RestaurantMiddleware::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {

@@ -373,3 +373,81 @@ Route::prefix('kitchen')->name('kitchen.')->middleware(['auth', 'kitchen'])->gro
 
 
 
+// =====================================================
+// RESTAURANT MODULE Routes
+// =====================================================
+
+Route::prefix('restaurant')->name('restaurant.')->middleware(['auth', 'restaurant'])->group(function () {
+
+    // Dashboard
+    Route::get('/dashboard', [App\Http\Controllers\Restaurant\RestaurantDashboardController::class, 'index'])->name('dashboard');
+
+    // =====================================================
+    // NOTIFICATIONS (AJAX endpoint for pending requisitions)
+    // =====================================================
+    Route::get('/notifications/check', [App\Http\Controllers\Restaurant\NotificationController::class, 'check'])->name('notifications.check');
+
+    // =====================================================
+    // REQUISITIONS (Restaurant requests items from store)
+    // =====================================================
+    Route::prefix('requisitions')->name('requisitions.')->group(function () {
+        Route::get('/', [App\Http\Controllers\Restaurant\RestaurantRequisitionController::class, 'index'])->name('index');
+        Route::get('/create', [App\Http\Controllers\Restaurant\RestaurantRequisitionController::class, 'create'])->name('create');
+        Route::post('/', [App\Http\Controllers\Restaurant\RestaurantRequisitionController::class, 'store'])->name('store');
+        Route::get('/{id}', [App\Http\Controllers\Restaurant\RestaurantRequisitionController::class, 'show'])->name('show');
+        Route::delete('/{id}/cancel', [App\Http\Controllers\Restaurant\RestaurantRequisitionController::class, 'cancel'])->name('cancel');
+    });
+
+    // =====================================================
+    // MENU MANAGEMENT (Customer-facing menu)
+    // =====================================================
+    Route::prefix('menu')->name('menu.')->group(function () {
+        Route::get('/', [App\Http\Controllers\Restaurant\MenuController::class, 'index'])->name('index');
+        Route::get('/create', [App\Http\Controllers\Restaurant\MenuController::class, 'create'])->name('create');
+        Route::post('/', [App\Http\Controllers\Restaurant\MenuController::class, 'store'])->name('store');
+        Route::get('/{id}/edit', [App\Http\Controllers\Restaurant\MenuController::class, 'edit'])->name('edit');
+        Route::put('/{id}', [App\Http\Controllers\Restaurant\MenuController::class, 'update'])->name('update');
+        Route::delete('/{id}', [App\Http\Controllers\Restaurant\MenuController::class, 'destroy'])->name('destroy');
+        Route::patch('/{id}/toggle-status', [App\Http\Controllers\Restaurant\MenuController::class, 'toggleStatus'])->name('toggle-status');
+    });
+
+    // =====================================================
+    // SALES & CASHIER (Recording customer orders)
+    // =====================================================
+    Route::prefix('sales')->name('sales.')->group(function () {
+        Route::get('/', [App\Http\Controllers\Restaurant\SalesController::class, 'index'])->name('index');
+        Route::get('/pos', [App\Http\Controllers\Restaurant\SalesController::class, 'pos'])->name('pos');
+        Route::post('/store', [App\Http\Controllers\Restaurant\SalesController::class, 'store'])->name('store');
+        Route::get('/{id}', [App\Http\Controllers\Restaurant\SalesController::class, 'show'])->name('show');
+        Route::get('/receipt/{id}', [App\Http\Controllers\Restaurant\SalesController::class, 'receipt'])->name('receipt');
+        Route::get('/report/daily', [App\Http\Controllers\Restaurant\SalesController::class, 'dailyReport'])->name('report.daily');
+        Route::get('/export/excel', [App\Http\Controllers\Restaurant\SalesController::class, 'exportExcel'])->name('export.excel');
+        Route::get('/export/pdf', [App\Http\Controllers\Restaurant\SalesController::class, 'exportPdf'])->name('export.pdf');
+    });
+
+    // =====================================================
+    // STOCK (Restaurant's received items)
+    // =====================================================
+    Route::prefix('stock')->name('stock.')->group(function () {
+        Route::get('/', [App\Http\Controllers\Restaurant\RestaurantStockController::class, 'index'])->name('index');
+        Route::get('/current', [App\Http\Controllers\Restaurant\RestaurantStockController::class, 'currentStock'])->name('current');
+        Route::get('/movements', [App\Http\Controllers\Restaurant\RestaurantStockController::class, 'movements'])->name('movements');
+    });
+
+    // =====================================================
+    // RETURNS (Restaurant returns items to store)
+    // =====================================================
+    Route::prefix('returns')->name('returns.')->group(function () {
+        Route::get('/', [App\Http\Controllers\Restaurant\RestaurantReturnController::class, 'index'])->name('index');
+        Route::get('/create/{requisition_id}', [App\Http\Controllers\Restaurant\RestaurantReturnController::class, 'create'])->name('create');
+        Route::post('/store', [App\Http\Controllers\Restaurant\RestaurantReturnController::class, 'store'])->name('store');
+        Route::get('/{id}', [App\Http\Controllers\Restaurant\RestaurantReturnController::class, 'show'])->name('show');
+    });
+
+    // =====================================================
+    // PROFILE & SETTINGS
+    // =====================================================
+    Route::get('/profile', [App\Http\Controllers\Restaurant\ProfileController::class, 'index'])->name('profile');
+    Route::put('/profile', [App\Http\Controllers\Restaurant\ProfileController::class, 'update'])->name('profile.update');
+    Route::get('/settings', [App\Http\Controllers\Restaurant\SettingsController::class, 'index'])->name('settings');
+});

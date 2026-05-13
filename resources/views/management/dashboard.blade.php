@@ -1,409 +1,826 @@
 @extends('layouts.management')
 
 @section('title', 'Management Dashboard')
-
 @section('page-title', 'Management Dashboard')
 
 @section('content')
-<style>
-    .stat-card {
-        background: white;
-        border-radius: 12px;
-        padding: 1rem;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-        border-left: 4px solid;
-        margin-bottom: 1rem;
-        transition: all 0.2s;
-    }
-    .stat-card:hover { transform: translateY(-2px); box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
-    .stat-card h3 { font-size: 0.7rem; text-transform: uppercase; color: #6b7280; margin-bottom: 0.5rem; letter-spacing: 0.5px; }
-    .stat-card .value { font-size: 1.5rem; font-weight: bold; }
-    .stat-card .trend { font-size: 0.7rem; margin-top: 0.25rem; }
-    .trend-up { color: #10b981; }
-    .trend-down { color: #ef4444; }
 
-    .stat-stock { border-left-color: #3b82f6; }
-    .stat-po { border-left-color: #8b5cf6; }
-    .stat-grn { border-left-color: #10b981; }
-    .stat-value { border-left-color: #f59e0b; }
-
-    .section-title {
-        font-size: 1rem;
-        font-weight: 600;
-        color: #374151;
-        margin-bottom: 1rem;
-        padding-bottom: 0.5rem;
-        border-bottom: 2px solid #e5e7eb;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-    }
-
-    .chart-container {
-        background: white;
-        border-radius: 12px;
-        padding: 1rem;
-        border: 1px solid #e5e7eb;
-        margin-bottom: 1.5rem;
-    }
-    .chart-title {
-        font-size: 0.8rem;
-        font-weight: 600;
-        color: #374151;
-        margin-bottom: 1rem;
-        text-align: center;
-    }
-    .two-col { display: flex; gap: 1.5rem; margin-bottom: 1.5rem; }
-    .three-col { display: flex; gap: 1rem; margin-bottom: 1.5rem; }
-    .col { flex: 1; }
-
-    .badge-status { padding: 2px 8px; border-radius: 20px; font-size: 0.65rem; font-weight: 500; display: inline-block; }
-    .badge-in { background: #d1fae5; color: #065f46; }
-    .badge-out { background: #fee2e2; color: #991b1b; }
-    .badge-pending { background: #fef3c7; color: #92400e; }
-    .badge-approved { background: #dbeafe; color: #1e40af; }
-    .badge-completed { background: #a7f3d0; color: #065f46; }
-
-    .data-table { width: 100%; border-collapse: collapse; font-size: 0.7rem; }
-    .data-table th { background: #f8fafc; padding: 0.5rem; text-align: left; font-weight: 600; color: #475569; border-bottom: 2px solid #e2e8f0; }
-    .data-table td { padding: 0.5rem; border-bottom: 1px solid #e2e8f0; }
-    .data-table tr:hover { background: #f8fafc; }
-    .text-right { text-align: right; }
-    .text-center { text-align: center; }
-
-    .tabs-container { margin-bottom: 1.5rem; }
-    .tabs { display: flex; gap: 0.5rem; border-bottom: 2px solid #e5e7eb; flex-wrap: wrap; }
-    .tab-btn { padding: 0.6rem 1.2rem; font-size: 0.8rem; font-weight: 500; background: transparent; border: none; border-bottom: 2px solid transparent; cursor: pointer; transition: all 0.2s; color: #6b7280; margin-bottom: -2px; }
-    .tab-btn:hover { color: #374151; }
-    .tab-btn.active { color: #3b82f6; border-bottom-color: #3b82f6; }
-    .tab-content { display: none; padding: 1.5rem 0; }
-    .tab-content.active { display: block; }
-
-    .sub-tabs { display: flex; gap: 0.5rem; margin-bottom: 1rem; padding-left: 1rem; border-bottom: 1px solid #e5e7eb; padding-bottom: 0.5rem; }
-    .sub-tab-btn { padding: 0.3rem 1rem; font-size: 0.7rem; background: #f3f4f6; border: none; border-radius: 20px; cursor: pointer; transition: all 0.2s; color: #6b7280; }
-    .sub-tab-btn:hover { background: #e5e7eb; }
-    .sub-tab-btn.active { background: #3b82f6; color: white; }
-    .sub-tab-content { display: none; }
-    .sub-tab-content.active { display: block; }
-
-    .kpi-row { display: flex; gap: 1rem; margin-bottom: 1.5rem; flex-wrap: wrap; }
-    .kpi-card { flex: 1; min-width: 150px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border-radius: 12px; padding: 1rem; }
-    .kpi-card h4 { font-size: 0.7rem; opacity: 0.9; margin-bottom: 0.5rem; }
-    .kpi-card .kpi-value { font-size: 1.5rem; font-weight: bold; }
-    .kpi-card .kpi-label { font-size: 0.65rem; opacity: 0.8; margin-top: 0.25rem; }
-</style>
-
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 
-<div class="space-y-6">
+<style>
+*, *::before, *::after { box-sizing: border-box; }
 
-    {{-- Welcome Section --}}
-    <div class="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-xl p-5 text-white">
-        <h2 class="text-xl font-bold">Welcome back, {{ Auth::user()->first_name ?? 'Manager' }}!</h2>
-        <p class="text-blue-100 mt-1">Here's your complete inventory performance dashboard</p>
+body, .dashboard-root { font-family: 'DM Sans', sans-serif; }
+
+.dashboard-root {
+    --blue:    #2563eb;
+    --green:   #059669;
+    --amber:   #d97706;
+    --violet:  #7c3aed;
+    --rose:    #e11d48;
+    --slate:   #475569;
+    --surface: #ffffff;
+    --bg:      #f1f5f9;
+    --border:  #e2e8f0;
+    --text:    #0f172a;
+    --muted:   #64748b;
+    background: var(--bg);
+    padding: 0 0 2rem;
+}
+
+/* ── Header ─────────────────────────────────────────────────────────── */
+.dash-header {
+    background: linear-gradient(135deg, #0f172a 0%, #1e3a5f 60%, #1e40af 100%);
+    border-radius: 16px;
+    padding: 1.75rem 2rem;
+    margin-bottom: 1.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    position: relative;
+    overflow: hidden;
+}
+.dash-header::before {
+    content: '';
+    position: absolute;
+    right: -40px; top: -40px;
+    width: 220px; height: 220px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.04);
+}
+.dash-header::after {
+    content: '';
+    position: absolute;
+    right: 80px; bottom: -60px;
+    width: 160px; height: 160px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.03);
+}
+.dash-header-left h2 {
+    font-size: 1.35rem;
+    font-weight: 600;
+    color: #fff;
+    margin: 0 0 0.25rem;
+    letter-spacing: -0.01em;
+}
+.dash-header-left p {
+    font-size: 0.8rem;
+    color: rgba(255,255,255,0.55);
+    margin: 0;
+}
+.dash-header-date {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.7rem;
+    color: rgba(255,255,255,0.45);
+    white-space: nowrap;
+}
+
+/* ── KPI Grid ────────────────────────────────────────────────────────── */
+.kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+}
+@media(max-width: 900px) { .kpi-grid { grid-template-columns: repeat(2,1fr); } }
+@media(max-width: 540px) { .kpi-grid { grid-template-columns: 1fr; } }
+
+.kpi-card {
+    background: var(--surface);
+    border-radius: 14px;
+    padding: 1.25rem 1.5rem;
+    border: 1px solid var(--border);
+    position: relative;
+    overflow: hidden;
+    transition: transform 0.18s, box-shadow 0.18s;
+}
+.kpi-card:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,0.08); }
+.kpi-card .kpi-accent {
+    position: absolute;
+    left: 0; top: 0; bottom: 0;
+    width: 4px;
+    border-radius: 14px 0 0 14px;
+}
+.kpi-card .kpi-icon {
+    width: 36px; height: 36px;
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1rem;
+    margin-bottom: 0.85rem;
+}
+.kpi-card .kpi-label {
+    font-size: 0.68rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--muted);
+    margin-bottom: 0.35rem;
+}
+.kpi-card .kpi-value {
+    font-size: 1.4rem;
+    font-weight: 600;
+    color: var(--text);
+    letter-spacing: -0.02em;
+    line-height: 1;
+    font-family: 'DM Mono', monospace;
+}
+.kpi-card .kpi-sub {
+    font-size: 0.68rem;
+    color: var(--muted);
+    margin-top: 0.4rem;
+}
+.kpi-blue   .kpi-accent { background: var(--blue); }
+.kpi-blue   .kpi-icon   { background: #eff6ff; color: var(--blue); }
+.kpi-green  .kpi-accent { background: var(--green); }
+.kpi-green  .kpi-icon   { background: #ecfdf5; color: var(--green); }
+.kpi-amber  .kpi-accent { background: var(--amber); }
+.kpi-amber  .kpi-icon   { background: #fffbeb; color: var(--amber); }
+.kpi-violet .kpi-accent { background: var(--violet); }
+.kpi-violet .kpi-icon   { background: #f5f3ff; color: var(--violet); }
+
+/* ── Tab Bar ─────────────────────────────────────────────────────────── */
+.tab-bar {
+    display: flex;
+    gap: 0.25rem;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 0.35rem;
+    margin-bottom: 1.25rem;
+    flex-wrap: wrap;
+}
+.tab-btn {
+    flex: 1;
+    min-width: 130px;
+    padding: 0.55rem 1rem;
+    font-size: 0.75rem;
+    font-weight: 500;
+    font-family: 'DM Sans', sans-serif;
+    background: transparent;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    color: var(--muted);
+    transition: all 0.15s;
+    white-space: nowrap;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+}
+.tab-btn:hover { background: var(--bg); color: var(--text); }
+.tab-btn.active { background: #0f172a; color: #fff; box-shadow: 0 2px 8px rgba(15,23,42,0.2); }
+
+.tab-content { display: none; }
+.tab-content.active { display: block; }
+
+/* ── Sub Tab Bar ─────────────────────────────────────────────────────── */
+.sub-tab-bar {
+    display: flex;
+    gap: 0.4rem;
+    margin-bottom: 1.25rem;
+    flex-wrap: wrap;
+}
+.sub-tab-btn {
+    padding: 0.35rem 1rem;
+    font-size: 0.7rem;
+    font-weight: 500;
+    font-family: 'DM Sans', sans-serif;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    cursor: pointer;
+    color: var(--muted);
+    transition: all 0.15s;
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+}
+.sub-tab-btn:hover { border-color: #94a3b8; color: var(--text); }
+.sub-tab-btn.active { background: var(--blue); border-color: var(--blue); color: #fff; }
+.sub-tab-content { display: none; }
+.sub-tab-content.active { display: block; }
+
+/* ── Summary Stat Cards ──────────────────────────────────────────────── */
+.stat-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0.75rem;
+    margin-bottom: 1.25rem;
+}
+@media(max-width:800px) { .stat-grid { grid-template-columns: repeat(2,1fr); } }
+.stat-card {
+    background: var(--surface);
+    border-radius: 10px;
+    padding: 1rem 1.25rem;
+    border: 1px solid var(--border);
+}
+.stat-card .stat-label {
+    font-size: 0.65rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--muted);
+    margin-bottom: 0.4rem;
+}
+.stat-card .stat-value {
+    font-size: 1.15rem;
+    font-weight: 600;
+    color: var(--text);
+    font-family: 'DM Mono', monospace;
+    letter-spacing: -0.02em;
+}
+.stat-card.three-col-stat { }
+.stat-grid-3 { grid-template-columns: repeat(3,1fr); }
+
+/* ── Chart Panels ────────────────────────────────────────────────────── */
+.chart-grid-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+@media(max-width:768px) { .chart-grid-2 { grid-template-columns: 1fr; } }
+
+.panel {
+    background: var(--surface);
+    border-radius: 12px;
+    border: 1px solid var(--border);
+    overflow: hidden;
+}
+.panel-header {
+    padding: 0.9rem 1.25rem 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+.panel-title {
+    font-size: 0.72rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--slate);
+}
+.panel-body {
+    padding: 0.75rem 1.25rem 1.25rem;
+}
+.panel-body canvas {
+    max-height: 200px;
+}
+
+/* ── Data Table ──────────────────────────────────────────────────────── */
+.data-wrap { overflow-x: auto; }
+.data-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.72rem;
+    font-family: 'DM Sans', sans-serif;
+}
+.data-table thead tr {
+    background: #f8fafc;
+    border-bottom: 2px solid var(--border);
+}
+.data-table th {
+    padding: 0.6rem 0.75rem;
+    text-align: left;
+    font-weight: 600;
+    color: var(--slate);
+    font-size: 0.65rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    white-space: nowrap;
+}
+.data-table td {
+    padding: 0.55rem 0.75rem;
+    border-bottom: 1px solid #f1f5f9;
+    color: var(--text);
+    vertical-align: middle;
+}
+.data-table tbody tr:last-child td { border-bottom: none; }
+.data-table tbody tr:hover td { background: #f8fafc; }
+.text-right { text-align: right; }
+.text-center { text-align: center; }
+.font-mono { font-family: 'DM Mono', monospace; font-size: 0.68rem; }
+
+/* ── Badges ──────────────────────────────────────────────────────────── */
+.badge {
+    display: inline-block;
+    padding: 0.2rem 0.6rem;
+    border-radius: 20px;
+    font-size: 0.62rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+}
+.badge-in      { background: #d1fae5; color: #065f46; }
+.badge-out     { background: #fee2e2; color: #991b1b; }
+.badge-pending { background: #fef3c7; color: #92400e; }
+.badge-approved{ background: #dbeafe; color: #1e40af; }
+.badge-completed { background: #d1fae5; color: #065f46; }
+
+/* ── Trend chip ──────────────────────────────────────────────────────── */
+.trend-up   { color: #059669; font-size: 0.68rem; font-weight: 600; }
+.trend-down { color: #e11d48; font-size: 0.68rem; font-weight: 600; }
+</style>
+
+<div class="dashboard-root">
+
+    {{-- ── Header ──────────────────────────────────────────────────────── --}}
+    <div class="dash-header">
+        <div class="dash-header-left">
+            <h2>Welcome back, {{ Auth::user()->first_name ?? 'Manager' }}</h2>
+            <p>Inventory performance overview — all data is live</p>
+        </div>
+        <div class="dash-header-date">{{ now()->format('l, F j Y') }}</div>
     </div>
 
-    {{-- Main KPIs --}}
-    <div class="kpi-row">
-        <div class="kpi-card" style="background: linear-gradient(135deg, #3b82f6, #1d4ed8);">
-            <h4>Total Stock Value</h4>
-            <div class="kpi-value">UGX {{ number_format($totalStockValue ?? 0, 2) }}</div>
-            <div class="kpi-label">Current inventory value</div>
+    {{-- ── KPI Row ──────────────────────────────────────────────────────── --}}
+    <div class="kpi-grid">
+        <div class="kpi-card kpi-blue">
+            <div class="kpi-accent"></div>
+            <div class="kpi-icon"><i class="fa fa-money text-green-500" aria-hidden="true"></i></div>
+            <div class="kpi-label">Total Stock Value</div>
+            <div class="kpi-value">{{ number_format($totalStockValue ?? 0, 0) }}</div>
+            <div class="kpi-sub">UGX — current inventory</div>
         </div>
-        <div class="kpi-card" style="background: linear-gradient(135deg, #10b981, #059669);">
-            <h4>Stock IN (This Month)</h4>
-            <div class="kpi-value">{{ number_format($monthlyStockIn ?? 0) }} units</div>
-            <div class="kpi-label">+{{ number_format($stockInGrowth ?? 0) }}% from last month</div>
+        <div class="kpi-card kpi-green">
+            <div class="kpi-accent"></div>
+            <div class="kpi-icon"><i class="fa fa-arrow-down" aria-hidden="true"></i></div>
+            <div class="kpi-label">Stock IN this month</div>
+            <div class="kpi-value">{{ number_format($monthlyStockIn ?? 0) }}</div>
+            <div class="kpi-sub">
+                <span class="trend-up">+{{ number_format($stockInGrowth ?? 0) }}%</span> vs last month
+            </div>
         </div>
-        <div class="kpi-card" style="background: linear-gradient(135deg, #f59e0b, #d97706);">
-            <h4>Stock OUT (This Month)</h4>
-            <div class="kpi-value">{{ number_format($monthlyStockOut ?? 0) }} units</div>
-            <div class="kpi-label">{{ number_format($stockOutGrowth ?? 0) }}% change</div>
+        <div class="kpi-card kpi-amber">
+            <div class="kpi-accent"></div>
+            <div class="kpi-icon"><i class="fa fa-arrow-up" aria-hidden="true"></i></div>
+            <div class="kpi-label">Stock OUT this month</div>
+            <div class="kpi-value">{{ number_format($monthlyStockOut ?? 0) }}</div>
+            <div class="kpi-sub">
+                @php $chg = $stockOutGrowth ?? 0; @endphp
+                <span class="{{ $chg >= 0 ? 'trend-up' : 'trend-down' }}">
+                    {{ $chg >= 0 ? '+' : '' }}{{ number_format($chg) }}%
+                </span> vs last month
+            </div>
         </div>
-        <div class="kpi-card" style="background: linear-gradient(135deg, #8b5cf6, #7c3aed);">
-            <h4>Pending Approvals</h4>
+        <div class="kpi-card kpi-violet">
+            <div class="kpi-accent"></div>
+            <div class="kpi-icon"><i class="fa fa-bell" aria-hidden="true"></i></div>
+            <div class="kpi-label">Pending Approvals</div>
             <div class="kpi-value">{{ number_format($pendingApprovals ?? 0) }}</div>
-            <div class="kpi-label">Require your attention</div>
+            <div class="kpi-sub">Require your attention</div>
         </div>
     </div>
 
-    {{-- MAIN TABS --}}
-    <div class="tabs-container">
-        <div class="tabs">
-            <button class="tab-btn active" data-tab="tab-stock">📦 Stock Movements</button>
-            <button class="tab-btn" data-tab="tab-po">📄 Purchase Orders</button>
-            <button class="tab-btn" data-tab="tab-grn">📥 Goods Received</button>
-            <button class="tab-btn" data-tab="tab-distribution">🏢 Department Distribution</button>
-        </div>
+    {{-- ── Main Tab Bar ─────────────────────────────────────────────────── --}}
+    <div class="tab-bar">
+        <button class="tab-btn active" data-tab="tab-stock">
+            <span>📦</span> Stock Movements
+        </button>
+        <button class="tab-btn" data-tab="tab-po">
+            <span>📄</span> Purchase Orders
+        </button>
+        <button class="tab-btn" data-tab="tab-grn">
+            <span>📥</span> Goods Received
+        </button>
+        <button class="tab-btn" data-tab="tab-distribution">
+            <span>🏢</span> Dept. Distribution
+        </button>
+    </div>
 
-        {{-- ============================================================ --}}
-        {{-- TAB 1: STOCK MOVEMENTS with Daily/Weekly/Monthly Trends --}}
-        {{-- ============================================================ --}}
-        <div id="tab-stock" class="tab-content active">
-            {{-- Summary Stats --}}
-            <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-                <div class="stat-card stat-stock"><h3>Total Stock IN</h3><div class="value">{{ number_format($totalStockIn ?? 0, 2) }} units</div></div>
-                <div class="stat-card stat-stock"><h3>Total Stock OUT</h3><div class="value">{{ number_format($totalStockOut ?? 0, 2) }} units</div></div>
-                <div class="stat-card stat-stock"><h3>Net Change</h3><div class="value {{ ($netChange ?? 0) >= 0 ? 'trend-up' : 'trend-down' }}">{{ ($netChange ?? 0) >= 0 ? '+' : '' }}{{ number_format($netChange ?? 0, 2) }} units</div></div>
-                <div class="stat-card stat-value"><h3>Total Value Moved</h3><div class="value">UGX {{ number_format($totalValueMoved ?? 0, 2) }}</div></div>
+    {{-- ════════════════════════════════════════════════════════════════ --}}
+    {{-- TAB 1: STOCK MOVEMENTS                                          --}}
+    {{-- ════════════════════════════════════════════════════════════════ --}}
+    <div id="tab-stock" class="tab-content active">
+
+        <div class="stat-grid">
+            <div class="stat-card">
+                <div class="stat-label">Total Stock IN</div>
+                <div class="stat-value">{{ number_format($totalStockIn ?? 0, 2) }} <span style="font-size:0.6rem;color:var(--muted)">units</span></div>
             </div>
-
-            {{-- SUB TABS for Stock Movements Trends --}}
-            <div class="sub-tabs">
-                <button class="sub-tab-btn active" data-subtab="stock-daily">📅 Daily Trend</button>
-                <button class="sub-tab-btn" data-subtab="stock-weekly">📆 Weekly Trend</button>
-                <button class="sub-tab-btn" data-subtab="stock-monthly">📊 Monthly Trend</button>
+            <div class="stat-card">
+                <div class="stat-label">Total Stock OUT</div>
+                <div class="stat-value">{{ number_format($totalStockOut ?? 0, 2) }} <span style="font-size:0.6rem;color:var(--muted)">units</span></div>
             </div>
-
-            {{-- STOCK DAILY TREND --}}
-            <div id="stock-daily" class="sub-tab-content active">
-                <div class="two-col">
-                    <div class="chart-container"><div class="chart-title">Daily Stock IN Value</div><canvas id="stockDailyInChart"></canvas></div>
-                    <div class="chart-container"><div class="chart-title">Daily Stock OUT Value</div><canvas id="stockDailyOutChart"></canvas></div>
-                </div>
-                <div class="two-col">
-                    <div class="chart-container"><div class="chart-title">Daily Stock IN Count</div><canvas id="stockDailyInCountChart"></canvas></div>
-                    <div class="chart-container"><div class="chart-title">Daily Stock OUT Count</div><canvas id="stockDailyOutCountChart"></canvas></div>
+            <div class="stat-card">
+                <div class="stat-label">Net Change</div>
+                <div class="stat-value {{ ($netChange ?? 0) >= 0 ? 'trend-up' : 'trend-down' }}">
+                    {{ ($netChange ?? 0) >= 0 ? '+' : '' }}{{ number_format($netChange ?? 0, 2) }}
                 </div>
             </div>
-
-            {{-- STOCK WEEKLY TREND --}}
-            <div id="stock-weekly" class="sub-tab-content">
-                <div class="two-col">
-                    <div class="chart-container"><div class="chart-title">Weekly Stock IN vs OUT Value</div><canvas id="stockWeeklyValueChart"></canvas></div>
-                    <div class="chart-container"><div class="chart-title">Weekly Stock IN vs OUT Count</div><canvas id="stockWeeklyCountChart"></canvas></div>
-                </div>
-            </div>
-
-            {{-- STOCK MONTHLY TREND --}}
-            <div id="stock-monthly" class="sub-tab-content">
-                <div class="two-col">
-                    <div class="chart-container"><div class="chart-title">Monthly Stock IN vs OUT Value</div><canvas id="stockMonthlyValueChart"></canvas></div>
-                    <div class="chart-container"><div class="chart-title">Monthly Stock IN vs OUT Count</div><canvas id="stockMonthlyCountChart"></canvas></div>
-                </div>
-            </div>
-
-            {{-- Pie Charts Section --}}
-            <div class="two-col">
-                <div class="chart-container"><div class="chart-title">Stock IN vs OUT (Overall)</div><canvas id="stockInOutPieChart"></canvas></div>
-                <div class="chart-container"><div class="chart-title">Stock IN Source Breakdown</div><canvas id="stockSourcePieChart"></canvas></div>
-            </div>
-
-            {{-- Top Items & Recent Movements --}}
-            <div class="two-col">
-                <div class="chart-container"><div class="chart-title">Top 10 Moving Items</div><canvas id="stockTopItemsChart"></canvas></div>
-                <div class="chart-container"><div class="chart-title">Recent Stock Movements</div>
-                    <table class="data-table"><thead><tr><th>Date</th><th>Item</th><th>Type</th><th class="text-right">Qty</th></tr></thead>
-                    <tbody>@forelse($recentMovements ?? [] as $m)<tr><td>{{ $m->movement_date?->format('Y-m-d') }}</td><td>{{ $m->inventoryItem->name ?? 'N/A' }}</td><td><span class="badge-status {{ $m->movementType && $m->movementType->sign == '+' ? 'badge-in' : 'badge-out' }}">{{ $m->movementType->name ?? 'N/A' }}</span></td><td class="text-right">{{ number_format($m->quantity_in_base_unit ?? 0, 2) }}</td></tr>@empty<tr><td colspan="4" class="text-center">No data</td></tr>@endforelse</tbody></table>
-                </div>
+            <div class="stat-card">
+                <div class="stat-label">Total Value Moved</div>
+                <div class="stat-value" style="font-size:1rem;">UGX {{ number_format($totalValueMoved ?? 0, 0) }}</div>
             </div>
         </div>
 
-        {{-- ============================================================ --}}
-        {{-- TAB 2: PURCHASE ORDERS with Daily/Weekly/Monthly Trends --}}
-        {{-- ============================================================ --}}
-        <div id="tab-po" class="tab-content">
-            <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-                <div class="stat-card stat-po"><h3>Total POs</h3><div class="value">{{ number_format($totalPOs ?? 0) }}</div></div>
-                <div class="stat-card stat-po"><h3>Total PO Value</h3><div class="value">UGX {{ number_format($totalPOValue ?? 0, 2) }}</div></div>
-                <div class="stat-card stat-po"><h3>Pending POs</h3><div class="value">{{ number_format($pendingPOs ?? 0) }}</div></div>
-                <div class="stat-card stat-po"><h3>Completed POs</h3><div class="value">{{ number_format($completedPOs ?? 0) }}</div></div>
-            </div>
+        <div class="sub-tab-bar">
+            <button class="sub-tab-btn active" data-subtab="stock-daily">📅 Daily</button>
+            <button class="sub-tab-btn" data-subtab="stock-weekly">📆 Weekly</button>
+            <button class="sub-tab-btn" data-subtab="stock-monthly">📊 Monthly</button>
+        </div>
 
-            <div class="sub-tabs">
-                <button class="sub-tab-btn active" data-subtab="po-daily">📅 Daily Trend</button>
-                <button class="sub-tab-btn" data-subtab="po-weekly">📆 Weekly Trend</button>
-                <button class="sub-tab-btn" data-subtab="po-monthly">📊 Monthly Trend</button>
+        <div id="stock-daily" class="sub-tab-content active">
+            <div class="chart-grid-2">
+                <div class="panel"><div class="panel-header"><span class="panel-title">Daily Stock IN Value</span></div><div class="panel-body"><canvas id="stockDailyInChart"></canvas></div></div>
+                <div class="panel"><div class="panel-header"><span class="panel-title">Daily Stock OUT Value</span></div><div class="panel-body"><canvas id="stockDailyOutChart"></canvas></div></div>
             </div>
-
-            <div id="po-daily" class="sub-tab-content active">
-                <div class="two-col"><div class="chart-container"><div class="chart-title">Daily PO Value</div><canvas id="poDailyValueChart"></canvas></div>
-                <div class="chart-container"><div class="chart-title">Daily PO Count</div><canvas id="poDailyCountChart"></canvas></div></div>
-            </div>
-            <div id="po-weekly" class="sub-tab-content">
-                <div class="two-col"><div class="chart-container"><div class="chart-title">Weekly PO Value</div><canvas id="poWeeklyValueChart"></canvas></div>
-                <div class="chart-container"><div class="chart-title">Weekly PO Count</div><canvas id="poWeeklyCountChart"></canvas></div></div>
-            </div>
-            <div id="po-monthly" class="sub-tab-content">
-                <div class="two-col"><div class="chart-container"><div class="chart-title">Monthly PO Value</div><canvas id="poMonthlyValueChart"></canvas></div>
-                <div class="chart-container"><div class="chart-title">Monthly PO Count</div><canvas id="poMonthlyCountChart"></canvas></div></div>
-            </div>
-
-            <div class="two-col">
-                <div class="chart-container"><div class="chart-title">PO Status Distribution</div><canvas id="poStatusPieChart"></canvas></div>
-                <div class="chart-container"><div class="chart-title">Recent Purchase Orders</div>
-                    <table class="data-table"><thead><tr><th>PO #</th><th>Date</th><th>Vendor</th><th class="text-right">Amount</th><th>Status</th></tr></thead>
-                    <tbody>@forelse($recentPOs ?? [] as $po)<tr><td class="font-mono">{{ $po->po_number }}</td><td>{{ $po->po_date->format('Y-m-d') }}</td><td>{{ $po->vendor->name ?? 'N/A' }}</td><td class="text-right">UGX {{ number_format($po->total_amount, 2) }}</td><td><span class="badge-status status-{{ $po->status }}">{{ ucfirst(str_replace('_', ' ', $po->status)) }}</span></td></tr>@empty<tr><td colspan="5" class="text-center">No data</td></tr>@endforelse</tbody></table>
-                </div>
+            <div class="chart-grid-2">
+                <div class="panel"><div class="panel-header"><span class="panel-title">Daily IN Count</span></div><div class="panel-body"><canvas id="stockDailyInCountChart"></canvas></div></div>
+                <div class="panel"><div class="panel-header"><span class="panel-title">Daily OUT Count</span></div><div class="panel-body"><canvas id="stockDailyOutCountChart"></canvas></div></div>
             </div>
         </div>
 
-        {{-- ============================================================ --}}
-        {{-- TAB 3: GOODS RECEIVED NOTES with Daily/Weekly/Monthly Trends --}}
-        {{-- ============================================================ --}}
-        <div id="tab-grn" class="tab-content">
-            <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-                <div class="stat-card stat-grn"><h3>Total GRNs</h3><div class="value">{{ number_format($totalGRNs ?? 0) }}</div></div>
-                <div class="stat-card stat-grn"><h3>Total GRN Value</h3><div class="value">UGX {{ number_format($totalGRNValue ?? 0, 2) }}</div></div>
-                <div class="stat-card stat-grn"><h3>Pending Inventory</h3><div class="value">{{ number_format($grnCompletedCount ?? 0) }}</div></div>
-                <div class="stat-card stat-grn"><h3>Inventory Updated</h3><div class="value">{{ number_format($grnInventoryUpdatedCount ?? 0) }}</div></div>
-            </div>
-
-            <div class="sub-tabs">
-                <button class="sub-tab-btn active" data-subtab="grn-daily">📅 Daily Trend</button>
-                <button class="sub-tab-btn" data-subtab="grn-weekly">📆 Weekly Trend</button>
-                <button class="sub-tab-btn" data-subtab="grn-monthly">📊 Monthly Trend</button>
-            </div>
-
-            <div id="grn-daily" class="sub-tab-content active">
-                <div class="two-col"><div class="chart-container"><div class="chart-title">Daily GRN Value</div><canvas id="grnDailyValueChart"></canvas></div>
-                <div class="chart-container"><div class="chart-title">Daily GRN Count</div><canvas id="grnDailyCountChart"></canvas></div></div>
-            </div>
-            <div id="grn-weekly" class="sub-tab-content">
-                <div class="two-col"><div class="chart-container"><div class="chart-title">Weekly GRN Value</div><canvas id="grnWeeklyValueChart"></canvas></div>
-                <div class="chart-container"><div class="chart-title">Weekly GRN Count</div><canvas id="grnWeeklyCountChart"></canvas></div></div>
-            </div>
-            <div id="grn-monthly" class="sub-tab-content">
-                <div class="two-col"><div class="chart-container"><div class="chart-title">Monthly GRN Value</div><canvas id="grnMonthlyValueChart"></canvas></div>
-                <div class="chart-container"><div class="chart-title">Monthly GRN Count</div><canvas id="grnMonthlyCountChart"></canvas></div></div>
-            </div>
-
-            <div class="two-col">
-                <div class="chart-container"><div class="chart-title">GRN Status Distribution</div><canvas id="grnStatusPieChart"></canvas></div>
-                <div class="chart-container"><div class="chart-title">Recent GRNs</div>
-                    <table class="data-table"><thead><tr><th>GRN #</th><th>Date</th><th>Vendor</th><th class="text-right">Amount</th><th>Status</th></tr></thead>
-                    <tbody>@forelse($recentGRNs ?? [] as $grn)<tr><td class="font-mono">{{ $grn->grn_number }}</td><td>{{ $grn->received_date->format('Y-m-d') }}</td><td>{{ $grn->vendor->name ?? 'N/A' }}</td><td class="text-right">UGX {{ number_format($grn->grn_total_amount, 2) }}</td><td><span class="badge-status status-{{ $grn->status }}">{{ ucfirst(str_replace('_', ' ', $grn->status)) }}</span></td></tr>@empty<tr><td colspan="5" class="text-center">No data</td></tr>@endforelse</tbody></table>
-                </div>
+        <div id="stock-weekly" class="sub-tab-content">
+            <div class="chart-grid-2">
+                <div class="panel"><div class="panel-header"><span class="panel-title">Weekly IN vs OUT Value</span></div><div class="panel-body"><canvas id="stockWeeklyValueChart"></canvas></div></div>
+                <div class="panel"><div class="panel-header"><span class="panel-title">Weekly IN vs OUT Count</span></div><div class="panel-body"><canvas id="stockWeeklyCountChart"></canvas></div></div>
             </div>
         </div>
 
-        {{-- ============================================================ --}}
-        {{-- TAB 4: DEPARTMENT DISTRIBUTION with Daily/Weekly/Monthly Trends --}}
-        {{-- ============================================================ --}}
-        <div id="tab-distribution" class="tab-content">
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                <div class="stat-card"><h3>Total Issued</h3><div class="value">{{ number_format($totalIssued ?? 0, 2) }} units</div></div>
-                <div class="stat-card"><h3>Total Returned</h3><div class="value">{{ number_format($totalReturned ?? 0, 2) }} units</div></div>
-                <div class="stat-card"><h3>Total Consumed</h3><div class="value">{{ number_format($totalConsumed ?? 0, 2) }} units</div></div>
+        <div id="stock-monthly" class="sub-tab-content">
+            <div class="chart-grid-2">
+                <div class="panel"><div class="panel-header"><span class="panel-title">Monthly IN vs OUT Value</span></div><div class="panel-body"><canvas id="stockMonthlyValueChart"></canvas></div></div>
+                <div class="panel"><div class="panel-header"><span class="panel-title">Monthly IN vs OUT Count</span></div><div class="panel-body"><canvas id="stockMonthlyCountChart"></canvas></div></div>
             </div>
+        </div>
 
-            <div class="sub-tabs">
-                <button class="sub-tab-btn active" data-subtab="dept-daily">📅 Daily Trend</button>
-                <button class="sub-tab-btn" data-subtab="dept-weekly">📆 Weekly Trend</button>
-                <button class="sub-tab-btn" data-subtab="dept-monthly">📊 Monthly Trend</button>
-            </div>
-
-            <div id="dept-daily" class="sub-tab-content active">
-                <div class="two-col"><div class="chart-container"><div class="chart-title">Daily Issued to Departments</div><canvas id="deptDailyIssuedChart"></canvas></div>
-                <div class="chart-container"><div class="chart-title">Daily Returned from Departments</div><canvas id="deptDailyReturnedChart"></canvas></div></div>
-            </div>
-            <div id="dept-weekly" class="sub-tab-content">
-                <div class="two-col"><div class="chart-container"><div class="chart-title">Weekly Issued vs Returned</div><canvas id="deptWeeklyChart"></canvas></div>
-                <div class="chart-container"><div class="chart-title">Weekly Consumption by Department</div><canvas id="deptWeeklyConsumptionChart"></canvas></div></div>
-            </div>
-            <div id="dept-monthly" class="sub-tab-content">
-                <div class="two-col"><div class="chart-container"><div class="chart-title">Monthly Issued vs Returned</div><canvas id="deptMonthlyChart"></canvas></div>
-                <div class="chart-container"><div class="chart-title">Monthly Consumption by Department</div><canvas id="deptMonthlyConsumptionChart"></canvas></div></div>
-            </div>
-
-            <div class="two-col">
-                <div class="chart-container"><div class="chart-title">Department Consumption Share</div><canvas id="deptConsumptionPieChart"></canvas></div>
-                <div class="chart-container"><div class="chart-title">Issued vs Returned by Department</div><canvas id="deptIssuedReturnedChart"></canvas></div>
-            </div>
-
-            <div class="chart-container">
-                <div class="chart-title">Detailed Department Transactions</div>
-                <table class="data-table"><thead><tr><th>Date</th><th>Requisition #</th><th>Department</th><th>Item</th><th class="text-right">Issued</th><th>Taken By</th><th class="text-right">Returned</th><th>Returned By</th></tr></thead>
-                <tbody>@forelse($distributions ?? [] as $d)<tr><td>{{ $d->created_at?->format('Y-m-d') }}</td><td class="font-mono">{{ $d->departmentRequisition->requisition_number ?? 'N/A' }}</td><td>{{ $d->departmentRequisition->department->name ?? 'N/A' }}</td><td>{{ $d->inventoryItem->name ?? 'N/A' }}</td><td class="text-right">{{ number_format($d->quantity_issued, 2) }}</td><td>{{ $d->departmentRequisition->taken_by ?? 'N/A' }}</td><td class="text-right">{{ number_format($d->quantity_returned ?? 0, 2) }}</td><td>{{ $d->departmentRequisition->returned_by ?? 'N/A' }}</td></tr>@empty<tr><td colspan="8" class="text-center">No data</td></tr>@endforelse</tbody></table>
+        {{-- Pie + Top Items --}}
+        <div class="chart-grid-2" style="margin-top:1rem;">
+            <div class="panel"><div class="panel-header"><span class="panel-title">IN vs OUT Overview</span></div><div class="panel-body"><canvas id="stockInOutPieChart"></canvas></div></div>
+            <div class="panel"><div class="panel-header"><span class="panel-title">IN Source Breakdown</span></div><div class="panel-body"><canvas id="stockSourcePieChart"></canvas></div></div>
+        </div>
+        <div class="chart-grid-2">
+            <div class="panel"><div class="panel-header"><span class="panel-title">Top 10 Moving Items</span></div><div class="panel-body"><canvas id="stockTopItemsChart"></canvas></div></div>
+            <div class="panel">
+                <div class="panel-header"><span class="panel-title">Recent Movements</span></div>
+                <div class="panel-body" style="padding-top:0.5rem;">
+                    <div class="data-wrap">
+                        <table class="data-table">
+                            <thead><tr><th>Date</th><th>Item</th><th>Type</th><th class="text-right">Qty</th></tr></thead>
+                            <tbody>
+                                @forelse($recentMovements ?? [] as $m)
+                                <tr>
+                                    <td class="font-mono">{{ $m->movement_date?->format('Y-m-d') }}</td>
+                                    <td>{{ $m->inventoryItem->name ?? 'N/A' }}</td>
+                                    <td><span class="badge {{ $m->movementType && $m->movementType->sign == '+' ? 'badge-in' : 'badge-out' }}">{{ $m->movementType->name ?? 'N/A' }}</span></td>
+                                    <td class="text-right font-mono">{{ number_format($m->quantity_in_base_unit ?? 0, 2) }}</td>
+                                </tr>
+                                @empty
+                                <tr><td colspan="4" class="text-center" style="color:var(--muted);padding:1.5rem 0">No data available</td></tr>
+                                @endforelse
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
-</div>
+
+    {{-- ════════════════════════════════════════════════════════════════ --}}
+    {{-- TAB 2: PURCHASE ORDERS                                          --}}
+    {{-- ════════════════════════════════════════════════════════════════ --}}
+    <div id="tab-po" class="tab-content">
+        <div class="stat-grid">
+            <div class="stat-card"><div class="stat-label">Total POs</div><div class="stat-value">{{ number_format($totalPOs ?? 0) }}</div></div>
+            <div class="stat-card"><div class="stat-label">Total PO Value</div><div class="stat-value" style="font-size:1rem;">UGX {{ number_format($totalPOValue ?? 0, 0) }}</div></div>
+            <div class="stat-card"><div class="stat-label">Pending POs</div><div class="stat-value" style="color:var(--amber)">{{ number_format($pendingPOs ?? 0) }}</div></div>
+            <div class="stat-card"><div class="stat-label">Completed POs</div><div class="stat-value" style="color:var(--green)">{{ number_format($completedPOs ?? 0) }}</div></div>
+        </div>
+
+        <div class="sub-tab-bar">
+            <button class="sub-tab-btn active" data-subtab="po-daily">📅 Daily</button>
+            <button class="sub-tab-btn" data-subtab="po-weekly">📆 Weekly</button>
+            <button class="sub-tab-btn" data-subtab="po-monthly">📊 Monthly</button>
+        </div>
+
+        <div id="po-daily" class="sub-tab-content active">
+            <div class="chart-grid-2">
+                <div class="panel"><div class="panel-header"><span class="panel-title">Daily PO Value</span></div><div class="panel-body"><canvas id="poDailyValueChart"></canvas></div></div>
+                <div class="panel"><div class="panel-header"><span class="panel-title">Daily PO Count</span></div><div class="panel-body"><canvas id="poDailyCountChart"></canvas></div></div>
+            </div>
+        </div>
+        <div id="po-weekly" class="sub-tab-content">
+            <div class="chart-grid-2">
+                <div class="panel"><div class="panel-header"><span class="panel-title">Weekly PO Value</span></div><div class="panel-body"><canvas id="poWeeklyValueChart"></canvas></div></div>
+                <div class="panel"><div class="panel-header"><span class="panel-title">Weekly PO Count</span></div><div class="panel-body"><canvas id="poWeeklyCountChart"></canvas></div></div>
+            </div>
+        </div>
+        <div id="po-monthly" class="sub-tab-content">
+            <div class="chart-grid-2">
+                <div class="panel"><div class="panel-header"><span class="panel-title">Monthly PO Value</span></div><div class="panel-body"><canvas id="poMonthlyValueChart"></canvas></div></div>
+                <div class="panel"><div class="panel-header"><span class="panel-title">Monthly PO Count</span></div><div class="panel-body"><canvas id="poMonthlyCountChart"></canvas></div></div>
+            </div>
+        </div>
+
+        <div class="chart-grid-2" style="margin-top:1rem;">
+            <div class="panel"><div class="panel-header"><span class="panel-title">PO Status Distribution</span></div><div class="panel-body"><canvas id="poStatusPieChart"></canvas></div></div>
+            <div class="panel">
+                <div class="panel-header"><span class="panel-title">Recent Purchase Orders</span></div>
+                <div class="panel-body" style="padding-top:0.5rem;">
+                    <div class="data-wrap">
+                        <table class="data-table">
+                            <thead><tr><th>PO #</th><th>Date</th><th>Vendor</th><th class="text-right">Amount</th><th>Status</th></tr></thead>
+                            <tbody>
+                                @forelse($recentPOs ?? [] as $po)
+                                <tr>
+                                    <td class="font-mono">{{ $po->po_number }}</td>
+                                    <td class="font-mono">{{ $po->po_date->format('Y-m-d') }}</td>
+                                    <td>{{ $po->vendor->name ?? 'N/A' }}</td>
+                                    <td class="text-right font-mono">{{ number_format($po->total_amount, 0) }}</td>
+                                    <td><span class="badge badge-{{ $po->status }}">{{ ucfirst(str_replace('_', ' ', $po->status)) }}</span></td>
+                                </tr>
+                                @empty
+                                <tr><td colspan="5" class="text-center" style="color:var(--muted);padding:1.5rem 0">No data available</td></tr>
+                                @endforelse
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {{-- ════════════════════════════════════════════════════════════════ --}}
+    {{-- TAB 3: GOODS RECEIVED NOTES                                     --}}
+    {{-- ════════════════════════════════════════════════════════════════ --}}
+    <div id="tab-grn" class="tab-content">
+        <div class="stat-grid">
+            <div class="stat-card"><div class="stat-label">Total GRNs</div><div class="stat-value">{{ number_format($totalGRNs ?? 0) }}</div></div>
+            <div class="stat-card"><div class="stat-label">Total GRN Value</div><div class="stat-value" style="font-size:1rem;">UGX {{ number_format($totalGRNValue ?? 0, 0) }}</div></div>
+            <div class="stat-card"><div class="stat-label">Pending Inventory</div><div class="stat-value" style="color:var(--amber)">{{ number_format($grnCompletedCount ?? 0) }}</div></div>
+            <div class="stat-card"><div class="stat-label">Inventory Updated</div><div class="stat-value" style="color:var(--green)">{{ number_format($grnInventoryUpdatedCount ?? 0) }}</div></div>
+        </div>
+
+        <div class="sub-tab-bar">
+            <button class="sub-tab-btn active" data-subtab="grn-daily">📅 Daily</button>
+            <button class="sub-tab-btn" data-subtab="grn-weekly">📆 Weekly</button>
+            <button class="sub-tab-btn" data-subtab="grn-monthly">📊 Monthly</button>
+        </div>
+
+        <div id="grn-daily" class="sub-tab-content active">
+            <div class="chart-grid-2">
+                <div class="panel"><div class="panel-header"><span class="panel-title">Daily GRN Value</span></div><div class="panel-body"><canvas id="grnDailyValueChart"></canvas></div></div>
+                <div class="panel"><div class="panel-header"><span class="panel-title">Daily GRN Count</span></div><div class="panel-body"><canvas id="grnDailyCountChart"></canvas></div></div>
+            </div>
+        </div>
+        <div id="grn-weekly" class="sub-tab-content">
+            <div class="chart-grid-2">
+                <div class="panel"><div class="panel-header"><span class="panel-title">Weekly GRN Value</span></div><div class="panel-body"><canvas id="grnWeeklyValueChart"></canvas></div></div>
+                <div class="panel"><div class="panel-header"><span class="panel-title">Weekly GRN Count</span></div><div class="panel-body"><canvas id="grnWeeklyCountChart"></canvas></div></div>
+            </div>
+        </div>
+        <div id="grn-monthly" class="sub-tab-content">
+            <div class="chart-grid-2">
+                <div class="panel"><div class="panel-header"><span class="panel-title">Monthly GRN Value</span></div><div class="panel-body"><canvas id="grnMonthlyValueChart"></canvas></div></div>
+                <div class="panel"><div class="panel-header"><span class="panel-title">Monthly GRN Count</span></div><div class="panel-body"><canvas id="grnMonthlyCountChart"></canvas></div></div>
+            </div>
+        </div>
+
+        <div class="chart-grid-2" style="margin-top:1rem;">
+            <div class="panel"><div class="panel-header"><span class="panel-title">GRN Status Distribution</span></div><div class="panel-body"><canvas id="grnStatusPieChart"></canvas></div></div>
+            <div class="panel">
+                <div class="panel-header"><span class="panel-title">Recent GRNs</span></div>
+                <div class="panel-body" style="padding-top:0.5rem;">
+                    <div class="data-wrap">
+                        <table class="data-table">
+                            <thead><tr><th>GRN #</th><th>Date</th><th>Vendor</th><th class="text-right">Amount</th><th>Status</th></tr></thead>
+                            <tbody>
+                                @forelse($recentGRNs ?? [] as $grn)
+                                <tr>
+                                    <td class="font-mono">{{ $grn->grn_number }}</td>
+                                    <td class="font-mono">{{ $grn->received_date->format('Y-m-d') }}</td>
+                                    <td>{{ $grn->vendor->name ?? 'N/A' }}</td>
+                                    <td class="text-right font-mono">{{ number_format($grn->grn_total_amount, 0) }}</td>
+                                    <td><span class="badge badge-{{ $grn->status }}">{{ ucfirst(str_replace('_', ' ', $grn->status)) }}</span></td>
+                                </tr>
+                                @empty
+                                <tr><td colspan="5" class="text-center" style="color:var(--muted);padding:1.5rem 0">No data available</td></tr>
+                                @endforelse
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {{-- ════════════════════════════════════════════════════════════════ --}}
+    {{-- TAB 4: DEPARTMENT DISTRIBUTION                                  --}}
+    {{-- ════════════════════════════════════════════════════════════════ --}}
+    <div id="tab-distribution" class="tab-content">
+        <div class="stat-grid stat-grid-3" style="grid-template-columns:repeat(3,1fr)">
+            <div class="stat-card"><div class="stat-label">Total Issued</div><div class="stat-value" style="color:var(--rose)">{{ number_format($totalIssued ?? 0, 2) }} <span style="font-size:0.6rem;color:var(--muted)">units</span></div></div>
+            <div class="stat-card"><div class="stat-label">Total Returned</div><div class="stat-value" style="color:var(--green)">{{ number_format($totalReturned ?? 0, 2) }} <span style="font-size:0.6rem;color:var(--muted)">units</span></div></div>
+            <div class="stat-card"><div class="stat-label">Total Consumed</div><div class="stat-value" style="color:var(--amber)">{{ number_format($totalConsumed ?? 0, 2) }} <span style="font-size:0.6rem;color:var(--muted)">units</span></div></div>
+        </div>
+
+        <div class="sub-tab-bar">
+            <button class="sub-tab-btn active" data-subtab="dept-daily">📅 Daily</button>
+            <button class="sub-tab-btn" data-subtab="dept-weekly">📆 Weekly</button>
+            <button class="sub-tab-btn" data-subtab="dept-monthly">📊 Monthly</button>
+        </div>
+
+        <div id="dept-daily" class="sub-tab-content active">
+            <div class="chart-grid-2">
+                <div class="panel"><div class="panel-header"><span class="panel-title">Daily Issued to Departments</span></div><div class="panel-body"><canvas id="deptDailyIssuedChart"></canvas></div></div>
+                <div class="panel"><div class="panel-header"><span class="panel-title">Daily Net Consumption</span></div><div class="panel-body"><canvas id="deptDailyReturnedChart"></canvas></div></div>
+            </div>
+        </div>
+        <div id="dept-weekly" class="sub-tab-content">
+            <div class="chart-grid-2">
+                <div class="panel"><div class="panel-header"><span class="panel-title">Weekly Issued vs Returned</span></div><div class="panel-body"><canvas id="deptWeeklyChart"></canvas></div></div>
+                <div class="panel"><div class="panel-header"><span class="panel-title">Weekly Consumption by Dept</span></div><div class="panel-body"><canvas id="deptWeeklyConsumptionChart"></canvas></div></div>
+            </div>
+        </div>
+        <div id="dept-monthly" class="sub-tab-content">
+            <div class="chart-grid-2">
+                <div class="panel"><div class="panel-header"><span class="panel-title">Monthly Issued vs Returned</span></div><div class="panel-body"><canvas id="deptMonthlyChart"></canvas></div></div>
+                <div class="panel"><div class="panel-header"><span class="panel-title">Monthly Consumption by Dept</span></div><div class="panel-body"><canvas id="deptMonthlyConsumptionChart"></canvas></div></div>
+            </div>
+        </div>
+
+        <div class="chart-grid-2" style="margin-top:1rem;">
+            <div class="panel"><div class="panel-header"><span class="panel-title">Consumption Share by Dept</span></div><div class="panel-body"><canvas id="deptConsumptionPieChart"></canvas></div></div>
+            <div class="panel"><div class="panel-header"><span class="panel-title">Issued vs Returned by Dept</span></div><div class="panel-body"><canvas id="deptIssuedReturnedChart"></canvas></div></div>
+        </div>
+
+        {{-- Full-width transactions table --}}
+        <div class="panel" style="margin-top:1rem;">
+            <div class="panel-header" style="padding-bottom:0.75rem; border-bottom:1px solid var(--border);">
+                <span class="panel-title">Detailed Department Transactions</span>
+            </div>
+            <div class="panel-body" style="padding-top:0.5rem;">
+                <div class="data-wrap">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Requisition #</th>
+                                <th>Department</th>
+                                <th>Item</th>
+                                <th class="text-right">Issued</th>
+                                <th>Taken By</th>
+                                <th class="text-right">Returned</th>
+                                <th>Returned By</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @forelse($distributions ?? [] as $d)
+                            <tr>
+                                <td class="font-mono">{{ $d->created_at?->format('Y-m-d') }}</td>
+                                <td class="font-mono">{{ $d->departmentRequisition->requisition_number ?? 'N/A' }}</td>
+                                <td>
+                                    <span class="badge badge-approved">{{ $d->departmentRequisition->department->name ?? 'N/A' }}</span>
+                                </td>
+                                <td>{{ $d->inventoryItem->name ?? 'N/A' }}</td>
+                                <td class="text-right font-mono" style="color:var(--rose)">{{ number_format($d->quantity_issued, 2) }}</td>
+                                <td>{{ $d->departmentRequisition->taken_by ?? '—' }}</td>
+                                <td class="text-right font-mono" style="color:var(--green)">{{ number_format($d->quantity_returned ?? 0, 2) }}</td>
+                                <td>{{ $d->departmentRequisition->returned_by ?? '—' }}</td>
+                            </tr>
+                            @empty
+                            <tr><td colspan="8" class="text-center" style="color:var(--muted);padding:1.5rem 0">No distribution data available</td></tr>
+                            @endforelse
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+    </div>{{-- /tab-distribution --}}
+
+</div>{{-- /dashboard-root --}}
 
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-    // MAIN TAB SWITCHING
-    const tabBtns = document.querySelectorAll('.tab-btn');
-    const tabContents = document.querySelectorAll('.tab-content');
-    tabBtns.forEach(btn => {
+document.addEventListener('DOMContentLoaded', function () {
+
+    // ── Tab switching ────────────────────────────────────────────────
+    document.querySelectorAll('.tab-btn').forEach(btn => {
         btn.addEventListener('click', () => {
-            const tabId = btn.getAttribute('data-tab');
-            tabBtns.forEach(b => b.classList.remove('active'));
-            tabContents.forEach(c => c.classList.remove('active'));
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
             btn.classList.add('active');
-            document.getElementById(tabId).classList.add('active');
+            document.getElementById(btn.dataset.tab).classList.add('active');
         });
     });
 
-    // SUB TAB SWITCHING
-    function initSubTabs(prefix) {
-        const btns = document.querySelectorAll(`.sub-tab-btn[data-subtab^="${prefix}"]`);
+    // ── Sub-tab switching (scoped by prefix) ─────────────────────────
+    ['stock', 'po', 'grn', 'dept'].forEach(prefix => {
+        const btns     = document.querySelectorAll(`.sub-tab-btn[data-subtab^="${prefix}"]`);
         const contents = document.querySelectorAll(`.sub-tab-content[id^="${prefix}"]`);
         btns.forEach(btn => {
             btn.addEventListener('click', () => {
-                const subTabId = btn.getAttribute('data-subtab');
                 btns.forEach(b => b.classList.remove('active'));
                 contents.forEach(c => c.classList.remove('active'));
                 btn.classList.add('active');
-                document.getElementById(subTabId).classList.add('active');
+                document.getElementById(btn.dataset.subtab).classList.add('active');
             });
         });
-    }
-    initSubTabs('stock'); initSubTabs('po'); initSubTabs('grn'); initSubTabs('dept');
+    });
 
-    // Helper to get data from PHP
-    const dailyLabels = {!! json_encode($dailyLabels ?? []) !!};
-    const weeklyLabels = {!! json_encode($weeklyLabels ?? []) !!};
-    const monthlyLabels = {!! json_encode($monthlyLabels ?? []) !!};
+    // ── Chart defaults ───────────────────────────────────────────────
+    Chart.defaults.font.family = "'DM Sans', sans-serif";
+    Chart.defaults.font.size   = 11;
+    Chart.defaults.color       = '#64748b';
+    Chart.defaults.plugins.legend.labels.boxWidth = 10;
+    Chart.defaults.plugins.legend.labels.padding  = 12;
 
-    // ========== STOCK CHARTS ==========
-    if(document.getElementById('stockDailyInChart')) {
-        new Chart(document.getElementById('stockDailyInChart'), { type: 'bar', data: { labels: dailyLabels, datasets: [{ label: 'Stock IN Value', data: {!! json_encode($dailyStockInValues ?? []) !!}, backgroundColor: '#10b981' }] } });
-        new Chart(document.getElementById('stockDailyOutChart'), { type: 'bar', data: { labels: dailyLabels, datasets: [{ label: 'Stock OUT Value', data: {!! json_encode($dailyStockOutValues ?? []) !!}, backgroundColor: '#ef4444' }] } });
-        new Chart(document.getElementById('stockDailyInCountChart'), { type: 'line', data: { labels: dailyLabels, datasets: [{ label: 'Stock IN Count', data: {!! json_encode($dailyStockInCounts ?? []) !!}, borderColor: '#10b981' }] } });
-        new Chart(document.getElementById('stockDailyOutCountChart'), { type: 'line', data: { labels: dailyLabels, datasets: [{ label: 'Stock OUT Count', data: {!! json_encode($dailyStockOutCounts ?? []) !!}, borderColor: '#ef4444' }] } });
-        new Chart(document.getElementById('stockWeeklyValueChart'), { type: 'bar', data: { labels: weeklyLabels, datasets: [{ label: 'Stock IN', data: {!! json_encode($weeklyStockInValues ?? []) !!}, backgroundColor: '#10b981' }, { label: 'Stock OUT', data: {!! json_encode($weeklyStockOutValues ?? []) !!}, backgroundColor: '#ef4444' }] } });
-        new Chart(document.getElementById('stockWeeklyCountChart'), { type: 'line', data: { labels: weeklyLabels, datasets: [{ label: 'Stock IN Count', data: {!! json_encode($weeklyStockInCounts ?? []) !!}, borderColor: '#10b981' }, { label: 'Stock OUT Count', data: {!! json_encode($weeklyStockOutCounts ?? []) !!}, borderColor: '#ef4444' }] } });
-        new Chart(document.getElementById('stockMonthlyValueChart'), { type: 'bar', data: { labels: monthlyLabels, datasets: [{ label: 'Stock IN', data: {!! json_encode($monthlyStockInValues ?? []) !!}, backgroundColor: '#10b981' }, { label: 'Stock OUT', data: {!! json_encode($monthlyStockOutValues ?? []) !!}, backgroundColor: '#ef4444' }] } });
-        new Chart(document.getElementById('stockMonthlyCountChart'), { type: 'line', data: { labels: monthlyLabels, datasets: [{ label: 'Stock IN Count', data: {!! json_encode($monthlyStockInCounts ?? []) !!}, borderColor: '#10b981' }, { label: 'Stock OUT Count', data: {!! json_encode($monthlyStockOutCounts ?? []) !!}, borderColor: '#ef4444' }] } });
-        new Chart(document.getElementById('stockInOutPieChart'), { type: 'pie', data: { labels: ['Stock IN', 'Stock OUT'], datasets: [{ data: [{{ $totalStockIn ?? 0 }}, {{ $totalStockOut ?? 0 }}], backgroundColor: ['#10b981', '#ef4444'] }] } });
-        new Chart(document.getElementById('stockSourcePieChart'), { type: 'pie', data: { labels: {!! json_encode($sourceLabels ?? []) !!}, datasets: [{ data: {!! json_encode($sourceData ?? []) !!}, backgroundColor: ['#3b82f6', '#8b5cf6', '#ec489a', '#f59e0b'] }] } });
-        new Chart(document.getElementById('stockTopItemsChart'), { type: 'bar', data: { labels: {!! json_encode($topItemsLabels ?? []) !!}, datasets: [{ label: 'Units Moved', data: {!! json_encode($topItemsData ?? []) !!}, backgroundColor: '#f59e0b' }] } });
-    }
+    const defaultOptions = {
+        responsive: true,
+        maintainAspectRatio: true,
+        plugins: { legend: { position: 'bottom' } },
+        scales: {
+            x: { grid: { display: false }, ticks: { maxRotation: 30 } },
+            y: { grid: { color: '#f1f5f9' }, border: { dash: [4,4] } }
+        }
+    };
+    const pieOptions = {
+        responsive: true,
+        maintainAspectRatio: true,
+        plugins: { legend: { position: 'bottom' } }
+    };
 
-    // ========== PO CHARTS ==========
-    if(document.getElementById('poDailyValueChart')) {
-        new Chart(document.getElementById('poDailyValueChart'), { type: 'bar', data: { labels: dailyLabels, datasets: [{ label: 'PO Value', data: {!! json_encode($poDailyValues ?? []) !!}, backgroundColor: '#8b5cf6' }] } });
-        new Chart(document.getElementById('poDailyCountChart'), { type: 'line', data: { labels: dailyLabels, datasets: [{ label: 'PO Count', data: {!! json_encode($poDailyCounts ?? []) !!}, borderColor: '#8b5cf6' }] } });
-        new Chart(document.getElementById('poWeeklyValueChart'), { type: 'bar', data: { labels: weeklyLabels, datasets: [{ label: 'PO Value', data: {!! json_encode($poWeeklyValues ?? []) !!}, backgroundColor: '#8b5cf6' }] } });
-        new Chart(document.getElementById('poWeeklyCountChart'), { type: 'line', data: { labels: weeklyLabels, datasets: [{ label: 'PO Count', data: {!! json_encode($poWeeklyCounts ?? []) !!}, borderColor: '#8b5cf6' }] } });
-        new Chart(document.getElementById('poMonthlyValueChart'), { type: 'line', data: { labels: monthlyLabels, datasets: [{ label: 'PO Value', data: {!! json_encode($poMonthlyValues ?? []) !!}, borderColor: '#8b5cf6', fill: true }] } });
-        new Chart(document.getElementById('poMonthlyCountChart'), { type: 'bar', data: { labels: monthlyLabels, datasets: [{ label: 'PO Count', data: {!! json_encode($poMonthlyCounts ?? []) !!}, backgroundColor: '#8b5cf6' }] } });
-        new Chart(document.getElementById('poStatusPieChart'), { type: 'pie', data: { labels: {!! json_encode($poStatusLabels ?? []) !!}, datasets: [{ data: {!! json_encode($poStatusData ?? []) !!}, backgroundColor: ['#f59e0b', '#10b981', '#3b82f6', '#f97316', '#06b6d4', '#ef4444'] }] } });
-    }
-
-    // ========== GRN CHARTS ==========
-    if(document.getElementById('grnDailyValueChart')) {
-        new Chart(document.getElementById('grnDailyValueChart'), { type: 'bar', data: { labels: dailyLabels, datasets: [{ label: 'GRN Value', data: {!! json_encode($dailyValues ?? []) !!}, backgroundColor: '#10b981' }] } });
-        new Chart(document.getElementById('grnDailyCountChart'), { type: 'line', data: { labels: dailyLabels, datasets: [{ label: 'GRN Count', data: {!! json_encode($dailyCounts ?? []) !!}, borderColor: '#10b981' }] } });
-        new Chart(document.getElementById('grnWeeklyValueChart'), { type: 'bar', data: { labels: weeklyLabels, datasets: [{ label: 'GRN Value', data: {!! json_encode($weeklyGRNValues ?? []) !!}, backgroundColor: '#10b981' }] } });
-        new Chart(document.getElementById('grnWeeklyCountChart'), { type: 'line', data: { labels: weeklyLabels, datasets: [{ label: 'GRN Count', data: {!! json_encode($weeklyGRNCounts ?? []) !!}, borderColor: '#10b981' }] } });
-        new Chart(document.getElementById('grnMonthlyValueChart'), { type: 'line', data: { labels: monthlyLabels, datasets: [{ label: 'GRN Value', data: {!! json_encode($monthlyValues ?? []) !!}, borderColor: '#10b981', fill: true }] } });
-        new Chart(document.getElementById('grnMonthlyCountChart'), { type: 'bar', data: { labels: monthlyLabels, datasets: [{ label: 'GRN Count', data: {!! json_encode($monthlyCounts ?? []) !!}, backgroundColor: '#10b981' }] } });
-        new Chart(document.getElementById('grnStatusPieChart'), { type: 'pie', data: { labels: ['Draft', 'Completed', 'Inventory Updated'], datasets: [{ data: [{{ $grnDraftCount ?? 0 }}, {{ $grnCompletedCount ?? 0 }}, {{ $grnInventoryUpdatedCount ?? 0 }}], backgroundColor: ['#f59e0b', '#10b981', '#3b82f6'] }] } });
+    function mkChart(id, type, labels, datasets, opts) {
+        const el = document.getElementById(id);
+        if (!el) return;
+        new Chart(el, {
+            type,
+            data: { labels, datasets },
+            options: type === 'pie' || type === 'doughnut' ? pieOptions : { ...defaultOptions, ...opts }
+        });
     }
 
-    // ========== DEPARTMENT CHARTS ==========
-    if(document.getElementById('deptDailyIssuedChart')) {
-        new Chart(document.getElementById('deptDailyIssuedChart'), { type: 'bar', data: { labels: dailyLabels, datasets: [{ label: 'Issued', data: {!! json_encode($deptDailyIssued ?? []) !!}, backgroundColor: '#ef4444' }, { label: 'Returned', data: {!! json_encode($deptDailyReturned ?? []) !!}, backgroundColor: '#10b981' }] } });
-        new Chart(document.getElementById('deptDailyReturnedChart'), { type: 'line', data: { labels: dailyLabels, datasets: [{ label: 'Net Consumption', data: {!! json_encode($deptDailyNet ?? []) !!}, borderColor: '#3b82f6', fill: true }] } });
-        new Chart(document.getElementById('deptWeeklyChart'), { type: 'bar', data: { labels: weeklyLabels, datasets: [{ label: 'Issued', data: {!! json_encode($deptWeeklyIssued ?? []) !!}, backgroundColor: '#ef4444' }, { label: 'Returned', data: {!! json_encode($deptWeeklyReturned ?? []) !!}, backgroundColor: '#10b981' }] } });
-        new Chart(document.getElementById('deptWeeklyConsumptionChart'), { type: 'line', data: { labels: weeklyLabels, datasets: [{ label: 'Kitchen', data: {!! json_encode($deptWeeklyKitchen ?? []) !!}, borderColor: '#3b82f6' }, { label: 'Bar', data: {!! json_encode($deptWeeklyBar ?? []) !!}, borderColor: '#8b5cf6' }, { label: 'Cafe', data: {!! json_encode($deptWeeklyCafe ?? []) !!}, borderColor: '#ec489a' }] } });
-        new Chart(document.getElementById('deptMonthlyChart'), { type: 'bar', data: { labels: monthlyLabels, datasets: [{ label: 'Issued', data: {!! json_encode($deptMonthlyIssued ?? []) !!}, backgroundColor: '#ef4444' }, { label: 'Returned', data: {!! json_encode($deptMonthlyReturned ?? []) !!}, backgroundColor: '#10b981' }] } });
-        new Chart(document.getElementById('deptMonthlyConsumptionChart'), { type: 'line', data: { labels: monthlyLabels, datasets: [{ label: 'Kitchen', data: {!! json_encode($deptMonthlyKitchen ?? []) !!}, borderColor: '#3b82f6' }, { label: 'Bar', data: {!! json_encode($deptMonthlyBar ?? []) !!}, borderColor: '#8b5cf6' }, { label: 'Cafe', data: {!! json_encode($deptMonthlyCafe ?? []) !!}, borderColor: '#ec489a' }] } });
-        new Chart(document.getElementById('deptConsumptionPieChart'), { type: 'pie', data: { labels: {!! json_encode($deptLabels ?? []) !!}, datasets: [{ data: {!! json_encode($deptConsumedData ?? []) !!}, backgroundColor: ['#3b82f6', '#8b5cf6', '#ec489a'] }] } });
-        new Chart(document.getElementById('deptIssuedReturnedChart'), { type: 'bar', data: { labels: {!! json_encode($deptLabels ?? []) !!}, datasets: [{ label: 'Issued', data: {!! json_encode($deptIssuedData ?? []) !!}, backgroundColor: '#ef4444' }, { label: 'Returned', data: {!! json_encode($deptReturnedData ?? []) !!}, backgroundColor: '#10b981' }] } });
-    }
+    // ── Data from PHP ────────────────────────────────────────────────
+    const dL = {!! json_encode($dailyLabels ?? []) !!};
+    const wL = {!! json_encode($weeklyLabels ?? []) !!};
+    const mL = {!! json_encode($monthlyLabels ?? []) !!};
+
+    // ── STOCK ────────────────────────────────────────────────────────
+    mkChart('stockDailyInChart',      'bar',  dL, [{ label:'IN Value',  data:{!! json_encode($dailyStockInValues ?? []) !!},  backgroundColor:'rgba(5,150,105,0.8)', borderRadius:4 }]);
+    mkChart('stockDailyOutChart',     'bar',  dL, [{ label:'OUT Value', data:{!! json_encode($dailyStockOutValues ?? []) !!}, backgroundColor:'rgba(225,29,72,0.8)',  borderRadius:4 }]);
+    mkChart('stockDailyInCountChart', 'line', dL, [{ label:'IN Count',  data:{!! json_encode($dailyStockInCounts ?? []) !!},  borderColor:'#059669', tension:0.4, fill:false, pointRadius:3 }]);
+    mkChart('stockDailyOutCountChart','line', dL, [{ label:'OUT Count', data:{!! json_encode($dailyStockOutCounts ?? []) !!}, borderColor:'#e11d48', tension:0.4, fill:false, pointRadius:3 }]);
+    mkChart('stockWeeklyValueChart',  'bar',  wL, [{ label:'IN',  data:{!! json_encode($weeklyStockInValues ?? []) !!},  backgroundColor:'rgba(5,150,105,0.8)', borderRadius:4 },
+                                                    { label:'OUT', data:{!! json_encode($weeklyStockOutValues ?? []) !!}, backgroundColor:'rgba(225,29,72,0.8)', borderRadius:4 }]);
+    mkChart('stockWeeklyCountChart',  'line', wL, [{ label:'IN Count',  data:{!! json_encode($weeklyStockInCounts ?? []) !!},  borderColor:'#059669', tension:0.4 },
+                                                    { label:'OUT Count', data:{!! json_encode($weeklyStockOutCounts ?? []) !!}, borderColor:'#e11d48', tension:0.4 }]);
+    mkChart('stockMonthlyValueChart', 'bar',  mL, [{ label:'IN',  data:{!! json_encode($monthlyStockInValues ?? []) !!},  backgroundColor:'rgba(5,150,105,0.8)', borderRadius:4 },
+                                                    { label:'OUT', data:{!! json_encode($monthlyStockOutValues ?? []) !!}, backgroundColor:'rgba(225,29,72,0.8)', borderRadius:4 }]);
+    mkChart('stockMonthlyCountChart', 'line', mL, [{ label:'IN Count',  data:{!! json_encode($monthlyStockInCounts ?? []) !!},  borderColor:'#059669', tension:0.4 },
+                                                    { label:'OUT Count', data:{!! json_encode($monthlyStockOutCounts ?? []) !!}, borderColor:'#e11d48', tension:0.4 }]);
+    mkChart('stockInOutPieChart',     'doughnut', ['Stock IN','Stock OUT'],
+            [{ data:[{{ $totalStockIn ?? 0 }},{{ $totalStockOut ?? 0 }}], backgroundColor:['#059669','#e11d48'], hoverOffset:6 }]);
+    mkChart('stockSourcePieChart',    'doughnut', {!! json_encode($sourceLabels ?? []) !!},
+            [{ data:{!! json_encode($sourceData ?? []) !!}, backgroundColor:['#2563eb','#7c3aed','#ec4899','#f59e0b'], hoverOffset:6 }]);
+    mkChart('stockTopItemsChart',     'bar', {!! json_encode($topItemsLabels ?? []) !!},
+            [{ label:'Units Moved', data:{!! json_encode($topItemsData ?? []) !!}, backgroundColor:'rgba(245,158,11,0.8)', borderRadius:4 }],
+            { indexAxis:'y' });
+
+    // ── PO ───────────────────────────────────────────────────────────
+    mkChart('poDailyValueChart',   'bar',  dL, [{ label:'PO Value', data:{!! json_encode($poDailyValues ?? []) !!},  backgroundColor:'rgba(124,58,237,0.8)', borderRadius:4 }]);
+    mkChart('poDailyCountChart',   'line', dL, [{ label:'PO Count', data:{!! json_encode($poDailyCounts ?? []) !!},  borderColor:'#7c3aed', tension:0.4 }]);
+    mkChart('poWeeklyValueChart',  'bar',  wL, [{ label:'PO Value', data:{!! json_encode($poWeeklyValues ?? []) !!}, backgroundColor:'rgba(124,58,237,0.8)', borderRadius:4 }]);
+    mkChart('poWeeklyCountChart',  'line', wL, [{ label:'PO Count', data:{!! json_encode($poWeeklyCounts ?? []) !!}, borderColor:'#7c3aed', tension:0.4 }]);
+    mkChart('poMonthlyValueChart', 'bar',  mL, [{ label:'PO Value', data:{!! json_encode($poMonthlyValues ?? []) !!}, backgroundColor:'rgba(124,58,237,0.8)', borderRadius:4 }]);
+    mkChart('poMonthlyCountChart', 'line', mL, [{ label:'PO Count', data:{!! json_encode($poMonthlyCounts ?? []) !!}, borderColor:'#7c3aed', tension:0.4 }]);
+    mkChart('poStatusPieChart',    'doughnut', {!! json_encode($poStatusLabels ?? []) !!},
+            [{ data:{!! json_encode($poStatusData ?? []) !!}, backgroundColor:['#f59e0b','#059669','#2563eb','#f97316','#06b6d4','#e11d48'], hoverOffset:6 }]);
+
+    // ── GRN ──────────────────────────────────────────────────────────
+    mkChart('grnDailyValueChart',   'bar',  dL, [{ label:'GRN Value', data:{!! json_encode($dailyValues ?? []) !!},       backgroundColor:'rgba(5,150,105,0.8)', borderRadius:4 }]);
+    mkChart('grnDailyCountChart',   'line', dL, [{ label:'GRN Count', data:{!! json_encode($dailyCounts ?? []) !!},       borderColor:'#059669', tension:0.4 }]);
+    mkChart('grnWeeklyValueChart',  'bar',  wL, [{ label:'GRN Value', data:{!! json_encode($weeklyGRNValues ?? []) !!},   backgroundColor:'rgba(5,150,105,0.8)', borderRadius:4 }]);
+    mkChart('grnWeeklyCountChart',  'line', wL, [{ label:'GRN Count', data:{!! json_encode($weeklyGRNCounts ?? []) !!},   borderColor:'#059669', tension:0.4 }]);
+    mkChart('grnMonthlyValueChart', 'bar',  mL, [{ label:'GRN Value', data:{!! json_encode($monthlyValues ?? []) !!},     backgroundColor:'rgba(5,150,105,0.8)', borderRadius:4 }]);
+    mkChart('grnMonthlyCountChart', 'line', mL, [{ label:'GRN Count', data:{!! json_encode($monthlyCounts ?? []) !!},     borderColor:'#059669', tension:0.4 }]);
+    mkChart('grnStatusPieChart',    'doughnut', ['Draft','Completed','Inventory Updated'],
+            [{ data:[{{ $grnDraftCount ?? 0 }},{{ $grnCompletedCount ?? 0 }},{{ $grnInventoryUpdatedCount ?? 0 }}],
+               backgroundColor:['#f59e0b','#059669','#2563eb'], hoverOffset:6 }]);
+
+    // ── DEPARTMENT ───────────────────────────────────────────────────
+    mkChart('deptDailyIssuedChart',       'bar',  dL, [{ label:'Issued',   data:{!! json_encode($deptDailyIssued ?? []) !!},   backgroundColor:'rgba(225,29,72,0.8)',  borderRadius:4 },
+                                                         { label:'Returned', data:{!! json_encode($deptDailyReturned ?? []) !!}, backgroundColor:'rgba(5,150,105,0.8)', borderRadius:4 }]);
+    mkChart('deptDailyReturnedChart',     'line', dL, [{ label:'Net Consumption', data:{!! json_encode($deptDailyNet ?? []) !!}, borderColor:'#2563eb', tension:0.4, fill:true, backgroundColor:'rgba(37,99,235,0.05)' }]);
+    mkChart('deptWeeklyChart',            'bar',  wL, [{ label:'Issued',   data:{!! json_encode($deptWeeklyIssued ?? []) !!},   backgroundColor:'rgba(225,29,72,0.8)',  borderRadius:4 },
+                                                         { label:'Returned', data:{!! json_encode($deptWeeklyReturned ?? []) !!}, backgroundColor:'rgba(5,150,105,0.8)', borderRadius:4 }]);
+    mkChart('deptWeeklyConsumptionChart', 'line', wL, [{ label:'Kitchen', data:{!! json_encode($deptWeeklyKitchen ?? []) !!}, borderColor:'#2563eb', tension:0.4 },
+                                                         { label:'Bar',     data:{!! json_encode($deptWeeklyBar ?? []) !!},     borderColor:'#7c3aed', tension:0.4 },
+                                                         { label:'Cafe',    data:{!! json_encode($deptWeeklyCafe ?? []) !!},    borderColor:'#ec4899', tension:0.4 }]);
+    mkChart('deptMonthlyChart',           'bar',  mL, [{ label:'Issued',   data:{!! json_encode($deptMonthlyIssued ?? []) !!},   backgroundColor:'rgba(225,29,72,0.8)',  borderRadius:4 },
+                                                         { label:'Returned', data:{!! json_encode($deptMonthlyReturned ?? []) !!}, backgroundColor:'rgba(5,150,105,0.8)', borderRadius:4 }]);
+    mkChart('deptMonthlyConsumptionChart','line', mL, [{ label:'Kitchen', data:{!! json_encode($deptMonthlyKitchen ?? []) !!}, borderColor:'#2563eb', tension:0.4 },
+                                                         { label:'Bar',     data:{!! json_encode($deptMonthlyBar ?? []) !!},     borderColor:'#7c3aed', tension:0.4 },
+                                                         { label:'Cafe',    data:{!! json_encode($deptMonthlyCafe ?? []) !!},    borderColor:'#ec4899', tension:0.4 }]);
+    mkChart('deptConsumptionPieChart',    'doughnut', {!! json_encode($deptLabels ?? []) !!},
+            [{ data:{!! json_encode($deptConsumedData ?? []) !!}, backgroundColor:['#2563eb','#7c3aed','#ec4899'], hoverOffset:6 }]);
+    mkChart('deptIssuedReturnedChart',    'bar', {!! json_encode($deptLabels ?? []) !!},
+            [{ label:'Issued',   data:{!! json_encode($deptIssuedData ?? []) !!},   backgroundColor:'rgba(225,29,72,0.8)',  borderRadius:4 },
+             { label:'Returned', data:{!! json_encode($deptReturnedData ?? []) !!}, backgroundColor:'rgba(5,150,105,0.8)', borderRadius:4 }]);
 });
 </script>
+
 @endsection
