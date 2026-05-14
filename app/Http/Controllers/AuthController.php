@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\User;
+use App\Models\Role;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
@@ -24,7 +25,7 @@ class AuthController extends Controller
     public function login(Request $request)
     {
         $credentials = $request->validate([
-            'email' => 'required|email',
+            'email'    => 'required|email',
             'password' => 'required',
         ]);
 
@@ -39,13 +40,12 @@ class AuthController extends Controller
             $user->update(['last_login_at' => now()]);
 
             Log::info('Login successful', [
-                'user_id' => $user->id,
-                'email' => $user->email,
+                'user_id'       => $user->id,
+                'email'         => $user->email,
                 'department_id' => $user->department_id,
-                'role' => $user->role
+                'role'          => $user->role,
             ]);
 
-            // Redirect based on department
             return $this->redirectBasedOnDepartment($user);
         }
 
@@ -57,52 +57,67 @@ class AuthController extends Controller
     }
 
     /**
-     * Redirect user based on their department.
+     * Redirect user based on their department (and role within department).
      */
- /**
- * Redirect user based on their department.
- */
-/**
- * Redirect user based on their department.
- */
-protected function redirectBasedOnDepartment($user)
-{
-    if ($user->department) {
-        $departmentName = $user->department->name;
+    protected function redirectBasedOnDepartment($user)
+    {
+        if ($user->department) {
+            $departmentName = $user->department->name;
 
-        if ($departmentName === 'STORE') {
-            return redirect()->route('store.dashboard')
-                ->with('success', 'Welcome to Store Module, ' . $user->first_name);
+            if ($departmentName === 'STORE') {
+                return redirect()->route('store.dashboard')
+                    ->with('success', 'Welcome to Store Module, ' . $user->first_name);
+            }
+
+            if ($departmentName === 'PROCUREMENT') {
+                return redirect()->route('procurement.dashboard')
+                    ->with('success', 'Welcome to Procurement Module, ' . $user->first_name);
+            }
+
+            if ($departmentName === 'GENERAL MANAGEMENT') {
+                return redirect()->route('management.dashboard')
+                    ->with('success', 'Welcome to Management Module, ' . $user->first_name);
+            }
+
+            if ($departmentName === 'DIRECTORS') {
+                return redirect()->route('director.dashboard')
+                    ->with('success', 'Welcome to Director Dashboard, ' . $user->first_name);
+            }
+
+            if ($departmentName === 'KITCHEN') {
+                return redirect()->route('kitchen.dashboard')
+                    ->with('success', 'Welcome to Kitchen Dashboard, ' . $user->first_name);
+            }
+
+            if ($departmentName === 'RESTAURANT') {
+                // ── Resolve role name ─────────────────────────────────────────
+                // Role may be stored as a string on the user directly,
+                // or via a role_id foreign key — handle both.
+                $roleName = null;
+
+                if ($user->role_id) {
+                    $role     = Role::find($user->role_id);
+                    $roleName = $role->name ?? null;
+                } elseif (!empty($user->role)) {
+                    $roleName = $user->role;
+                }
+
+                // ── CASHIER gets their own dashboard ──────────────────────────
+                // This check MUST come before the generic restaurant redirect.
+                if ($roleName === 'Cashier') {
+                    return redirect()->route('restaurant.cashier.dashboard')
+                        ->with('success', 'Welcome to Cashier Dashboard, ' . $user->first_name);
+                }
+
+                // ── All other restaurant staff ────────────────────────────────
+                return redirect()->route('restaurant.dashboard')
+                    ->with('success', 'Welcome to Restaurant Dashboard, ' . $user->first_name);
+            }
         }
 
-        if ($departmentName === 'PROCUREMENT') {
-            return redirect()->route('procurement.dashboard')
-                ->with('success', 'Welcome to Procurement Module, ' . $user->first_name);
-        }
-
-        if ($departmentName === 'GENERAL MANAGEMENT') {
-            return redirect()->route('management.dashboard')
-                ->with('success', 'Welcome to Management Module, ' . $user->first_name);
-        }
-
-         if ($departmentName === 'DIRECTORS') {
-            return redirect()->route('director.dashboard')
-                ->with('success', 'Welcome to Director dashboard, ' . $user->first_name);
-        }
-        if ($departmentName === 'KITCHEN') {
-            return redirect()->route('kitchen.dashboard')
-                ->with('success', 'Welcome to Kitchen Dashboard, ' . $user->first_name);
-        }
-
-        if ($departmentName === 'RESTAURANT') {
-            return redirect()->route('restaurant.dashboard')
-                ->with('success', 'Welcome to Restaurant Dashboard, ' . $user->first_name);
-        }
+        return redirect()->route('dashboard')
+            ->with('success', 'Welcome back, ' . $user->first_name);
     }
-
-    return redirect()->route('dashboard')
-        ->with('success', 'Welcome back, ' . $user->first_name);
-}
 
     /**
      * Show registration form (only for first user).
@@ -129,14 +144,14 @@ protected function redirectBasedOnDepartment($user)
 
         $validated = $request->validate([
             'first_name' => 'required|string|max:100',
-            'last_name' => 'nullable|string|max:100',
-            'email' => 'required|email|unique:users',
-            'password' => 'required|string|min:8|confirmed',
+            'last_name'  => 'nullable|string|max:100',
+            'email'      => 'required|email|unique:users',
+            'password'   => 'required|string|min:8|confirmed',
         ]);
 
-        $validated['password'] = Hash::make($validated['password']);
+        $validated['password']       = Hash::make($validated['password']);
         $validated['is_super_admin'] = true;
-        $validated['is_active'] = true;
+        $validated['is_active']      = true;
 
         $user = User::create($validated);
 
@@ -168,7 +183,7 @@ protected function redirectBasedOnDepartment($user)
      */
     public function dashboard()
     {
-        $usersCount = User::count();
+        $usersCount       = User::count();
         $activeUsersCount = User::where('is_active', true)->count();
 
         return view('dashboard', compact('usersCount', 'activeUsersCount'));

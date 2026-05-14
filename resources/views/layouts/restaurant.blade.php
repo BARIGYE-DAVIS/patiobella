@@ -241,7 +241,7 @@
             </svg>
         </button>
         <div>
-            <div class="text-base font-semibold text-orange-900">Restaurant Module</div>
+            <div class="text-base font-semibold text-orange-900">Restaurant Department</div>
             <div class="text-xs text-gray-500">Food & Beverage Service</div>
         </div>
     </div>

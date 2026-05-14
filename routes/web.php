@@ -256,6 +256,33 @@ Route::prefix('approved-lpos')->name('approved-lpos.')->group(function () {
         Route::post('/{id}/send-to-store', [App\Http\Controllers\Procurement\GoodsReceivedController::class, 'sendToStore'])->name('send-to-store');
     });
 
+    Route::prefix('cost-prices')->name('cost-prices.')->group(function () {
+
+        // Main index page
+        Route::get('/', [App\Http\Controllers\Procurement\CostPriceController::class, 'index'])
+            ->name('index');
+
+        // Edit form
+        Route::get('/{id}/edit', [App\Http\Controllers\Procurement\CostPriceController::class, 'edit'])
+            ->name('edit');
+
+        // Update simple item (per unit)
+        Route::put('/{id}/simple', [App\Http\Controllers\Procurement\CostPriceController::class, 'updateSimple'])
+            ->name('update.simple');
+
+        // Update bulk item (per pack)
+        Route::put('/{id}/bulk', [App\Http\Controllers\Procurement\CostPriceController::class, 'updateBulk'])
+            ->name('update.bulk');
+
+        // Get price history (AJAX)
+        Route::get('/{id}/history', [App\Http\Controllers\Procurement\CostPriceController::class, 'getHistory'])
+            ->name('history');
+
+        // Bulk update multiple items
+        Route::post('/bulk', [App\Http\Controllers\Procurement\CostPriceController::class, 'bulkUpdate'])
+            ->name('bulk');
+    });
+
 
 });
 
@@ -280,6 +307,34 @@ Route::prefix('management')->name('management.')->middleware(['auth', 'managemen
         Route::get('/{id}/edit', [App\Http\Controllers\Management\ManagementRequisitionController::class, 'edit'])->name('edit');
         Route::put('/{id}', [App\Http\Controllers\Management\ManagementRequisitionController::class, 'update'])->name('update');
         Route::post('/{id}/reject', [App\Http\Controllers\Management\ManagementRequisitionController::class, 'reject'])->name('reject');
+    });
+
+
+     Route::prefix('prices')->name('prices.')->group(function () {
+
+        // Main price management page
+        Route::get('/', [App\Http\Controllers\Management\PriceManagementController::class, 'index'])
+            ->name('index');
+
+        // Update menu item price
+        Route::put('/menu/{id}', [App\Http\Controllers\Management\PriceManagementController::class, 'updateMenuItemPrice'])
+            ->name('update.menu');
+
+        // Update inventory item price (ready-to-sell)
+        Route::put('/inventory/{id}', [App\Http\Controllers\Management\PriceManagementController::class, 'updateInventoryPrice'])
+            ->name('update.inventory');
+
+        // Toggle sellable status (single item)
+        Route::patch('/toggle-sellable/{id}', [App\Http\Controllers\Management\PriceManagementController::class, 'toggleSellable'])
+            ->name('toggle-sellable');
+
+        // Bulk make sellable
+        Route::post('/bulk-make-sellable', [App\Http\Controllers\Management\PriceManagementController::class, 'bulkMakeSellable'])
+            ->name('bulk-make-sellable');
+
+        // Bulk remove from sellable
+        Route::post('/bulk-remove-sellable', [App\Http\Controllers\Management\PriceManagementController::class, 'bulkRemoveSellable'])
+            ->name('bulk-remove-sellable');
     });
 
     // ============================================================
@@ -369,6 +424,26 @@ Route::prefix('kitchen')->name('kitchen.')->middleware(['auth', 'kitchen'])->gro
         Route::get('/{id}', [App\Http\Controllers\Kitchen\RequisitionController::class, 'show'])->name('show');
         Route::delete('/{id}/cancel', [App\Http\Controllers\Kitchen\RequisitionController::class, 'cancel'])->name('cancel');
     });
+
+        // Consumption Routes
+    Route::prefix('consumption')->name('consumption.')->group(function () {
+
+        // Main consumption index (list of requisitions with stock)
+        Route::get('/', [App\Http\Controllers\Kitchen\KitchenConsumptionController::class, 'index'])
+            ->name('index');
+
+        // Show consumption form for a specific requisition
+        Route::get('/{requisitionId}/create', [App\Http\Controllers\Kitchen\KitchenConsumptionController::class, 'create'])
+            ->name('create');
+
+        // Store consumption records
+        Route::post('/{requisitionId}/store', [App\Http\Controllers\Kitchen\KitchenConsumptionController::class, 'store'])
+            ->name('store');
+
+        // View consumption history
+        Route::get('/history', [App\Http\Controllers\Kitchen\KitchenConsumptionController::class, 'history'])
+            ->name('history');
+    });
 });
 
 
@@ -450,4 +525,35 @@ Route::prefix('restaurant')->name('restaurant.')->middleware(['auth', 'restauran
     Route::get('/profile', [App\Http\Controllers\Restaurant\ProfileController::class, 'index'])->name('profile');
     Route::put('/profile', [App\Http\Controllers\Restaurant\ProfileController::class, 'update'])->name('profile.update');
     Route::get('/settings', [App\Http\Controllers\Restaurant\SettingsController::class, 'index'])->name('settings');
+});
+
+// =====================================================
+// CASHIER MODULE Routes (All URLs under /restaurant/cashier)
+// =====================================================
+
+Route::prefix('restaurant/cashier')->name('restaurant.cashier.')->middleware(['auth'])->group(function () {
+
+    // Dashboard
+    Route::get('/dashboard', [App\Http\Controllers\Restaurant\CashierController::class, 'dashboard'])->name('dashboard');
+
+    // Point of Sale (POS)
+    Route::get('/pos', [App\Http\Controllers\Restaurant\CashierController::class, 'pos'])->name('pos');
+
+    // Menu (Read-only for cashier)
+    Route::get('/menu', [App\Http\Controllers\Restaurant\CashierController::class, 'menu'])->name('menu');
+
+    // Orders
+    Route::get('/orders', [App\Http\Controllers\Restaurant\CashierController::class, 'orders'])->name('orders');
+
+    // Receipt
+    Route::get('/receipt/{id}', [App\Http\Controllers\Restaurant\CashierController::class, 'getReceipt'])->name('receipt');
+
+    // Process Order (AJAX)
+    Route::post('/order', [App\Http\Controllers\Restaurant\CashierController::class, 'storeOrder'])->name('store');
+
+    // Reports
+    Route::get('/reports', [App\Http\Controllers\Restaurant\CashierController::class, 'reports'])->name('reports');
+    Route::get('/reports/daily', [App\Http\Controllers\Restaurant\CashierController::class, 'dailyReport'])->name('reports.daily');
+    Route::get('/reports/export/excel', [App\Http\Controllers\Restaurant\CashierController::class, 'exportExcel'])->name('reports.export.excel');
+    Route::get('/reports/export/pdf', [App\Http\Controllers\Restaurant\CashierController::class, 'exportPdf'])->name('reports.export.pdf');
 });

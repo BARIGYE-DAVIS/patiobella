@@ -27,6 +27,7 @@ class InventoryItem extends Model
         'unit_cost',                   // Cost per base unit
         'last_purchase_price',         // Last cost per base unit
         'selling_price',               // Selling price per base unit (set by sales management)
+        'is_sellable',              // Whether this item is sold directly to customers (e.g. water, soda, beer)
         'current_stock',               // Always in base units
         'is_perishable',
         'is_taxable',
@@ -48,6 +49,7 @@ class InventoryItem extends Model
         'unit_cost'          => 'decimal:2',
         'last_purchase_price'=> 'decimal:2',
         'selling_price'      => 'decimal:2',
+        'is_sellable'        => 'boolean',
         'current_stock'      => 'decimal:6',
         'is_perishable'      => 'boolean',
         'is_taxable'         => 'boolean',

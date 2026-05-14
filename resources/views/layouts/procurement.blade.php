@@ -11,7 +11,7 @@
 
     <!-- Font Awesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    
+
 
     <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -208,6 +208,14 @@
     Goods Received
 </a>
 
+<!-- Add this inside the <nav> section, after existing links -->
+
+<a href="{{ route('procurement.cost-prices.index') }}"
+   class="flex items-center px-4 py-3 text-sm hover:bg-emerald-700 transition sidebar-nav-link
+          {{ request()->routeIs('procurement.cost-prices.*') ? 'sidebar-active' : '' }}">
+    <i class="fas fa-dollar-sign w-5 h-5 mr-3"></i>
+    <span>Cost Prices</span>
+</a>
 
     </nav>
 

@@ -60,13 +60,13 @@ class UserController extends Controller
 
             $roles = Role::where('is_active', true)->orderBy('name')->get();
             $departments = Department::where('is_active', true)->orderBy('name')->get();
-            
+
             Log::info('Create user form accessed', [
                 'user_id' => Auth::id(),
                 'roles_count' => $roles->count(),
                 'departments_count' => $departments->count()
             ]);
-            
+
             return view('users.create', compact('roles', 'departments'));
         } catch (\Exception $e) {
             Log::error('Error in create method: ' . $e->getMessage(), [
@@ -80,53 +80,42 @@ class UserController extends Controller
     /**
      * Store a newly created user.
      */
-    public function store(Request $request)
-    {
-        try {
-            Log::info('Store method called', ['request_data' => $request->except('password')]);
-
-            // Only super admin or users with can_create_users permission can create users
-            if (!Auth::user()->is_super_admin && !Auth::user()->can_create_users) {
-                Log::warning('Unauthorized store attempt', ['user_id' => Auth::id()]);
-                return redirect()->route('users.index')
-                    ->with('error', 'You do not have permission to create users.');
-            }
-
-            $validated = $request->validate([
-                'first_name' => 'required|string|max:100',
-                'last_name' => 'nullable|string|max:100',
-                'email' => 'required|email|unique:users,email',
-                'password' => 'required|string|min:8',
-                'role' => 'required|exists:roles,id',
-                'department_id' => 'nullable|exists:departments,id',
-                'is_active' => 'sometimes|boolean',
-                'can_create_users' => 'sometimes|boolean',
-            ]);
-
-            Log::info('Validation passed', ['validated_data' => $validated]);
-
-            $validated['password'] = Hash::make($validated['password']);
-            $validated['is_super_admin'] = false;
-            $validated['created_by'] = Auth::user()->id;
-
-            $user = User::create($validated);
-
-            Log::info('User created successfully', ['user_id' => $user->id, 'email' => $user->email]);
-
+public function store(Request $request)
+{
+    try {
+        if (!Auth::user()->is_super_admin && !Auth::user()->can_create_users) {
             return redirect()->route('users.index')
-                ->with('success', 'User created successfully.');
-        } catch (\Illuminate\Validation\ValidationException $e) {
-            Log::error('Validation error in store: ' . json_encode($e->errors()));
-            return redirect()->back()->withErrors($e->errors())->withInput();
-        } catch (\Exception $e) {
-            Log::error('Error in store method: ' . $e->getMessage(), [
-                'file' => $e->getFile(),
-                'line' => $e->getLine()
-            ]);
-            return redirect()->back()->with('error', 'An error occurred: ' . $e->getMessage())->withInput();
+                ->with('error', 'You do not have permission to create users.');
         }
-    }
 
+        $validated = $request->validate([
+            'first_name'       => 'required|string|max:100',
+            'last_name'        => 'nullable|string|max:100',
+            'email'            => 'required|email|unique:users,email',
+            'password'         => 'required|string|min:8',
+            'role_id'          => 'required|exists:roles,id',  // ← role_id
+            'department_id'    => 'nullable|exists:departments,id',
+            'is_active'        => 'sometimes|boolean',
+            'can_create_users' => 'sometimes|boolean',
+        ]);
+
+        $validated['password']       = Hash::make($validated['password']);
+        $validated['is_super_admin'] = false;
+        $validated['created_by']     = Auth::id();
+
+        $user = User::create($validated);
+
+        Log::info('User created', ['user_id' => $user->id]);
+
+        return redirect()->route('users.index')->with('success', 'User created successfully.');
+
+    } catch (\Illuminate\Validation\ValidationException $e) {
+        return redirect()->back()->withErrors($e->errors())->withInput();
+    } catch (\Exception $e) {
+        Log::error('Error creating user: ' . $e->getMessage());
+        return redirect()->back()->with('error', 'An error occurred: ' . $e->getMessage())->withInput();
+    }
+}
     /**
      * Display the specified user.
      */
@@ -134,10 +123,10 @@ class UserController extends Controller
     {
         try {
             Log::info('Show user method called', ['user_id' => $id, 'auth_user' => Auth::id()]);
-            
+
             $user = User::with(['department', 'creator', 'updater'])->findOrFail($id);
             $roles = Role::where('is_active', true)->orderBy('name')->get();
-            
+
             return view('users.show', compact('user', 'roles'));
         } catch (\Exception $e) {
             Log::error('Error in show method: ' . $e->getMessage(), [
@@ -176,13 +165,13 @@ class UserController extends Controller
 
             $roles = Role::where('is_active', true)->orderBy('name')->get();
             $departments = Department::where('is_active', true)->orderBy('name')->get();
-            
+
             Log::info('Edit form data loaded', [
                 'roles_count' => $roles->count(),
                 'departments_count' => $departments->count(),
                 'user_role_id' => $user->role
             ]);
-            
+
             return view('users.edit', compact('user', 'roles', 'departments'));
         } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
             Log::error('User not found in edit method', ['user_id' => $id]);
@@ -203,73 +192,47 @@ class UserController extends Controller
 public function update(Request $request, $id)
 {
     try {
-        Log::info('Update method called', [
-            'user_id' => $id, 
-            'auth_user' => Auth::id(),
-            'request_data' => $request->except('password', 'password_confirmation')
-        ]);
-
-        // Only super admin or users with can_create_users permission can update users
         if (!Auth::user()->is_super_admin && !Auth::user()->can_create_users) {
-            Log::warning('Unauthorized update attempt', ['user_id' => Auth::id(), 'target_user' => $id]);
             return redirect()->route('users.index')
                 ->with('error', 'You do not have permission to update users.');
         }
 
         $user = User::findOrFail($id);
-        Log::info('User found for update', ['user' => $user->id, 'current_role_id' => $user->role]);
 
-        // Cannot edit super admin unless you are super admin
         if ($user->is_super_admin && !Auth::user()->is_super_admin) {
-            Log::warning('Attempt to update super admin', ['user_id' => Auth::id(), 'target_user' => $id]);
             return redirect()->route('users.index')
                 ->with('error', 'You cannot edit a super administrator.');
         }
 
         $validated = $request->validate([
-            'first_name' => 'required|string|max:100',
-            'last_name' => 'nullable|string|max:100',
-            'email' => ['required', 'email', Rule::unique('users', 'email')->ignore($id)],
-            'role' => 'required|exists:roles,id',
-            'department_id' => 'nullable|exists:departments,id',
-            'is_active' => 'sometimes|boolean',
+            'first_name'       => 'required|string|max:100',
+            'last_name'        => 'nullable|string|max:100',
+            'email'            => ['required', 'email', Rule::unique('users', 'email')->ignore($id)],
+            'role_id'          => 'required|exists:roles,id',  // ← role_id
+            'department_id'    => 'nullable|exists:departments,id',
+            'is_active'        => 'sometimes|boolean',
             'can_create_users' => 'sometimes|boolean',
         ]);
 
-        // Only validate password if it is provided
         if ($request->filled('password')) {
-            $request->validate([
-                'password' => 'required|string|min:8|confirmed',
-            ]);
+            $request->validate(['password' => 'required|string|min:8|confirmed']);
             $validated['password'] = Hash::make($request->password);
-            Log::info('Password updated for user', ['user_id' => $id]);
         }
 
-        Log::info('Validation passed for update', ['validated_data' => $validated]);
-
-        $validated['updated_by'] = Auth::user()->id;
+        $validated['updated_by'] = Auth::id();
         $user->update($validated);
 
-        Log::info('User updated successfully', ['user_id' => $user->id, 'new_role_id' => $user->role]);
+        Log::info('User updated', ['user_id' => $user->id]);
 
-        return redirect()->route('users.index')
-            ->with('success', 'User updated successfully.');
+        return redirect()->route('users.index')->with('success', 'User updated successfully.');
+
     } catch (\Illuminate\Validation\ValidationException $e) {
-        Log::error('Validation error in update: ' . json_encode($e->errors()));
         return redirect()->back()->withErrors($e->errors())->withInput();
-    } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
-        Log::error('User not found in update method', ['user_id' => $id]);
-        return redirect()->route('users.index')->with('error', 'User not found.');
     } catch (\Exception $e) {
-        Log::error('Error in update method: ' . $e->getMessage(), [
-            'user_id' => $id,
-            'file' => $e->getFile(),
-            'line' => $e->getLine()
-        ]);
+        Log::error('Error updating user: ' . $e->getMessage());
         return redirect()->back()->with('error', 'An error occurred: ' . $e->getMessage())->withInput();
     }
 }
-
 /**
  * Update password only.
  */

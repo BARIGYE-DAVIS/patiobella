@@ -217,6 +217,13 @@
             </svg>
             GRNs
         </a>
+
+        <a href="{{ route('management.prices.index') }}"
+   class="flex items-center px-4 py-3 text-sm hover:bg-blue-700 transition sidebar-nav-link
+          {{ request()->routeIs('management.prices.*') ? 'sidebar-active' : '' }}">
+    <i class="fas fa-tag w-5 h-5 mr-3"></i>
+    <span>Price Management</span>
+</a>
     </nav>
 
     {{-- Sidebar Footer --}}

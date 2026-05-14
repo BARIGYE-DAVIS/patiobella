@@ -25,6 +25,8 @@ class DepartmentRequisitionItem extends Model
         'returned_pack_type',
         'returned_pack_size',
         'returned_total_pieces',
+        'qauntity_sold',
+        
         'return_reason',
         'returned_at',
         'quantity_consumed',

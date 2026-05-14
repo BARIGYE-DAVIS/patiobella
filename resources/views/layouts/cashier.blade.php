@@ -1,10 +1,12 @@
+{{-- resources/views/layouts/cashier.blade.php --}}
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <title>@yield('title', 'Kitchen Dashboard') - PaitoBella</title>
+    <title>@yield('title', 'Cashier Panel') - {{ config('app.name') }}</title>
 
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -21,14 +23,14 @@
             background: #ebecee;
         }
         .sidebar-active {
-            background-color: #1e40af;
+            background-color: #ea580c;
             color: white;
         }
         .sidebar-active svg {
             color: white;
         }
 
-        /* ── Sidebar ── */
+        /* Sidebar */
         #sidebar {
             position: fixed;
             left: -280px;
@@ -37,14 +39,14 @@
             height: 100%;
             transition: left 0.3s ease;
             z-index: 50;
-            background-color: #1e3a8a;
+            background-color: #9a3412;
             overflow-y: auto;
         }
         #sidebar.open {
             left: 0;
         }
 
-        /* ── Overlay ── */
+        /* Overlay */
         .sidebar-overlay {
             position: fixed;
             inset: 0;
@@ -56,7 +58,7 @@
             display: block;
         }
 
-        /* ── Top Bar ── */
+        /* Top Bar */
         .top-bar {
             background: #eff1f3;
             box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
@@ -77,7 +79,7 @@
             gap: 12px;
         }
 
-        /* ── Hamburger button ── */
+        /* Hamburger button */
         #menuIconBtn {
             background: transparent;
             border: none;
@@ -88,7 +90,7 @@
             justify-content: center;
             cursor: pointer;
             border-radius: 8px;
-            color: #1e3a8a;
+            color: #9a3412;
             transition: background 0.2s;
             flex-shrink: 0;
         }
@@ -96,7 +98,7 @@
             background: #e5e7eb;
         }
 
-        /* ── Main content ── */
+        /* Main content */
         main {
             margin-top: 65px;
             padding: 20px;
@@ -119,14 +121,14 @@
 {{-- Sidebar Overlay --}}
 <div class="sidebar-overlay" id="sidebarOverlay"></div>
 
-{{-- ── SIDEBAR ── --}}
+{{-- SIDEBAR --}}
 <aside id="sidebar" class="text-white shadow-xl">
 
-    <div class="p-4 border-b border-blue-700">
+    <div class="p-4 border-b border-orange-700">
         <div class="flex justify-between items-center">
             <div>
-                <h2 class="text-xl font-bold">PaitoBella</h2>
-                <p class="text-xs text-blue-300 mt-1">Kitchen Dashboard</p>
+                <h2 class="text-xl font-bold">CASHIER</h2>
+                <p class="text-xs text-orange-300 mt-1">Point of Sale</p>
             </div>
             <button id="closeSidebarBtn"
                     class="text-white hover:text-gray-300 bg-transparent border-none cursor-pointer p-1 rounded">
@@ -138,61 +140,65 @@
     </div>
 
     <nav class="mt-6">
-        <a href="{{ route('kitchen.dashboard') }}"
-           class="flex items-center px-4 py-3 text-sm hover:bg-blue-700 transition sidebar-nav-link
-                  {{ request()->routeIs('kitchen.dashboard') ? 'sidebar-active' : '' }}">
-            <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                      d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/>
-            </svg>
+        <!-- Dashboard -->
+        <a href="{{ route('restaurant.cashier.dashboard') }}"
+           class="flex items-center px-4 py-3 text-sm hover:bg-orange-700 transition sidebar-nav-link
+                  {{ request()->routeIs('restaurant.cashier.dashboard') ? 'sidebar-active' : '' }}">
+            <i class="fas fa-tachometer-alt w-5 h-5 mr-3"></i>
             Dashboard
         </a>
 
+        <!-- Point of Sale -->
+        <a href="{{ route('restaurant.cashier.pos') }}"
+           class="flex items-center px-4 py-3 text-sm hover:bg-orange-700 transition sidebar-nav-link
+                  {{ request()->routeIs('restaurant.cashier.pos') ? 'sidebar-active' : '' }}">
+            <i class="fas fa-cash-register w-5 h-5 mr-3"></i>
+            Point of Sale
+        </a>
 
+        <!-- Menu -->
+        <a href="{{ route('restaurant.cashier.menu') }}"
+           class="flex items-center px-4 py-3 text-sm hover:bg-orange-700 transition sidebar-nav-link
+                  {{ request()->routeIs('restaurant.cashier.menu') ? 'sidebar-active' : '' }}">
+            <i class="fas fa-utensils w-5 h-5 mr-3"></i>
+            Menu
+        </a>
 
+        <!-- Orders -->
+        <a href="{{ route('restaurant.cashier.orders') }}"
+           class="flex items-center px-4 py-3 text-sm hover:bg-orange-700 transition sidebar-nav-link
+                  {{ request()->routeIs('restaurant.cashier.orders') ? 'sidebar-active' : '' }}">
+            <i class="fas fa-receipt w-5 h-5 mr-3"></i>
+            Orders
+        </a>
 
-
-    <a href="{{ route('kitchen.requisitions.index') }}"
-   class="flex items-center px-4 py-3 text-sm hover:bg-blue-700 transition sidebar-nav-link
-          {{ request()->routeIs('kitchen.requisitions.*') ? 'sidebar-active' : '' }}">
-    <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-              d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
-    </svg>
-    My Requisitions
-</a>
-
-<!-- Add this inside the <nav> section, after existing links -->
-
-<a href="{{ route('kitchen.consumption.index') }}"
-   class="flex items-center px-4 py-3 text-sm hover:bg-orange-700 transition sidebar-nav-link
-          {{ request()->routeIs('kitchen.consumption.*') ? 'sidebar-active' : '' }}">
-    <i class="fas fa-fire w-5 h-5 mr-3"></i>
-    <span>Record Consumption</span>
-</a>
+        <!-- Reports -->
+        <a href="{{ route('restaurant.cashier.reports') }}"
+           class="flex items-center px-4 py-3 text-sm hover:bg-orange-700 transition sidebar-nav-link
+                  {{ request()->routeIs('restaurant.cashier.reports') ? 'sidebar-active' : '' }}">
+            <i class="fas fa-chart-line w-5 h-5 mr-3"></i>
+            Reports
+        </a>
     </nav>
 
     {{-- Sidebar Footer --}}
-    <div class="absolute bottom-0 w-full p-4 border-t border-blue-700 bg-[#1e3a8a]">
+    <div class="absolute bottom-0 w-full p-4 border-t border-orange-700 bg-[#9a3412]">
         <div class="flex items-center">
-            <div class="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center flex-shrink-0">
+            <div class="w-8 h-8 rounded-full bg-orange-600 flex items-center justify-center flex-shrink-0">
                 <span class="text-sm font-bold">
-                    {{ substr(Auth::user()->first_name, 0, 1) }}
+                    {{ substr(Auth::user()->first_name ?? 'C', 0, 1) }}{{ substr(Auth::user()->last_name ?? '', 0, 1) }}
                 </span>
             </div>
             <div class="ml-3 overflow-hidden">
                 <p class="text-sm font-medium truncate">{{ Auth::user()->first_name }} {{ Auth::user()->last_name }}</p>
-                <p class="text-xs text-blue-300">Kitchen</p>
+                <p class="text-xs text-orange-300">Cashier</p>
             </div>
         </div>
 
         <a href="{{ route('logout') }}"
            onclick="event.preventDefault(); document.getElementById('logout-form').submit();"
-           class="mt-3 flex items-center text-sm text-blue-300 hover:text-white transition">
-            <svg class="w-4 h-4 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                      d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
-            </svg>
+           class="mt-3 flex items-center text-sm text-orange-300 hover:text-white transition">
+            <i class="fas fa-sign-out-alt w-4 h-4 mr-2"></i>
             Logout
         </a>
         <form id="logout-form" action="{{ route('logout') }}" method="POST" class="hidden">
@@ -201,9 +207,8 @@
     </div>
 </aside>
 
-{{-- ── TOP BAR ── --}}
+{{-- TOP BAR --}}
 <div class="top-bar">
-    {{-- Left: Hamburger + Branding --}}
     <div class="top-bar-left">
         <button id="menuIconBtn" aria-label="Open menu">
             <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -211,21 +216,20 @@
             </svg>
         </button>
         <div>
-            <div class="text-base font-semibold text-blue-900">Kitchen Dashboard</div>
-            <div class="text-xs text-gray-500">PaitoBella</div>
+            <div class="text-base font-semibold text-orange-900">Cashier Module</div>
+            <div class="text-xs text-gray-500">Point of Sale System</div>
         </div>
     </div>
 
-    {{-- Right: Page title + User avatar --}}
     <div class="flex items-center gap-4">
-        <span class="text-sm text-gray-600 hidden sm:inline">@yield('page-title')</span>
-        <div class="w-8 h-8 bg-orange-600 rounded-full flex items-center justify-center text-white font-bold text-sm">
-            {{ substr(Auth::user()->first_name, 0, 1) }}
-        </div>
+        <a href="{{ route('dashboard') }}" class="text-gray-600 hover:text-gray-800 text-sm hidden sm:inline-flex items-center gap-1">
+            <i class="fas fa-tachometer-alt"></i>
+            <span>Main Dashboard</span>
+        </a>
     </div>
 </div>
 
-{{-- ── MAIN CONTENT ── --}}
+{{-- MAIN CONTENT --}}
 <main>
     @if(session('success'))
         <div class="mb-4 p-4 bg-green-100 border border-green-400 text-green-700 rounded-lg flex items-center gap-2">
@@ -245,12 +249,12 @@
 </main>
 
 <script>
-    // ── Sidebar toggle ──────────────────────────────────────────────
-    const sidebar         = document.getElementById('sidebar');
-    const overlay         = document.getElementById('sidebarOverlay');
-    const menuIconBtn     = document.getElementById('menuIconBtn');
+    // Sidebar toggle
+    const sidebar = document.getElementById('sidebar');
+    const overlay = document.getElementById('sidebarOverlay');
+    const menuIconBtn = document.getElementById('menuIconBtn');
     const closeSidebarBtn = document.getElementById('closeSidebarBtn');
-    const navLinks        = document.querySelectorAll('.sidebar-nav-link');
+    const navLinks = document.querySelectorAll('.sidebar-nav-link');
 
     function openSidebar() {
         sidebar.classList.add('open');

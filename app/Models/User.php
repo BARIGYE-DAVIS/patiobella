@@ -16,7 +16,8 @@ class User extends Authenticatable
         'last_name',
         'email',
         'department_id',
-        'role',
+        'role_id',       // ← use role_id as the FK
+        'role',          // ← keep for backward compat but stop writing to it
         'password',
         'is_active',
         'can_create_users',
@@ -34,12 +35,12 @@ class User extends Authenticatable
     protected function casts(): array
     {
         return [
-            'email_verified_at' => 'datetime',
-            'last_login_at' => 'datetime',
-            'is_active' => 'boolean',
-            'can_create_users' => 'boolean',
-            'is_super_admin' => 'boolean',
-            'deleted_at' => 'datetime',
+            'email_verified_at'  => 'datetime',
+            'last_login_at'      => 'datetime',
+            'is_active'          => 'boolean',
+            'can_create_users'   => 'boolean',
+            'is_super_admin'     => 'boolean',
+            'deleted_at'         => 'datetime',
         ];
     }
 
@@ -48,10 +49,36 @@ class User extends Authenticatable
         return $this->first_name . ' ' . $this->last_name;
     }
 
-    // role column stores the ID from roles table
+    /**
+     * Role relationship — uses role_id FK (correct)
+     */
     public function role()
     {
-        return $this->belongsTo(Role::class, 'role', 'id');
+        return $this->belongsTo(Role::class, 'role_id', 'id');
+    }
+
+    /**
+     * Helper to get role name regardless of how it's stored.
+     * Handles legacy data where role column has the numeric id.
+     */
+    public function getRoleName(): ?string
+    {
+        // Preferred: role_id FK is set
+        if ($this->role_id) {
+            return optional(Role::find($this->role_id))->name;
+        }
+
+        // Legacy fallback: role column has a numeric id
+        if (!empty($this->role) && is_numeric($this->role)) {
+            return optional(Role::find($this->role))->name;
+        }
+
+        // Legacy fallback: role column has the name directly
+        if (!empty($this->role)) {
+            return $this->role;
+        }
+
+        return null;
     }
 
     public function department()
@@ -77,16 +104,6 @@ class User extends Authenticatable
     public function updatedUsers()
     {
         return $this->hasMany(User::class, 'updated_by');
-    }
-
-    public function managedStores()
-    {
-        return $this->hasMany(Store::class, 'manager_id');
-    }
-
-    public function managedDepartments()
-    {
-        return $this->hasMany(Department::class, 'manager_id');
     }
 
     public function purchaseOrdersCreated()
