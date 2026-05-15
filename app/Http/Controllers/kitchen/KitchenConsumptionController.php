@@ -24,18 +24,19 @@ class KitchenConsumptionController extends Controller
             return redirect()->route('dashboard')->with('error', 'Unauthorized access');
         }
 
-        // Get all requisitions that have issued items and not fully consumed
+        // Get all requisitions that have issued items and not fully processed
         $requisitions = DepartmentRequisition::with(['items.inventoryItem'])
             ->where('department_id', $user->department_id)
-            ->whereIn('status', ['issued', 'partially_issued', 'partially_consumed'])
+            ->whereIn('status', ['issued', 'partially_issued', 'partially_consumed', 'partially_returned'])
             ->orderBy('created_at', 'desc')
             ->get();
 
         // Calculate remaining quantities for each requisition item
         foreach ($requisitions as $requisition) {
             foreach ($requisition->items as $item) {
-                $item->total_consumed = ($item->quantity_consumed ?? 0) + ($item->quantity_sold ?? 0);
-                $item->remaining_pieces = ($item->issued_total_pieces ?? 0) - $item->total_consumed;
+                // Total processed = consumed + sold + returned
+                $totalProcessed = ($item->quantity_consumed ?? 0) + ($item->quantity_sold ?? 0) + ($item->quantity_returned ?? 0);
+                $item->remaining_pieces = ($item->quantity_issued ?? 0) - $totalProcessed;
 
                 // Calculate remaining in packs and pieces
                 if ($item->issued_pack_type && $item->issued_pack_size > 0) {
@@ -70,8 +71,9 @@ class KitchenConsumptionController extends Controller
 
         // Calculate remaining quantities
         foreach ($requisition->items as $item) {
-            $item->total_consumed = ($item->quantity_consumed ?? 0) + ($item->quantity_sold ?? 0);
-            $item->remaining_pieces = ($item->issued_total_pieces ?? 0) - $item->total_consumed;
+            // Total processed = consumed + sold + returned
+            $totalProcessed = ($item->quantity_consumed ?? 0) + ($item->quantity_sold ?? 0) + ($item->quantity_returned ?? 0);
+            $item->remaining_pieces = ($item->quantity_issued ?? 0) - $totalProcessed;
 
             // Calculate remaining in packs and pieces
             if ($item->issued_pack_type && $item->issued_pack_size > 0) {
@@ -134,9 +136,9 @@ class KitchenConsumptionController extends Controller
                     continue;
                 }
 
-                // Calculate current remaining
-                $totalConsumedSoFar = ($reqItem->quantity_consumed ?? 0) + ($reqItem->quantity_sold ?? 0);
-                $remainingPieces = ($reqItem->issued_total_pieces ?? 0) - $totalConsumedSoFar;
+                // Calculate current remaining (considering all actions: consumed, sold, returned)
+                $totalProcessedSoFar = ($reqItem->quantity_consumed ?? 0) + ($reqItem->quantity_sold ?? 0) + ($reqItem->quantity_returned ?? 0);
+                $remainingPieces = ($reqItem->quantity_issued ?? 0) - $totalProcessedSoFar;
 
                 // Validate
                 if ($totalPiecesToConsume > $remainingPieces) {
@@ -150,7 +152,7 @@ class KitchenConsumptionController extends Controller
                 $newConsumed = ($reqItem->quantity_consumed ?? 0) + $totalPiecesToConsume;
                 $reqItem->quantity_consumed = $newConsumed;
 
-                // Store consumption details in notes (optional - track what was consumed)
+                // Store consumption details in notes
                 $consumptionDetail = [];
                 if ($packsConsumed > 0) {
                     $consumptionDetail[] = "{$packsConsumed} {$reqItem->issued_pack_type}(s)";
@@ -177,24 +179,12 @@ class KitchenConsumptionController extends Controller
                     'packs_consumed' => $packsConsumed,
                     'pieces_consumed' => $piecesConsumed,
                     'total_pieces' => $totalPiecesToConsume,
-                    'pack_type' => $reqItem->issued_pack_type,
-                    'pack_size' => $packSize,
                 ]);
             }
 
-            // Update requisition status based on consumption
+            // Update requisition status based on ALL actions
             if ($anyConsumed) {
-                $totalIssuedPieces = $requisition->items->sum('issued_total_pieces');
-                $totalConsumedPieces = $requisition->items->sum(function($item) {
-                    return ($item->quantity_consumed ?? 0) + ($item->quantity_sold ?? 0);
-                });
-
-                if ($totalConsumedPieces >= $totalIssuedPieces && $totalIssuedPieces > 0) {
-                    $requisition->status = 'fully_consumed';
-                } elseif ($totalConsumedPieces > 0) {
-                    $requisition->status = 'partially_consumed';
-                }
-                $requisition->save();
+                $requisition->updateStatusBasedOnAllActions();
             }
 
             DB::commit();

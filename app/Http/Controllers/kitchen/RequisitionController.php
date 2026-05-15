@@ -57,106 +57,118 @@ class RequisitionController extends Controller
     /**
      * Store a newly created requisition.
      */
-    public function store(Request $request)
-    {
-        $user = Auth::user();
+   public function store(Request $request)
+{
+    $user = Auth::user();
 
-        if (!$user->department || $user->department->name !== 'KITCHEN') {
-            return redirect()->route('dashboard')->with('error', 'Unauthorized access');
-        }
-
-        $validated = $request->validate([
-            'date_needed' => 'nullable|date',
-            'department_notes' => 'nullable|string',
-            'items' => 'required|array|min:1',
-            'items.*.inventory_item_id' => 'required|exists:inventory_items,id',
-            'items.*.quantity' => 'required|numeric|min:0.01',
-            'items.*.pack_type' => 'nullable|string',
-            'items.*.pack_size' => 'nullable|numeric|min:1',
-            'items.*.metrics' => 'nullable|string',
-            'items.*.notes' => 'nullable|string',
-        ]);
-
-        DB::beginTransaction();
-
-        try {
-            // Generate requisition number
-            $requisitionNumber = 'KIT-REQ-' . date('Ymd') . '-' . str_pad(rand(0, 9999), 4, '0', STR_PAD_LEFT);
-
-            // Create requisition
-            $requisition = DepartmentRequisition::create([
-                'requisition_number' => $requisitionNumber,
-                'department_id' => $user->department_id,
-                'requested_by' => $user->id,
-                'date_needed' => $validated['date_needed'],
-                'department_notes' => $validated['department_notes'],
-                'status' => 'pending',
-            ]);
-
-            // Create requisition items
-            foreach ($validated['items'] as $item) {
-                $packType = $item['pack_type'] ?? null;
-                $packSize = $item['pack_size'] ?? null;
-                $quantity = $item['quantity'];
-
-                // Calculate total pieces if pack type exists
-                $totalPieces = $packType && $packSize ? $quantity * $packSize : $quantity;
-
-                DepartmentRequisitionItem::create([
-                    'department_requisition_id' => $requisition->id,
-                    'inventory_item_id' => $item['inventory_item_id'],
-                    'quantity_requested' => $quantity,
-                    'requested_pack_type' => $packType,
-                    'requested_pack_size' => $packSize,
-                    'issued_total_pieces' => $totalPieces,
-                    'metrics' => $item['metrics'] ?? null,
-                    'notes' => $item['notes'] ?? null,
-                ]);
-            }
-
-            DB::commit();
-
-            Log::info('Kitchen requisition created', [
-                'user_id' => Auth::id(),
-                'requisition_id' => $requisition->id,
-                'requisition_number' => $requisitionNumber
-            ]);
-
-            return redirect()->route('kitchen.requisitions.show', $requisition->id)
-                ->with('success', 'Requisition #' . $requisitionNumber . ' created successfully.');
-
-        } catch (\Exception $e) {
-            DB::rollBack();
-            Log::error('Error creating kitchen requisition', [
-                'user_id' => Auth::id(),
-                'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
-            ]);
-            return redirect()->back()
-                ->with('error', 'Failed to create requisition: ' . $e->getMessage())
-                ->withInput();
-        }
+    if (!$user->department || $user->department->name !== 'KITCHEN') {
+        return redirect()->route('dashboard')->with('error', 'Unauthorized access');
     }
 
+    $validated = $request->validate([
+        'date_needed'                    => 'nullable|date',
+        'department_notes'               => 'nullable|string',
+        'items'                          => 'required|array|min:1',
+        'items.*.inventory_item_id'      => 'required|exists:inventory_items,id',
+        'items.*.quantity'               => 'required|numeric|min:0.01',
+        'items.*.pack_type'              => 'nullable|string',
+        'items.*.pack_size'              => 'nullable|numeric|min:1',
+        'items.*.metrics'                => 'nullable|string',
+        'items.*.notes'                  => 'nullable|string',
+    ]);
+
+    DB::beginTransaction();
+
+    try {
+        $requisitionNumber = 'KIT-REQ-' . date('Ymd') . '-' . str_pad(rand(0, 9999), 4, '0', STR_PAD_LEFT);
+
+        $requisition = DepartmentRequisition::create([
+            'requisition_number' => $requisitionNumber,
+            'department_id'      => $user->department_id,
+            'requested_by'       => $user->id,
+            'date_needed'        => $validated['date_needed'],
+            'department_notes'   => $validated['department_notes'],
+            'status'             => 'pending',
+        ]);
+
+        foreach ($validated['items'] as $item) {
+            DepartmentRequisitionItem::create([
+                'department_requisition_id' => $requisition->id,
+                'inventory_item_id'         => $item['inventory_item_id'],
+                'quantity_requested'        => $item['quantity'],
+                'requested_pack_type'       => $item['pack_type'] ?? null,
+                'requested_pack_size'       => $item['pack_size'] ?? null,
+                // ✅ issued_total_pieces removed — defaults to 0 in DB
+                // it will be set correctly by the Store when issuing
+                'metrics'                   => $item['metrics'] ?? null,
+                'notes'                     => $item['notes'] ?? null,
+            ]);
+        }
+
+        DB::commit();
+
+        Log::info('Kitchen requisition created', [
+            'user_id'              => Auth::id(),
+            'requisition_id'       => $requisition->id,
+            'requisition_number'   => $requisitionNumber,
+        ]);
+
+        return redirect()->route('kitchen.requisitions.show', $requisition->id)
+            ->with('success', 'Requisition #' . $requisitionNumber . ' created successfully.');
+
+    } catch (\Exception $e) {
+        DB::rollBack();
+        Log::error('Error creating kitchen requisition', [
+            'user_id' => Auth::id(),
+            'error'   => $e->getMessage(),
+            'trace'   => $e->getTraceAsString(),
+        ]);
+        return redirect()->back()
+            ->with('error', 'Failed to create requisition: ' . $e->getMessage())
+            ->withInput();
+    }
+}
     /**
      * Display the specified requisition.
      */
-    public function show($id)
-    {
-        $user = Auth::user();
+/**
+ * Display the specified requisition.
+ */
+public function show($id)
+{
+    $user = Auth::user();
 
-        if (!$user->department || $user->department->name !== 'KITCHEN') {
-            return redirect()->route('dashboard')->with('error', 'Unauthorized access');
-        }
-
-        $requisition = DepartmentRequisition::with(['items.inventoryItem', 'requestedBy', 'approvedBy'])
-            ->where('department_id', $user->department_id)
-            ->where('requested_by', $user->id)
-            ->findOrFail($id);
-
-        return view('kitchen.requisitions.show', compact('requisition'));
+    if (!$user->department || $user->department->name !== 'KITCHEN') {
+        return redirect()->route('dashboard')->with('error', 'Unauthorized access');
     }
 
+    // Load all item data including returned quantities
+    $requisition = DepartmentRequisition::with([
+        'items.inventoryItem',
+        'items' => function($query) {
+            $query->select('*'); // Ensure all columns are loaded
+        },
+        'requestedBy',
+        'approvedBy'
+    ])
+    ->where('department_id', $user->department_id)
+    ->where('requested_by', $user->id)
+    ->findOrFail($id);
+
+    // Debug: Log the returned quantities to verify they exist
+    foreach ($requisition->items as $item) {
+        Log::info('Kitchen requisition item data', [
+            'item_id' => $item->id,
+            'item_name' => $item->inventoryItem->name ?? 'N/A',
+            'quantity_issued' => $item->quantity_issued,
+            'quantity_consumed' => $item->quantity_consumed,
+            'quantity_returned' => $item->quantity_returned,
+            'returned_total_pieces' => $item->returned_total_pieces,
+        ]);
+    }
+
+    return view('kitchen.requisitions.show', compact('requisition'));
+}
     /**
      * Cancel a requisition (only if pending).
      */

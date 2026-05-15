@@ -471,7 +471,11 @@ Route::prefix('restaurant')->name('restaurant.')->middleware(['auth', 'restauran
         Route::post('/', [App\Http\Controllers\Restaurant\RestaurantRequisitionController::class, 'store'])->name('store');
         Route::get('/{id}', [App\Http\Controllers\Restaurant\RestaurantRequisitionController::class, 'show'])->name('show');
         Route::delete('/{id}/cancel', [App\Http\Controllers\Restaurant\RestaurantRequisitionController::class, 'cancel'])->name('cancel');
+        Route::get('/{id}/consume', [App\Http\Controllers\Restaurant\RestaurantRequisitionController::class, 'consumeForm'])->name('consume');
+        Route::post('/{id}/record-consumption', [App\Http\Controllers\Restaurant\RestaurantRequisitionController::class, 'recordConsumption'])->name('record-consumption');
     });
+
+
 
     // =====================================================
     // MENU MANAGEMENT (Customer-facing menu)
@@ -500,13 +504,13 @@ Route::prefix('restaurant')->name('restaurant.')->middleware(['auth', 'restauran
         Route::get('/export/pdf', [App\Http\Controllers\Restaurant\SalesController::class, 'exportPdf'])->name('export.pdf');
     });
 
+
     // =====================================================
     // STOCK (Restaurant's received items)
     // =====================================================
-    Route::prefix('stock')->name('stock.')->group(function () {
+       Route::prefix('stock')->name('stock.')->group(function () {
         Route::get('/', [App\Http\Controllers\Restaurant\RestaurantStockController::class, 'index'])->name('index');
-        Route::get('/current', [App\Http\Controllers\Restaurant\RestaurantStockController::class, 'currentStock'])->name('current');
-        Route::get('/movements', [App\Http\Controllers\Restaurant\RestaurantStockController::class, 'movements'])->name('movements');
+        Route::get('/summary', [App\Http\Controllers\Restaurant\RestaurantStockController::class, 'getSummary'])->name('summary');
     });
 
     // =====================================================
@@ -519,6 +523,8 @@ Route::prefix('restaurant')->name('restaurant.')->middleware(['auth', 'restauran
         Route::get('/{id}', [App\Http\Controllers\Restaurant\RestaurantReturnController::class, 'show'])->name('show');
     });
 
+
+
     // =====================================================
     // PROFILE & SETTINGS
     // =====================================================
@@ -526,6 +532,7 @@ Route::prefix('restaurant')->name('restaurant.')->middleware(['auth', 'restauran
     Route::put('/profile', [App\Http\Controllers\Restaurant\ProfileController::class, 'update'])->name('profile.update');
     Route::get('/settings', [App\Http\Controllers\Restaurant\SettingsController::class, 'index'])->name('settings');
 });
+
 
 // =====================================================
 // CASHIER MODULE Routes (All URLs under /restaurant/cashier)

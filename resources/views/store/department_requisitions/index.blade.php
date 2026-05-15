@@ -36,12 +36,17 @@
         {{-- Status Filter --}}
         <div class="flex flex-col gap-1">
             <label class="text-[10px] font-semibold uppercase tracking-wider text-gray-500">Status</label>
-            <select id="filter-status" class="text-sm border border-gray-300 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 min-w-[140px]">
+            <select id="filter-status" class="text-sm border border-gray-300 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 min-w-[160px]">
                 <option value="">All statuses</option>
                 <option value="pending">Pending</option>
                 <option value="approved">Approved</option>
                 <option value="partially_issued">Partially Issued</option>
                 <option value="issued">Issued</option>
+                <option value="partially_consumed">Partially Consumed</option>
+                <option value="fully_consumed">Fully Consumed</option>
+                <option value="completed">Completed</option>
+                <option value="partially_returned">Partially Returned</option>
+                <option value="returned">Returned</option>
                 <option value="rejected">Rejected</option>
                 <option value="cancelled">Cancelled</option>
             </select>
@@ -100,12 +105,17 @@
                 @forelse($requisitions as $req)
                 @php
                     $statusConfig = [
-                        'pending'          => ['class' => 'bg-amber-50 text-amber-700 border-amber-200',  'label' => 'Pending'],
-                        'approved'         => ['class' => 'bg-blue-50 text-blue-700 border-blue-200',    'label' => 'Approved'],
-                        'issued'           => ['class' => 'bg-green-50 text-green-700 border-green-200', 'label' => 'Issued'],
-                        'partially_issued' => ['class' => 'bg-orange-50 text-orange-700 border-orange-200', 'label' => 'Partially Issued'],
-                        'rejected'         => ['class' => 'bg-red-50 text-red-700 border-red-200',       'label' => 'Rejected'],
-                        'cancelled'        => ['class' => 'bg-gray-100 text-gray-500 border-gray-200',   'label' => 'Cancelled'],
+                        'pending'           => ['class' => 'bg-amber-50 text-amber-700 border-amber-200',  'label' => 'Pending'],
+                        'approved'          => ['class' => 'bg-blue-50 text-blue-700 border-blue-200',    'label' => 'Approved'],
+                        'issued'            => ['class' => 'bg-green-50 text-green-700 border-green-200', 'label' => 'Issued'],
+                        'partially_issued'  => ['class' => 'bg-orange-50 text-orange-700 border-orange-200', 'label' => 'Partially Issued'],
+                        'partially_consumed'=> ['class' => 'bg-yellow-50 text-yellow-700 border-yellow-200', 'label' => 'Partially Consumed'],
+                        'fully_consumed'    => ['class' => 'bg-emerald-50 text-emerald-700 border-emerald-200', 'label' => 'Fully Consumed'],
+                        'completed'         => ['class' => 'bg-teal-50 text-teal-700 border-teal-200',     'label' => 'Completed'],
+                        'partially_returned'=> ['class' => 'bg-purple-50 text-purple-700 border-purple-200', 'label' => 'Partially Returned'],
+                        'returned'          => ['class' => 'bg-indigo-50 text-indigo-700 border-indigo-200', 'label' => 'Returned'],
+                        'rejected'          => ['class' => 'bg-red-50 text-red-700 border-red-200',       'label' => 'Rejected'],
+                        'cancelled'         => ['class' => 'bg-gray-100 text-gray-500 border-gray-200',   'label' => 'Cancelled'],
                     ];
                     $sc = $statusConfig[$req->status] ?? ['class' => 'bg-gray-100 text-gray-500 border-gray-200', 'label' => ucfirst($req->status)];
                     $deptName   = $req->department->name ?? 'N/A';

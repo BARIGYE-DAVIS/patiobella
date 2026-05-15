@@ -138,18 +138,29 @@
             @foreach($requisition->items as $itemIndex => $item)
             @php
                 // Get issued pack information
-                $issuedPackType = $item->issued_pack_type;      // "carton"
-                $issuedPackSize = $item->issued_pack_size;      // 12
-                $quantityIssued = $item->quantity_issued;       // 5 cartons
-                $quantityReturnedPacks = $item->quantity_returned ?? 0;  // already returned in packs
+                $issuedPackType = $item->issued_pack_type;
+                $issuedPackSize = $item->issued_pack_size;
+                $quantityIssued = $item->quantity_issued;
+                $quantityConsumed = $item->quantity_consumed ?? 0;
+                $quantityReturnedPacks = $item->quantity_returned ?? 0;
 
-                // Calculate remaining in packs and pieces
-                $remainingPacks = $quantityIssued - $quantityReturnedPacks;
-                $remainingPieces = $remainingPacks * $issuedPackSize;
+                // CRITICAL FIX: Check if this is a bulk item (has pack type AND pack size)
+                $isBulkItem = !empty($issuedPackType) && $issuedPackSize > 0;
+
+                // Calculate available to return (Issued - Consumed - Already Returned)
+                if ($isBulkItem) {
+                    // For bulk items: available in packs
+                    $availablePacks = $quantityIssued - $quantityReturnedPacks - ($quantityConsumed / $issuedPackSize);
+                    $availablePieces = $availablePacks * $issuedPackSize;
+                } else {
+                    // For simple items: available in base units
+                    $availableUnits = $quantityIssued - $quantityConsumed - $quantityReturnedPacks;
+                    $availablePieces = $availableUnits;
+                    $availablePacks = 0;
+                }
 
                 $itemName = $item->inventoryItem->name ?? 'N/A';
-                $baseUnit = $item->inventoryItem->base_unit ?? 'pieces';
-                $hasPackInfo = !empty($issuedPackType) && $issuedPackSize > 0;
+                $baseUnit = $item->metrics ?? ($item->inventoryItem->base_unit ?? 'units');
             @endphp
             <div class="compact-card">
                 <div class="compact-header">
@@ -163,101 +174,142 @@
                     <div class="grid grid-cols-3 gap-2 mb-3 text-center">
                         <div class="bg-green-50 rounded-lg p-2">
                             <p class="text-xs text-gray-500">Issued</p>
-                            <p class="text-sm font-bold text-green-700">{{ number_format($quantityIssued, 2) }} {{ $issuedPackType }}(s)</p>
-                            <p class="text-xs text-gray-500">({{ number_format($quantityIssued * $issuedPackSize, 2) }} {{ $baseUnit }})</p>
+                            <p class="text-sm font-bold text-green-700">
+                                @if($isBulkItem)
+                                    {{ number_format($quantityIssued, 2) }} {{ ucfirst($issuedPackType) }}(s)
+                                    <span class="text-xs">({{ number_format($quantityIssued * $issuedPackSize, 2) }} {{ $baseUnit }})</span>
+                                @else
+                                    {{ number_format($quantityIssued, 2) }} {{ $baseUnit }}
+                                @endif
+                            </p>
                         </div>
                         <div class="bg-orange-50 rounded-lg p-2">
-                            <p class="text-xs text-gray-500">Already Returned</p>
-                            <p class="text-sm font-bold text-orange-700">{{ number_format($quantityReturnedPacks, 2) }} {{ $issuedPackType }}(s)</p>
+                            <p class="text-xs text-gray-500">Already Consumed</p>
+                            <p class="text-sm font-bold text-orange-700">
+                                {{ number_format($quantityConsumed, 2) }} {{ $baseUnit }}
+                            </p>
                         </div>
                         <div class="bg-blue-50 rounded-lg p-2">
                             <p class="text-xs text-gray-500">Available to Return</p>
-                            <p class="text-sm font-bold text-blue-700">{{ number_format($remainingPacks, 2) }} {{ $issuedPackType }}(s)</p>
-                            <p class="text-xs text-gray-500">({{ number_format($remainingPieces, 2) }} {{ $baseUnit }})</p>
+                            <p class="text-sm font-bold text-blue-700">
+                                @if($isBulkItem)
+                                    {{ number_format(max(0, $availablePacks), 2) }} {{ ucfirst($issuedPackType) }}(s)
+                                    <span class="text-xs">({{ number_format(max(0, $availablePieces), 2) }} {{ $baseUnit }})</span>
+                                @else
+                                    {{ number_format(max(0, $availableUnits), 2) }} {{ $baseUnit }}
+                                @endif
+                            </p>
                         </div>
                     </div>
 
                     <input type="hidden" name="items[{{ $itemIndex }}][item_id]" value="{{ $item->id }}">
                     <input type="hidden" name="items[{{ $itemIndex }}][inventory_item_id]" value="{{ $item->inventory_item_id }}">
-                    <input type="hidden" name="items[{{ $itemIndex }}][pack_size]" value="{{ $issuedPackSize }}" id="pack_size_{{ $itemIndex }}">
+                    <input type="hidden" name="items[{{ $itemIndex }}][pack_size]" value="{{ $issuedPackSize ?? 1 }}" id="pack_size_{{ $itemIndex }}">
 
-                    {{-- ISSUED PACK INFORMATION DISPLAY --}}
-                    <div class="issued-info-box">
-                        <div class="flex items-center gap-2">
-                            <svg class="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                            </svg>
-                            <span class="text-xs font-semibold text-blue-800">Originally Issued As:</span>
+                    @if($isBulkItem)
+                        {{-- BULK ITEM: Show pack information and return options --}}
+                        <div class="issued-info-box">
+                            <div class="flex items-center gap-2">
+                                <svg class="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                                </svg>
+                                <span class="text-xs font-semibold text-blue-800">Originally Issued As:</span>
+                            </div>
+                            <div class="text-sm mt-1">
+                                <strong>{{ $quantityIssued }}</strong> {{ ucfirst($issuedPackType) }}(s) × <strong>{{ $issuedPackSize }}</strong> {{ $baseUnit }} per {{ $issuedPackType }}
+                                = <strong>{{ $quantityIssued * $issuedPackSize }}</strong> {{ $baseUnit }}
+                            </div>
                         </div>
-                        <div class="text-sm mt-1">
-                            <strong>{{ $quantityIssued }}</strong> {{ $issuedPackType }}(s) × <strong>{{ $issuedPackSize }}</strong> {{ $baseUnit }} per {{ $issuedPackType }}
-                            = <strong>{{ $quantityIssued * $issuedPackSize }}</strong> {{ $baseUnit }}
-                        </div>
-                    </div>
 
-                    {{-- RETURN SECTION --}}
-                    <div class="return-section">
-                        <div class="return-section-title">
-                            <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
-                            </svg>
-                            Return in {{ ucfirst($issuedPackType) }}(s)
+                        {{-- RETURN SECTION - Bulk --}}
+                        <div class="return-section">
+                            <div class="return-section-title">
+                                <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+                                </svg>
+                                Return in {{ ucfirst($issuedPackType) }}(s)
+                            </div>
+                            <div class="flex items-center gap-3">
+                                <input type="number"
+                                       name="items[{{ $itemIndex }}][number_of_packs]"
+                                       id="packs_{{ $itemIndex }}"
+                                       class="pack-input border-gray-300 focus:border-orange-500"
+                                       placeholder="Packs"
+                                       value="0"
+                                       min="0"
+                                       max="{{ max(0, floor($availablePacks)) }}"
+                                       step="1"
+                                       data-packsize="{{ $issuedPackSize }}"
+                                       data-packtype="{{ $issuedPackType }}"
+                                       data-baseunit="{{ $baseUnit }}"
+                                       data-maxpacks="{{ max(0, floor($availablePacks)) }}"
+                                       oninput="calculateReturn({{ $itemIndex }})">
+                                <span class="text-sm text-gray-600">{{ ucfirst($issuedPackType) }}(s)</span>
+                                <span class="text-gray-400">→</span>
+                                <span id="pack_return_pieces_{{ $itemIndex }}" class="text-sm font-semibold text-orange-600">0</span>
+                                <span class="text-xs text-gray-500">{{ $baseUnit }}</span>
+                            </div>
                         </div>
-                        <div class="flex items-center gap-3">
-                            <input type="number"
-                                   name="items[{{ $itemIndex }}][number_of_packs]"
-                                   id="packs_{{ $itemIndex }}"
-                                   class="pack-input border-gray-300 focus:border-orange-500"
-                                   placeholder="Packs"
-                                   value="0"
-                                   min="0"
-                                   max="{{ $remainingPacks }}"
-                                   step="1"
-                                   data-packsize="{{ $issuedPackSize }}"
-                                   data-packtype="{{ $issuedPackType }}"
-                                   data-baseunit="{{ $baseUnit }}"
-                                   data-maxpacks="{{ $remainingPacks }}"
-                                   oninput="calculateReturn({{ $itemIndex }})">
-                            <span class="text-sm text-gray-600">{{ $issuedPackType }}(s)</span>
-                            <span class="text-gray-400">→</span>
-                            <span id="pack_return_pieces_{{ $itemIndex }}" class="text-sm font-semibold text-orange-600">0</span>
-                            <span class="text-xs text-gray-500">{{ $baseUnit }}</span>
-                        </div>
-                    </div>
 
-                    <div class="divider">
-                        <span>OR</span>
-                    </div>
-
-                    <div class="return-section">
-                        <div class="return-section-title">
-                            <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
-                            </svg>
-                            Return Individual {{ ucfirst($baseUnit) }}(s)
+                        <div class="divider">
+                            <span>OR</span>
                         </div>
-                        <div class="flex items-center gap-3">
-                            <input type="number"
-                                   name="items[{{ $itemIndex }}][quantity_returned]"
-                                   id="pieces_{{ $itemIndex }}"
-                                   class="return-input border-gray-300 focus:border-orange-500"
-                                   placeholder="Pieces"
-                                   value="0"
-                                   min="0"
-                                   max="{{ $remainingPieces }}"
-                                   step="1"
-                                   data-maxpieces="{{ $remainingPieces }}"
-                                   data-baseunit="{{ $baseUnit }}"
-                                   oninput="calculatePieceReturn({{ $itemIndex }})">
-                            <span class="text-sm text-gray-600">{{ $baseUnit }}(s)</span>
-                        </div>
-                    </div>
 
-                    {{-- Calculation Display --}}
+                        <div class="return-section">
+                            <div class="return-section-title">
+                                <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
+                                </svg>
+                                Return Individual {{ ucfirst($baseUnit) }}(s)
+                            </div>
+                            <div class="flex items-center gap-3">
+                                <input type="number"
+                                       name="items[{{ $itemIndex }}][quantity_returned]"
+                                       id="pieces_{{ $itemIndex }}"
+                                       class="return-input border-gray-300 focus:border-orange-500"
+                                       placeholder="Pieces"
+                                       value="0"
+                                       min="0"
+                                       max="{{ max(0, $availablePieces) }}"
+                                       step="1"
+                                       data-maxpieces="{{ max(0, $availablePieces) }}"
+                                       data-baseunit="{{ $baseUnit }}"
+                                       oninput="calculatePieceReturn({{ $itemIndex }})">
+                                <span class="text-sm text-gray-600">{{ $baseUnit }}(s)</span>
+                            </div>
+                        </div>
+                    @else
+                        {{-- SIMPLE ITEM: No pack, just direct return --}}
+                        <div class="return-section">
+                            <div class="return-section-title">
+                                <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
+                                </svg>
+                                Return Quantity
+                            </div>
+                            <div class="flex items-center gap-3">
+                                <input type="number"
+                                       name="items[{{ $itemIndex }}][quantity_returned]"
+                                       id="simple_return_{{ $itemIndex }}"
+                                       class="return-input border-gray-300 focus:border-orange-500"
+                                       placeholder="Quantity"
+                                       value="0"
+                                       min="0"
+                                       max="{{ max(0, $availableUnits) }}"
+                                       step="0.01"
+                                       data-maxunits="{{ max(0, $availableUnits) }}"
+                                       data-baseunit="{{ $baseUnit }}"
+                                       oninput="calculateSimpleReturn({{ $itemIndex }})">
+                                <span class="text-sm text-gray-600">{{ $baseUnit }}</span>
+                            </div>
+                        </div>
+                        <input type="hidden" name="items[{{ $itemIndex }}][number_of_packs]" value="0">
+                        <input type="hidden" name="items[{{ $itemIndex }}][total_pieces]" id="total_pieces_{{ $itemIndex }}" value="0">
+                    @endif
+
                     <div id="calc_display_{{ $itemIndex }}" class="calculation-detail mt-3 hidden"></div>
                     <div id="warning_{{ $itemIndex }}" class="text-xs text-red-500 mt-2 hidden"></div>
 
-                    <input type="hidden" name="items[{{ $itemIndex }}][total_pieces]" id="total_pieces_{{ $itemIndex }}" value="0">
                     <input type="hidden" name="items[{{ $itemIndex }}][pack_return_total]" id="pack_return_total_{{ $itemIndex }}" value="0">
                     <input type="hidden" name="items[{{ $itemIndex }}][piece_return_total]" id="piece_return_total_{{ $itemIndex }}" value="0">
 
@@ -283,14 +335,8 @@
                 <div class="flex justify-between items-center">
                     <span class="text-sm font-medium text-gray-700">Total to Return:</span>
                     <div>
-                        <span id="grandTotalPacks" class="text-lg font-bold text-orange-600">0</span>
-                        <span class="text-xs text-gray-500"> packs</span>
-                        <span class="mx-2 text-gray-400">+</span>
-                        <span id="grandTotalPieces" class="text-lg font-bold text-blue-600">0</span>
-                        <span class="text-xs text-gray-500"> pieces</span>
-                        <span class="mx-2 text-gray-400">=</span>
                         <span id="grandTotal" class="text-xl font-bold text-green-600">0</span>
-                        <span class="text-xs text-gray-500"> total {{ $baseUnit }}</span>
+                        <span class="text-xs text-gray-500"> {{ $requisition->items->first()->metrics ?? 'units' }}</span>
                     </div>
                 </div>
             </div>
@@ -329,12 +375,10 @@
         document.getElementById(`pack_return_pieces_${index}`).innerText = packReturnPieces;
         document.getElementById(`pack_return_total_${index}`).value = packReturnPieces;
 
-        // Get piece return value
         const piecesInput = document.getElementById(`pieces_${index}`);
         let pieces = parseFloat(piecesInput.value) || 0;
         const maxPieces = parseFloat(piecesInput.getAttribute('data-maxpieces')) || 0;
 
-        // Validate total doesn't exceed available
         const totalReturning = packReturnPieces + pieces;
         if (totalReturning > maxPieces) {
             const warningDiv = document.getElementById(`warning_${index}`);
@@ -344,7 +388,6 @@
             document.getElementById(`warning_${index}`).classList.add('hidden');
         }
 
-        // Update calculation display
         const calcDiv = document.getElementById(`calc_display_${index}`);
         if (packs > 0 && pieces > 0) {
             calcDiv.innerHTML = `📊 ${packs} ${packType}(s) (${packReturnPieces} ${baseUnit}) + ${pieces} ${baseUnit} = ${totalReturning} ${baseUnit}`;
@@ -384,16 +427,13 @@
 
         document.getElementById(`piece_return_total_${index}`).value = pieces;
 
-        // Get pack return value
         const packsInput = document.getElementById(`packs_${index}`);
         const packSize = parseFloat(packsInput.getAttribute('data-packsize')) || 1;
-        const maxPacks = parseFloat(packsInput.getAttribute('data-maxpacks')) || 0;
         let packs = parseFloat(packsInput.value) || 0;
 
         const packReturnPieces = packs * packSize;
         const totalReturning = packReturnPieces + pieces;
 
-        // Validate
         if (totalReturning > maxPieces) {
             const warningDiv = document.getElementById(`warning_${index}`);
             warningDiv.innerHTML = `⚠️ Total returning (${totalReturning} ${baseUnit}) exceeds available (${maxPieces} ${baseUnit})`;
@@ -402,7 +442,6 @@
             document.getElementById(`warning_${index}`).classList.add('hidden');
         }
 
-        // Update calculation display
         const calcDiv = document.getElementById(`calc_display_${index}`);
         const packType = packsInput.getAttribute('data-packtype');
         if (packs > 0 && pieces > 0) {
@@ -423,31 +462,59 @@
         updateGrandTotal();
     }
 
+    function calculateSimpleReturn(index) {
+        const input = document.getElementById(`simple_return_${index}`);
+        const maxUnits = parseFloat(input.getAttribute('data-maxunits')) || 0;
+        const baseUnit = input.getAttribute('data-baseunit');
+        let value = parseFloat(input.value) || 0;
+
+        if (value < 0) {
+            input.value = 0;
+            value = 0;
+        }
+
+        if (value > maxUnits) {
+            input.value = maxUnits;
+            value = maxUnits;
+            const warningDiv = document.getElementById(`warning_${index}`);
+            warningDiv.innerHTML = `⚠️ Cannot exceed available (${maxUnits} ${baseUnit})`;
+            warningDiv.classList.remove('hidden');
+            setTimeout(() => warningDiv.classList.add('hidden'), 3000);
+        } else {
+            document.getElementById(`warning_${index}`).classList.add('hidden');
+        }
+
+        document.getElementById(`total_pieces_${index}`).value = value;
+        updateGrandTotalSimple();
+    }
+
     function updateGrandTotal() {
-        let grandTotalPacks = 0;
-        let grandTotalPieces = 0;
         let grandTotalAll = 0;
         const itemCount = {{ count($requisition->items) }};
 
         for (let i = 0; i < itemCount; i++) {
-            const packsInput = document.getElementById(`packs_${i}`);
-            const piecesInput = document.getElementById(`pieces_${i}`);
-
-            if (packsInput) {
-                let packs = parseFloat(packsInput.value) || 0;
-                grandTotalPacks += packs;
-            }
-            if (piecesInput) {
-                let pieces = parseFloat(piecesInput.value) || 0;
-                grandTotalPieces += pieces;
-            }
             const total = parseFloat(document.getElementById(`total_pieces_${i}`)?.value) || 0;
             grandTotalAll += total;
         }
 
         document.getElementById('grandTotal').innerText = grandTotalAll;
-        document.getElementById('grandTotalPacks').innerText = grandTotalPacks;
-        document.getElementById('grandTotalPieces').innerText = grandTotalPieces;
+    }
+
+    function updateGrandTotalSimple() {
+        let grandTotalAll = 0;
+        const itemCount = {{ count($requisition->items) }};
+
+        for (let i = 0; i < itemCount; i++) {
+            const simpleInput = document.getElementById(`simple_return_${i}`);
+            if (simpleInput) {
+                grandTotalAll += parseFloat(simpleInput.value) || 0;
+            } else {
+                const total = parseFloat(document.getElementById(`total_pieces_${i}`)?.value) || 0;
+                grandTotalAll += total;
+            }
+        }
+
+        document.getElementById('grandTotal').innerText = grandTotalAll;
     }
 </script>
 @endsection

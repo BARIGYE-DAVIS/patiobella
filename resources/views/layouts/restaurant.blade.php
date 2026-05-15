@@ -187,19 +187,16 @@
             Sales Reports
         </a>
 
-        <a href="{{ route('restaurant.stock.current') }}"
-           class="flex items-center px-4 py-3 text-sm hover:bg-orange-700 transition sidebar-nav-link
-                  {{ request()->routeIs('restaurant.stock.*') ? 'sidebar-active' : '' }}">
-            <i class="fas fa-boxes w-5 h-5 mr-3"></i>
-            My Stock
-        </a>
+<!-- Add this inside the <nav> section -->
 
-        <a href="{{ route('restaurant.returns.index') }}"
-           class="flex items-center px-4 py-3 text-sm hover:bg-orange-700 transition sidebar-nav-link
-                  {{ request()->routeIs('restaurant.returns.*') ? 'sidebar-active' : '' }}">
-            <i class="fas fa-undo-alt w-5 h-5 mr-3"></i>
-            Returns
-        </a>
+<a href="{{ route('restaurant.stock.index') }}"
+   class="flex items-center px-4 py-3 text-sm hover:bg-orange-700 transition sidebar-nav-link
+          {{ request()->routeIs('restaurant.stock.*') ? 'sidebar-active' : '' }}">
+    <i class="fas fa-boxes w-5 h-5 mr-3"></i>
+    <span>My Stock</span>
+</a>
+
+
     </nav>
 
     {{-- Sidebar Footer --}}

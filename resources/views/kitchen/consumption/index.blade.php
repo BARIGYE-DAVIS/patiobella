@@ -1,355 +1,539 @@
-{{-- resources/views/kitchen/consumption/create.blade.php --}}
+{{-- resources/views/kitchen/consumption/index.blade.php --}}
 
 @extends('layouts.kitchen')
 
 @section('title', 'Record Consumption')
-
 @section('page-title', 'Record Consumption')
 
 @section('content')
+
 <style>
-    .form-card {
-        background: white;
-        border-radius: 12px;
-        border: 1px solid #e5e7eb;
-        overflow: hidden;
-        margin-bottom: 1.5rem;
+    :root {
+        --orange: #ea580c;
+        --orange-dark: #c2410c;
+        --orange-light: #fff7ed;
+        --border: #e5e7eb;
+        --surface: #f8fafc;
+        --text-muted: #6b7280;
+        --text-main: #111827;
+        --radius: 12px;
+        --radius-sm: 8px;
     }
-    .form-header {
-        padding: 1rem 1.5rem;
-        border-bottom: 1px solid #e5e7eb;
-        background: #f8fafc;
+
+    /* ── Layout ── */
+    .kc-wrap { display: flex; flex-direction: column; gap: 1.25rem; }
+
+    /* ── Header Banner ── */
+    .kc-banner {
+        background: var(--orange);
+        border-radius: var(--radius);
+        padding: 1.1rem 1.5rem;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        flex-wrap: wrap;
+        gap: 0.75rem;
     }
-    .form-body {
-        padding: 1.5rem;
-    }
-    .data-table {
-        width: 100%;
-        border-collapse: collapse;
-        font-size: 0.75rem;
-    }
-    .data-table th {
-        background: #f8fafc;
-        padding: 0.75rem;
-        text-align: left;
+    .kc-banner-left h2 {
+        color: #fff;
+        font-size: 1.15rem;
         font-weight: 600;
-        color: #475569;
-        border-bottom: 2px solid #e2e8f0;
+        margin: 0;
     }
-    .data-table td {
-        padding: 0.75rem;
-        border-bottom: 1px solid #e2e8f0;
-        vertical-align: middle;
+    .kc-banner-left p {
+        color: #fed7aa;
+        font-size: 0.78rem;
+        margin: 0.2rem 0 0;
     }
-    .text-right { text-align: right; }
-    .consumption-input {
-        width: 80px;
-        padding: 0.35rem 0.5rem;
-        border: 1px solid #d1d5db;
-        border-radius: 6px;
-        font-size: 0.75rem;
-        text-align: center;
+
+    /* ── Live Search ── */
+    .kc-search-box {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        background: rgba(255,255,255,0.18);
+        border: 1px solid rgba(255,255,255,0.25);
+        border-radius: var(--radius-sm);
+        padding: 0.4rem 0.85rem;
+        min-width: 220px;
     }
-    .consumption-input:focus {
-        outline: none;
-        border-color: #ea580c;
-        box-shadow: 0 0 0 2px rgba(234, 88, 12, 0.1);
-    }
-    .remaining-badge {
-        display: inline-block;
-        padding: 0.2rem 0.5rem;
-        border-radius: 20px;
-        font-size: 0.7rem;
-        font-weight: 500;
-    }
-    .remaining-high { background: #d1fae5; color: #065f46; }
-    .remaining-medium { background: #fef3c7; color: #92400e; }
-    .remaining-low { background: #fee2e2; color: #991b1b; }
-    .info-box {
-        background: #f0fdf4;
-        border-left: 4px solid #10b981;
-        padding: 0.75rem 1rem;
-        border-radius: 8px;
-        margin-bottom: 1rem;
-        font-size: 0.75rem;
-    }
-    .btn-submit {
-        background: #ea580c;
-        color: white;
-        padding: 0.5rem 1.5rem;
-        border-radius: 8px;
-        font-size: 0.875rem;
-        font-weight: 500;
-        transition: all 0.2s;
+    .kc-search-box i { color: #fed7aa; font-size: 0.9rem; }
+    .kc-search-box input {
+        background: transparent;
         border: none;
+        outline: none;
+        color: #fff;
+        font-size: 0.8rem;
+        width: 100%;
+    }
+    .kc-search-box input::placeholder { color: #fdba74; }
+
+    /* ── Stat Cards ── */
+    .kc-stats {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+        gap: 0.85rem;
+    }
+    .kc-stat {
+        background: #fff;
+        border-radius: var(--radius);
+        padding: 1rem 1.15rem;
+        border: 1px solid var(--border);
+        border-left: 4px solid;
+    }
+    .kc-stat.blue  { border-left-color: #3b82f6; }
+    .kc-stat.amber { border-left-color: #f59e0b; }
+    .kc-stat.purple{ border-left-color: #8b5cf6; }
+    .kc-stat label {
+        display: flex;
+        align-items: center;
+        gap: 0.35rem;
+        font-size: 0.68rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: var(--text-muted);
+        margin-bottom: 0.4rem;
+    }
+    .kc-stat .val {
+        font-size: 1.45rem;
+        font-weight: 700;
+        color: var(--text-main);
+        line-height: 1;
+    }
+    .kc-stat .sub {
+        font-size: 0.7rem;
+        color: var(--text-muted);
+        margin-top: 0.2rem;
+    }
+
+    /* ── Filter Toolbar ── */
+    .kc-toolbar {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+    }
+    .kc-filter-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.35rem;
+        border: 1px solid var(--border);
+        background: #fff;
+        border-radius: 20px;
+        padding: 0.28rem 0.85rem;
+        font-size: 0.75rem;
+        color: var(--text-muted);
         cursor: pointer;
+        transition: all 0.15s;
     }
-    .btn-submit:hover {
-        background: #c2410c;
+    .kc-filter-btn:hover { border-color: var(--orange); color: var(--orange); }
+    .kc-filter-btn.active { background: var(--orange); color: #fff; border-color: var(--orange); }
+    .kc-result-count {
+        margin-left: auto;
+        font-size: 0.72rem;
+        color: var(--text-muted);
     }
-    .btn-cancel {
-        background: #f3f4f6;
-        color: #374151;
-        padding: 0.5rem 1.5rem;
-        border-radius: 8px;
-        font-size: 0.875rem;
+
+    /* ── Requisition Card ── */
+    .kc-req-card {
+        background: #fff;
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        overflow: hidden;
+        transition: box-shadow 0.2s;
+    }
+    .kc-req-card:hover { box-shadow: 0 3px 10px rgba(0,0,0,0.08); }
+
+    .kc-req-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        flex-wrap: wrap;
+        gap: 0.6rem;
+        padding: 0.85rem 1.25rem;
+        background: var(--surface);
+        border-bottom: 1px solid var(--border);
+    }
+    .kc-req-head-left .req-num {
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+        font-size: 0.9rem;
+        font-weight: 600;
+        color: var(--text-main);
+    }
+    .kc-req-head-left .req-date {
+        display: flex;
+        align-items: center;
+        gap: 0.3rem;
+        font-size: 0.72rem;
+        color: var(--text-muted);
+        margin-top: 0.15rem;
+    }
+
+    /* ── Action Buttons ── */
+    .btn-record {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.35rem;
+        background: var(--orange);
+        color: #fff;
+        border: none;
+        border-radius: var(--radius-sm);
+        padding: 0.35rem 0.9rem;
+        font-size: 0.72rem;
         font-weight: 500;
-        transition: all 0.2s;
         text-decoration: none;
-        display: inline-block;
+        cursor: pointer;
+        transition: background 0.15s;
     }
-    .total-footer {
-        background: #fef3c7;
-        padding: 0.75rem 1rem;
-        border-radius: 8px;
-        margin-top: 1rem;
+    .btn-record:hover { background: var(--orange-dark); color: #fff; }
+    .badge-done {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.3rem;
+        background: #d1fae5;
+        color: #065f46;
+        border-radius: 20px;
+        padding: 0.25rem 0.75rem;
+        font-size: 0.72rem;
+        font-weight: 500;
+    }
+
+    /* ── Progress Bar ── */
+    .kc-prog {
+        padding: 0.7rem 1.25rem;
+        border-bottom: 1px solid var(--border);
+    }
+    .kc-prog-labels {
         display: flex;
         justify-content: space-between;
-        align-items: center;
-    }
-    .calculation-preview {
         font-size: 0.7rem;
-        color: #6b7280;
-        margin-top: 0.25rem;
+        color: var(--text-muted);
+        margin-bottom: 0.3rem;
     }
+    .kc-prog-bar {
+        width: 100%;
+        height: 6px;
+        background: #e5e7eb;
+        border-radius: 10px;
+        overflow: hidden;
+    }
+    .kc-prog-fill {
+        height: 100%;
+        border-radius: 10px;
+        background: #f59e0b;
+    }
+
+    /* ── Data Table ── */
+    .kc-table-wrap { overflow-x: auto; }
+    .kc-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.78rem;
+        table-layout: fixed;
+    }
+    .kc-table thead th {
+        background: var(--surface);
+        padding: 0.6rem 0.9rem;
+        text-align: left;
+        font-size: 0.68rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        color: #475569;
+        border-bottom: 2px solid var(--border);
+        white-space: nowrap;
+    }
+    .kc-table thead th.tr { text-align: right; }
+    .kc-table tbody td {
+        padding: 0.65rem 0.9rem;
+        border-bottom: 1px solid #f1f5f9;
+        color: var(--text-main);
+        vertical-align: middle;
+    }
+    .kc-table tbody tr:last-child td { border-bottom: none; }
+    .kc-table tbody tr:hover td { background: #fafafa; }
+    .kc-table td.tr { text-align: right; }
+
+    .item-name {
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+        font-weight: 500;
+    }
+    .item-icon {
+        width: 22px;
+        height: 22px;
+        border-radius: 6px;
+        background: var(--orange-light);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--orange);
+        font-size: 0.65rem;
+        flex-shrink: 0;
+    }
+    .consumed-val { color: var(--orange); font-weight: 600; }
+    .rem-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 3px;
+        border-radius: 20px;
+        padding: 0.15rem 0.55rem;
+        font-size: 0.7rem;
+        font-weight: 500;
+    }
+    .rem-high   { background: #d1fae5; color: #065f46; }
+    .rem-medium { background: #fef3c7; color: #92400e; }
+    .rem-low    { background: #fee2e2; color: #991b1b; }
+
+    /* ── Column widths ── */
+    .col-item { width: 32%; }
+    .col-unit { width: 12%; }
+    .col-num  { width: 14%; }
+
+    /* ── Empty State ── */
+    .kc-empty {
+        text-align: center;
+        padding: 3rem 1rem;
+        color: var(--text-muted);
+    }
+    .kc-empty i { font-size: 2.8rem; display: block; margin-bottom: 0.75rem; color: #d1d5db; }
+    .kc-empty h3 { font-size: 1rem; color: #374151; margin-bottom: 0.3rem; }
+    .kc-empty p  { font-size: 0.8rem; }
+
+    /* ── Hidden util ── */
+    .kc-hidden { display: none !important; }
 </style>
 
-<div class="space-y-4">
+<div class="kc-wrap">
 
-    {{-- Back Button --}}
-    <div class="flex justify-between items-center">
-        <a href="{{ route('kitchen.consumption.index') }}" class="text-gray-600 hover:text-gray-800 text-sm">
-            <i class="fas fa-arrow-left mr-1"></i> Back to Requisitions
-        </a>
+    {{-- ── Banner + Search ── --}}
+    <div class="kc-banner">
+        <div class="kc-banner-left">
+            <h2><i class="fas fa-fire me-2"></i>Kitchen Consumption</h2>
+            <p>Record items used in food preparation</p>
+        </div>
+        <div class="kc-search-box">
+            <i class="fas fa-search"></i>
+            <input type="text"
+                   id="kcSearch"
+                   placeholder="Search items or requisitions…"
+                   oninput="kcFilter()">
+        </div>
     </div>
 
-    {{-- Form Card --}}
-    <div class="form-card">
-        <div class="form-header">
-            <h3 class="text-lg font-semibold text-gray-800">
-                <i class="fas fa-fire mr-2 text-orange-600"></i>
-                Record Consumption - {{ $requisition->requisition_number }}
-            </h3>
-            <p class="text-xs text-gray-500 mt-1">Record items used in food preparation today</p>
-        </div>
+    {{-- ── Stat Cards ── --}}
+    @php
+        $totalIssued    = 0;
+        $totalConsumed  = 0;
+        $totalRemaining = 0;
+        foreach ($requisitions as $req) {
+            foreach ($req->items as $item) {
+                $totalIssued    += $item->quantity_issued;
+                $totalConsumed  += $item->quantity_consumed;
+                $totalRemaining += ($item->quantity_issued - $item->quantity_consumed);
+            }
+        }
+    @endphp
 
-        <div class="form-body">
-            <div class="info-box">
-                <i class="fas fa-info-circle mr-1 text-green-600"></i>
-                You can record consumption in <strong>packs</strong> (e.g., cartons, crates) or <strong>individual pieces</strong>, or both.
+    <div class="kc-stats">
+        <div class="kc-stat blue">
+            <label><i class="fas fa-boxes"></i> Total Issued</label>
+            <div class="val">{{ number_format($totalIssued, 2) }}</div>
+            <div class="sub">units across all requisitions</div>
+        </div>
+        <div class="kc-stat amber">
+            <label><i class="fas fa-fire-alt"></i> Total Consumed</label>
+            <div class="val">{{ number_format($totalConsumed, 2) }}</div>
+            <div class="sub">units used in preparation</div>
+        </div>
+        <div class="kc-stat purple">
+            <label><i class="fas fa-box-open"></i> Remaining Stock</label>
+            <div class="val">{{ number_format($totalRemaining, 2) }}</div>
+            <div class="sub">units still available</div>
+        </div>
+    </div>
+
+    {{-- ── Filter Toolbar ── --}}
+    <div class="kc-toolbar">
+        <button class="kc-filter-btn active" id="fb-all"    onclick="kcSetFilter('all',    this)">
+            <i class="fas fa-list"></i> All
+        </button>
+        <button class="kc-filter-btn"        id="fb-active" onclick="kcSetFilter('active', this)">
+            <i class="fas fa-clock"></i> Active
+        </button>
+        <button class="kc-filter-btn"        id="fb-done"   onclick="kcSetFilter('done',   this)">
+            <i class="fas fa-check-circle"></i> Fully Used
+        </button>
+        <span class="kc-result-count" id="kcCount"></span>
+    </div>
+
+    {{-- ── Requisition Cards ── --}}
+    <div id="kcReqList">
+
+        @forelse ($requisitions as $requisition)
+        @php
+            $reqIssued    = 0;
+            $reqConsumed  = 0;
+            $reqRemaining = 0;
+            foreach ($requisition->items as $item) {
+                $reqIssued    += $item->quantity_issued;
+                $reqConsumed  += $item->quantity_consumed;
+                $reqRemaining += ($item->quantity_issued - $item->quantity_consumed);
+            }
+            $pct  = $reqIssued > 0 ? round(($reqConsumed / $reqIssued) * 100, 1) : 0;
+            $done = $reqRemaining <= 0;
+        @endphp
+
+        <div class="kc-req-card"
+             data-status="{{ $done ? 'done' : 'active' }}"
+             data-searchable="{{ strtolower($requisition->requisition_number . ' ' . $requisition->items->pluck('inventoryItem.name')->implode(' ')) }}">
+
+            {{-- Head --}}
+            <div class="kc-req-head">
+                <div class="kc-req-head-left">
+                    <div class="req-num">
+                        <i class="fas fa-file-alt text-orange-500"></i>
+                        {{ $requisition->requisition_number }}
+                    </div>
+                    <div class="req-date">
+                        <i class="fas fa-calendar-alt"></i>
+                        Issued on {{ $requisition->created_at->format('d M Y') }}
+                    </div>
+                </div>
+                <div>
+                    @if (!$done)
+                        <a href="{{ route('kitchen.consumption.create', $requisition->id) }}" class="btn-record">
+                            <i class="fas fa-plus-circle"></i> Record Consumption
+                        </a>
+                    @else
+                        <span class="badge-done">
+                            <i class="fas fa-check-circle"></i> Fully Used
+                        </span>
+                    @endif
+                </div>
             </div>
 
-            <form method="POST" action="{{ route('kitchen.consumption.store', $requisition->id) }}" id="consumptionForm">
-                @csrf
+            {{-- Progress --}}
+            <div class="kc-prog">
+                <div class="kc-prog-labels">
+                    <span><i class="fas fa-fire-alt me-1" style="color:#f59e0b"></i>
+                        Consumed: {{ number_format($reqConsumed, 2) }} units &nbsp;({{ $pct }}%)
+                    </span>
+                    <span><i class="fas fa-box-open me-1"></i>
+                        Remaining: {{ number_format($reqRemaining, 2) }} units
+                    </span>
+                </div>
+                <div class="kc-prog-bar">
+                    <div class="kc-prog-fill" style="width:{{ $pct }}%"></div>
+                </div>
+            </div>
 
-                <div class="overflow-x-auto">
-                    <table class="data-table">
-                        <thead>
-                            <tr>
-                                <th style="width: 25%">Item</th>
-                                <th style="width: 15%">Pack Info</th>
-                                <th style="width: 15%" class="text-right">Remaining</th>
-                                <th style="width: 15%" class="text-right">Packs Used</th>
-                                <th style="width: 15%" class="text-right">Pieces Used</th>
-                                <th style="width: 15%" class="text-right">Total Used</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @foreach($requisition->items as $index => $item)
-                            @php
-                                $remainingClass = $item->remaining_pieces > 10 ? 'remaining-high' : ($item->remaining_pieces > 0 ? 'remaining-medium' : 'remaining-low');
-                                $maxPacks = $item->remaining_packs ?? 0;
-                                $maxPieces = $item->remaining_pieces_extra ?? $item->remaining_pieces;
-                            @endphp
-                            @if($item->remaining_pieces > 0)
-                            <tr>
-                                <td class="font-medium text-gray-800">
+            {{-- Items Table --}}
+            <div class="kc-table-wrap">
+                <table class="kc-table">
+                    <thead>
+                        <tr>
+                            <th class="col-item"><i class="fas fa-carrot me-1"></i> Item</th>
+                            <th class="col-unit"><i class="fas fa-ruler me-1"></i> Unit</th>
+                            <th class="col-num tr"><i class="fas fa-inbox me-1"></i> Issued</th>
+                            <th class="col-num tr"><i class="fas fa-fire-alt me-1"></i> Consumed</th>
+                            <th class="col-num tr"><i class="fas fa-layer-group me-1"></i> Remaining</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach ($requisition->items as $item)
+                        @php
+                            $unit      = $item->metrics ?? ($item->inventoryItem->base_unit ?? 'units');
+                            $remaining = $item->quantity_issued - $item->quantity_consumed;
+                            $remClass  = $remaining > 10 ? 'rem-high' : ($remaining > 0 ? 'rem-medium' : 'rem-low');
+                            $remIcon   = $remaining > 10 ? 'fa-check'   : ($remaining > 0 ? 'fa-exclamation' : 'fa-times');
+                        @endphp
+                        <tr>
+                            <td>
+                                <div class="item-name">
+                                    <span class="item-icon"><i class="fas fa-utensils"></i></span>
                                     {{ $item->inventoryItem->name ?? 'N/A' }}
-                                    <input type="hidden" name="items[{{ $index }}][item_id]" value="{{ $item->id }}">
-                                </td>
-                                <td>
-                                    @if($item->issued_pack_type)
-                                        <span class="text-xs bg-gray-100 px-2 py-1 rounded">
-                                            {{ ucfirst($item->issued_pack_type) }} = {{ $item->issued_pack_size }} pieces
-                                        </span>
-                                    @else
-                                        <span class="text-xs text-gray-400">Individual item</span>
-                                    @endif
-                                </td>
-                                <td class="text-right">
-                                    <span class="remaining-badge {{ $remainingClass }}">
-                                        @if($item->issued_pack_type && $item->remaining_packs > 0)
-                                            {{ $item->remaining_packs }} {{ ucfirst($item->issued_pack_type) }}(s)
-                                            @if($item->remaining_pieces_extra > 0)
-                                                + {{ $item->remaining_pieces_extra }} pieces
-                                            @endif
-                                        @else
-                                            {{ number_format($item->remaining_pieces, 0) }} pieces
-                                        @endif
-                                    </span>
-                                </td>
-                                <td class="text-right">
-                                    @if($item->issued_pack_type)
-                                        <input type="number"
-                                               name="items[{{ $index }}][packs_consumed]"
-                                               class="consumption-input packs-input"
-                                               value="0"
-                                               min="0"
-                                               max="{{ $maxPacks }}"
-                                               step="1"
-                                               data-pack-size="{{ $item->issued_pack_size }}"
-                                               data-index="{{ $index }}"
-                                               onchange="calculateTotal({{ $index }})">
-                                        <div class="calculation-preview" id="packsPreview_{{ $index }}"></div>
-                                    @else
-                                        —
-                                        <input type="hidden" name="items[{{ $index }}][packs_consumed]" value="0">
-                                    @endif
-                                </td>
-                                <td class="text-right">
-                                    <input type="number"
-                                           name="items[{{ $index }}][pieces_consumed]"
-                                           class="consumption-input pieces-input"
-                                           value="0"
-                                           min="0"
-                                           max="{{ $item->remaining_pieces }}"
-                                           step="1"
-                                           data-index="{{ $index }}"
-                                           onchange="calculateTotal({{ $index }})">
-                                </td>
-                                <td class="text-right">
-                                    <span id="totalDisplay_{{ $index }}" class="font-semibold text-orange-600">0</span>
-                                    <span class="text-xs text-gray-500"> pieces</span>
-                                </td>
-                            </tr>
-                            @endif
-                            @endforeach
-                        </tbody>
-                        <tfoot class="bg-gray-50">
-                            <tr>
-                                <td colspan="5" class="text-right font-semibold">Total Consumed:</td>
-                                <td class="text-right font-bold text-orange-600" id="grandTotal">0</td>
-                            </tr>
-                        </tfoot>
-                    </table>
-                </div>
+                                </div>
+                            </td>
+                            <td style="color:#6b7280">{{ $unit }}</td>
+                            <td class="tr">{{ number_format($item->quantity_issued,  2) }}</td>
+                            <td class="tr consumed-val">{{ number_format($item->quantity_consumed, 2) }}</td>
+                            <td class="tr">
+                                <span class="rem-badge {{ $remClass }}">
+                                    <i class="fas {{ $remIcon }}"></i>
+                                    {{ number_format($remaining, 2) }}
+                                </span>
+                            </td>
+                        </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            </div>
+        </div>{{-- /.kc-req-card --}}
 
-                {{-- Notes --}}
-                <div class="mt-4">
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Notes (Optional)</label>
-                    <textarea name="notes" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" rows="2" placeholder="e.g., Used for lunch service, special event, etc."></textarea>
-                </div>
-
-                {{-- Total Footer --}}
-                <div class="total-footer">
-                    <span class="text-sm font-medium text-gray-700">Total Items Consumed Today:</span>
-                    <span class="text-xl font-bold text-orange-600" id="grandTotalDisplay">0</span>
-                    <span class="text-xs text-gray-500">pieces</span>
-                </div>
-
-                {{-- Form Actions --}}
-                <div class="flex justify-end gap-3 mt-6 pt-4 border-t border-gray-200">
-                    <a href="{{ route('kitchen.consumption.index') }}" class="btn-cancel">
-                        <i class="fas fa-times mr-1"></i> Cancel
-                    </a>
-                    <button type="submit" class="btn-submit" id="submitBtn">
-                        <i class="fas fa-save mr-1"></i> Save Consumption
-                    </button>
-                </div>
-            </form>
+        @empty
+        <div class="kc-empty">
+            <i class="fas fa-box-open"></i>
+            <h3>No Active Requisitions</h3>
+            <p>No items have been issued to the kitchen yet.</p>
         </div>
-    </div>
-</div>
+        @endforelse
 
+    </div>{{-- /#kcReqList --}}
+
+</div>{{-- /.kc-wrap --}}
+
+{{-- ── Live Search & Filter Script ── --}}
 <script>
-    document.addEventListener('DOMContentLoaded', function() {
-        const itemCount = {{ count($requisition->items) }};
+(function () {
+    var filter = 'all';
 
-        function calculateTotal(index) {
-            const packsInput = document.querySelector(`input[name="items[${index}][packs_consumed]"]`);
-            const piecesInput = document.querySelector(`input[name="items[${index}][pieces_consumed]"]`);
-            const totalSpan = document.getElementById(`totalDisplay_${index}`);
+    function cards() {
+        return document.querySelectorAll('#kcReqList .kc-req-card');
+    }
 
-            let packs = 0;
-            let packSize = 1;
-            let pieces = 0;
+    function update() {
+        var q   = (document.getElementById('kcSearch').value || '').toLowerCase().trim();
+        var all = cards();
+        var vis = 0;
 
-            if (packsInput) {
-                packs = parseFloat(packsInput.value) || 0;
-                packSize = parseFloat(packsInput.getAttribute('data-pack-size')) || 1;
+        all.forEach(function (card) {
+            var status      = card.dataset.status;
+            var searchable  = card.dataset.searchable || '';
+            var matchFilter = filter === 'all' || filter === status;
+            var matchSearch = !q || searchable.indexOf(q) !== -1;
 
-                const previewSpan = document.getElementById(`packsPreview_${index}`);
-                if (previewSpan && packs > 0) {
-                    previewSpan.innerHTML = `${packs} pack(s) × ${packSize} = ${packs * packSize} pieces`;
-                } else if (previewSpan) {
-                    previewSpan.innerHTML = '';
-                }
-            }
-
-            if (piecesInput) {
-                pieces = parseFloat(piecesInput.value) || 0;
-            }
-
-            const total = (packs * packSize) + pieces;
-            totalSpan.textContent = total;
-
-            updateGrandTotal();
-        }
-
-        function updateGrandTotal() {
-            let grandTotal = 0;
-
-            for (let i = 0; i < itemCount; i++) {
-                const totalSpan = document.getElementById(`totalDisplay_${i}`);
-                if (totalSpan) {
-                    grandTotal += parseFloat(totalSpan.textContent) || 0;
-                }
-            }
-
-            document.getElementById('grandTotal').textContent = grandTotal;
-            document.getElementById('grandTotalDisplay').textContent = grandTotal;
-        }
-
-        // Attach event listeners
-        for (let i = 0; i < itemCount; i++) {
-            const packsInput = document.querySelector(`input[name="items[${i}][packs_consumed]"]`);
-            const piecesInput = document.querySelector(`input[name="items[${i}][pieces_consumed]"]`);
-
-            if (packsInput) {
-                packsInput.addEventListener('input', () => calculateTotal(i));
-            }
-            if (piecesInput) {
-                piecesInput.addEventListener('input', () => calculateTotal(i));
-            }
-        }
-
-        // Form validation
-        document.getElementById('consumptionForm').addEventListener('submit', function(e) {
-            let hasConsumption = false;
-
-            for (let i = 0; i < itemCount; i++) {
-                const packsInput = document.querySelector(`input[name="items[${i}][packs_consumed]"]`);
-                const piecesInput = document.querySelector(`input[name="items[${i}][pieces_consumed]"]`);
-
-                let packs = packsInput ? (parseFloat(packsInput.value) || 0) : 0;
-                let pieces = piecesInput ? (parseFloat(piecesInput.value) || 0) : 0;
-
-                if (packs > 0 || pieces > 0) {
-                    hasConsumption = true;
-                    break;
-                }
-            }
-
-            if (!hasConsumption) {
-                e.preventDefault();
-                alert('Please enter at least one item quantity to record consumption.');
+            if (matchFilter && matchSearch) {
+                card.classList.remove('kc-hidden');
+                vis++;
+            } else {
+                card.classList.add('kc-hidden');
             }
         });
 
-        // Initial calculation
-        for (let i = 0; i < itemCount; i++) {
-            calculateTotal(i);
+        var countEl = document.getElementById('kcCount');
+        if (countEl) {
+            countEl.textContent = vis + ' requisition' + (vis !== 1 ? 's' : '') + ' shown';
         }
-    });
+    }
+
+    window.kcFilter = update;
+
+    window.kcSetFilter = function (f, btn) {
+        filter = f;
+        document.querySelectorAll('.kc-filter-btn').forEach(function (b) {
+            b.classList.remove('active');
+        });
+        if (btn) btn.classList.add('active');
+        update();
+    };
+
+    /* initialise count on page load */
+    document.addEventListener('DOMContentLoaded', update);
+})();
 </script>
+
 @endsection

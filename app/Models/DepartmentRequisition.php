@@ -1,4 +1,5 @@
 <?php
+// app/Models/DepartmentRequisition.php
 
 namespace App\Models;
 
@@ -40,6 +41,7 @@ class DepartmentRequisition extends Model
     const STATUS_ISSUED = 'issued';
     const STATUS_PARTIALLY_CONSUMED = 'partially_consumed';
     const STATUS_FULLY_CONSUMED = 'fully_consumed';
+    const STATUS_COMPLETED = 'completed';  // ADD THIS
     const STATUS_PARTIALLY_RETURNED = 'partially_returned';
     const STATUS_RETURNED = 'returned';
     const STATUS_REJECTED = 'rejected';
@@ -102,6 +104,11 @@ class DepartmentRequisition extends Model
         return $this->status === self::STATUS_FULLY_CONSUMED;
     }
 
+    public function isCompleted()
+    {
+        return $this->status === self::STATUS_COMPLETED;
+    }
+
     public function isPartiallyReturned()
     {
         return $this->status === self::STATUS_PARTIALLY_RETURNED;
@@ -132,7 +139,8 @@ class DepartmentRequisition extends Model
     {
         return in_array($this->status, [
             self::STATUS_ISSUED,
-            self::STATUS_PARTIALLY_CONSUMED
+            self::STATUS_PARTIALLY_CONSUMED,
+            self::STATUS_PARTIALLY_RETURNED
         ]);
     }
 
@@ -169,35 +177,45 @@ class DepartmentRequisition extends Model
     public function getTotalRemainingPiecesAttribute()
     {
         return $this->items->sum(function($item) {
-            return $item->quantity_issued - ($item->quantity_sold + $item->quantity_consumed);
+            return $item->quantity_issued - ($item->quantity_sold + $item->quantity_consumed + $item->quantity_returned);
         });
     }
 
-    public function getConsumptionPercentageAttribute()
+    public function getProcessedPercentageAttribute()
     {
         $totalIssued = $this->items->sum('quantity_issued');
-        $totalConsumed = $this->items->sum('quantity_consumed');
-        $totalSold = $this->items->sum('quantity_sold');
+        $totalProcessed = $this->items->sum(function($item) {
+            return $item->quantity_sold + $item->quantity_consumed + $item->quantity_returned;
+        });
 
         if ($totalIssued <= 0) return 0;
 
-        return round((($totalConsumed + $totalSold) / $totalIssued) * 100, 2);
+        return round(($totalProcessed / $totalIssued) * 100, 2);
     }
 
-    // Update status based on consumption
-    public function updateStatusBasedOnConsumption()
+    // Update status based on all actions (issue, consume, sell, return)
+    public function updateStatusBasedOnAllActions()
     {
         $totalIssued = $this->items->sum('quantity_issued');
         $totalConsumed = $this->items->sum('quantity_consumed');
         $totalSold = $this->items->sum('quantity_sold');
-        $totalUsed = $totalConsumed + $totalSold;
+        $totalReturned = $this->items->sum('quantity_returned');
+        $totalProcessed = $totalConsumed + $totalSold + $totalReturned;
 
-        if ($totalUsed >= $totalIssued && $totalIssued > 0) {
-            $this->status = self::STATUS_FULLY_CONSUMED;
-        } elseif ($totalUsed > 0) {
+        if ($totalProcessed >= $totalIssued && $totalIssued > 0) {
+            // All items have been either consumed, sold, or returned
+            $this->status = self::STATUS_COMPLETED;
+        } elseif ($totalReturned > 0 && $totalReturned < $totalIssued) {
+            // Some items returned, may also have consumption/sales
+            $this->status = self::STATUS_PARTIALLY_RETURNED;
+        } elseif ($totalConsumed > 0 && $totalConsumed < $totalIssued) {
+            // Some items consumed, may also have sales
             $this->status = self::STATUS_PARTIALLY_CONSUMED;
-        } else {
-            // Keep existing status if no consumption yet
+        } elseif ($totalSold > 0 && $totalSold < $totalIssued) {
+            // Some items sold
+            $this->status = self::STATUS_PARTIALLY_CONSUMED; // or create PARTIALLY_SOLD
+        } elseif ($totalIssued > 0) {
+            $this->status = self::STATUS_ISSUED;
         }
 
         $this->save();
