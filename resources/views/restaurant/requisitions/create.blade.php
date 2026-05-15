@@ -133,53 +133,92 @@
         background: #e5e7eb;
     }
 
-    /* Live Search Styles */
-    .item-search-container {
+    /* Enhanced Search Dropdown Styles */
+    .item-search-wrapper {
         position: relative;
         width: 100%;
     }
-    .search-dropdown {
+    .item-search-input {
+        width: 100%;
+        padding: 0.5rem 0.75rem;
+        border: 1px solid #d1d5db;
+        border-radius: 8px;
+        font-size: 0.875rem;
+        transition: all 0.2s;
+    }
+    .item-search-input:focus {
+        outline: none;
+        border-color: #ea580c;
+        box-shadow: 0 0 0 3px rgba(234, 88, 12, 0.1);
+    }
+    .search-results-dropdown {
         position: absolute;
         top: 100%;
         left: 0;
         right: 0;
         background: white;
-        border: 1px solid #d1d5db;
+        border: 1px solid #e5e7eb;
         border-radius: 8px;
-        max-height: 250px;
+        max-height: 280px;
         overflow-y: auto;
-        z-index: 10;
+        z-index: 1000;
+        box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1);
         display: none;
-        box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
     }
-    .search-dropdown-item {
-        padding: 0.5rem 0.75rem;
+    .search-results-dropdown.show {
+        display: block;
+    }
+    .search-result-item {
+        padding: 0.75rem;
         cursor: pointer;
         border-bottom: 1px solid #f3f4f6;
-        font-size: 0.8rem;
+        transition: background 0.15s;
     }
-    .search-dropdown-item:hover {
+    .search-result-item:hover {
         background: #fef3c7;
     }
-    .search-dropdown-item .item-code {
-        font-size: 0.65rem;
-        color: #6b7280;
+    .search-result-item .item-name {
+        font-weight: 600;
+        font-size: 0.875rem;
+        color: #1f2937;
     }
-    .selected-item-display {
+    .search-result-item .item-code {
+        font-size: 0.7rem;
+        color: #6b7280;
+        margin-top: 0.125rem;
+    }
+    .selected-item-badge {
         display: flex;
         justify-content: space-between;
         align-items: center;
-        padding: 0.5rem;
         background: #fef3c7;
+        padding: 0.5rem 0.75rem;
         border-radius: 8px;
         margin-bottom: 0.5rem;
+        border: 1px solid #fed7aa;
     }
-    .selected-item-name {
+    .selected-item-badge .item-info {
         font-weight: 600;
+        font-size: 0.875rem;
+        color: #92400e;
     }
-    .clear-item {
+    .selected-item-badge .clear-item-btn {
+        background: none;
+        border: none;
         color: #ef4444;
         cursor: pointer;
+        font-size: 0.75rem;
+        padding: 0.25rem 0.5rem;
+        border-radius: 6px;
+        transition: background 0.2s;
+    }
+    .selected-item-badge .clear-item-btn:hover {
+        background: #fee2e2;
+    }
+    .field-disabled {
+        background-color: #f9fafb;
+        cursor: not-allowed;
+        opacity: 0.7;
     }
 </style>
 
@@ -249,7 +288,7 @@
 </div>
 
 <script>
-    let itemCounter = 0;
+    // Items data from backend
     let itemsList = @json($items->map(function($item) {
         return [
             'id' => $item->id,
@@ -258,38 +297,79 @@
         ];
     }));
 
-    // Create search dropdown HTML
-    function createSearchDropdown(index) {
-        const dropdownId = `search-dropdown-${index}`;
-        const searchInputId = `item-search-${index}`;
+    let rowCounter = 0;
 
-        return `
-            <div class="item-search-container">
-                <input type="text" id="${searchInputId}" class="form-input item-search" placeholder="Search item by name or code..." autocomplete="off">
-                <div id="${dropdownId}" class="search-dropdown"></div>
-                <input type="hidden" name="items[${index}][inventory_item_id]" class="selected-item-id" value="">
-                <div id="selected-display-${index}" class="selected-item-display" style="display: none;">
-                    <span class="selected-item-name"></span>
-                    <span class="clear-item" onclick="clearSelectedItem(${index})">✕ Remove</span>
-                </div>
+    // Render dropdown with items (filtered or all)
+    function renderDropdown(dropdownElement, items, searchInput) {
+        if (!dropdownElement) return;
+
+        if (items.length === 0) {
+            dropdownElement.innerHTML = '<div class="search-result-item" style="color:#6b7280;">No items found</div>';
+            dropdownElement.classList.add('show');
+            return;
+        }
+
+        dropdownElement.innerHTML = items.map(item => `
+            <div class="search-result-item" data-id="${item.id}" data-name="${escapeHtml(item.name)}" data-code="${escapeHtml(item.code)}">
+                <div class="item-name">${escapeHtml(item.name)}</div>
+                <div class="item-code">Code: ${escapeHtml(item.code)}</div>
             </div>
-        `;
+        `).join('');
+        dropdownElement.classList.add('show');
+
+        // Add click handlers to each result
+        dropdownElement.querySelectorAll('.search-result-item').forEach(el => {
+            el.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const wrapper = dropdownElement.closest('.item-search-wrapper');
+                const rowElement = wrapper.closest('.item-row');
+                const searchInputElem = wrapper.querySelector('.item-search-input');
+                const selectedBadge = wrapper.querySelector('.selected-item-badge');
+                const selectedInfoSpan = selectedBadge.querySelector('.item-info');
+                const hiddenId = wrapper.querySelector('.selected-item-id');
+
+                const itemId = el.dataset.id;
+                const itemName = el.dataset.name;
+                const itemCode = el.dataset.code;
+
+                // Update UI with selected item
+                hiddenId.value = itemId;
+                searchInputElem.value = itemName;
+                searchInputElem.style.display = 'none';
+                selectedInfoSpan.innerHTML = `${escapeHtml(itemName)} <span style="font-size:0.7rem; color:#6b7280;">(${escapeHtml(itemCode)})</span>`;
+                selectedBadge.style.display = 'flex';
+                dropdownElement.classList.remove('show');
+
+                // Enable fields
+                toggleFieldsForRow(rowElement, true);
+            });
+        });
     }
 
-    // Create a new row
-    function createNewRow(index) {
+    // Create a new row with enhanced search
+    function createNewRow() {
+        const index = rowCounter++;
         const newRow = document.createElement('tr');
         newRow.className = 'item-row';
-        newRow.id = `row-${index}`;
         newRow.dataset.index = index;
+        newRow.id = `row-${index}`;
+
         newRow.innerHTML = `
             <td class="item-cell">
-                ${createSearchDropdown(index)}
-            </td>
-            <td>
+                <div class="item-search-wrapper" data-row-index="${index}">
+                    <input type="text" class="item-search-input" placeholder="Click here and start typing or browse items..." autocomplete="off">
+                    <div class="search-results-dropdown"></div>
+                    <div class="selected-item-badge" style="display: none;">
+                        <span class="item-info"></span>
+                        <button type="button" class="clear-item-btn">✕ Remove</button>
+                    </div>
+                    <input type="hidden" name="items[${index}][inventory_item_id]" class="selected-item-id" value="">
+                </div>
+              </td>
+              <td>
                 <input type="number" name="items[${index}][quantity]" step="0.01" class="form-input item-quantity" placeholder="0.00" disabled>
-            </td>
-            <td>
+              </td>
+              <td>
                 <select name="items[${index}][pack_type]" class="form-select item-pack-type" disabled>
                     <option value="">-- None --</option>
                     <option value="carton">Carton</option>
@@ -301,11 +381,11 @@
                     <option value="sack">Sack</option>
                     <option value="bottle">Bottle</option>
                 </select>
-            </td>
-            <td>
+              </td>
+              <td>
                 <input type="number" name="items[${index}][pack_size]" step="1" class="form-input item-pack-size" placeholder="e.g., 12" disabled>
-            </td>
-            <td>
+              </td>
+              <td>
                 <select name="items[${index}][metrics]" class="form-select item-metrics" disabled>
                     <option value="">-- Select --</option>
                     <option value="kg">Kilograms (kg)</option>
@@ -315,206 +395,227 @@
                     <option value="millilitres">Millilitres (ml)</option>
                     <option value="bottles">Bottles</option>
                 </select>
-            </td>
-            <td>
+              </td>
+              <td>
                 <input type="text" name="items[${index}][notes]" class="form-input item-notes" placeholder="Optional notes" disabled>
-            </td>
-            <td class="text-center">
+              </td>
+              <td class="text-center">
                 <button type="button" class="btn-remove remove-item" data-index="${index}">
                     <i class="fas fa-trash"></i>
                 </button>
-            </td>
+              </td>
         `;
+
         return newRow;
     }
 
-    // Setup live search for a specific row
-    function setupLiveSearch(index) {
-        const searchInput = document.getElementById(`item-search-${index}`);
-        const dropdown = document.getElementById(`search-dropdown-${index}`);
-        const hiddenInput = document.querySelector(`#row-${index} .selected-item-id`);
-        const selectedDisplay = document.getElementById(`selected-display-${index}`);
-        const selectedNameSpan = selectedDisplay?.querySelector('.selected-item-name');
+    // Enable/disable fields based on selection state
+    function toggleFieldsForRow(rowElement, enabled) {
+        const quantity = rowElement.querySelector('.item-quantity');
+        const packType = rowElement.querySelector('.item-pack-type');
+        const packSize = rowElement.querySelector('.item-pack-size');
+        const metrics = rowElement.querySelector('.item-metrics');
+        const notes = rowElement.querySelector('.item-notes');
 
-        // Enable/disable form fields based on selection
-        const enableFields = (enabled) => {
-            const row = document.getElementById(`row-${index}`);
-            const quantityInput = row.querySelector('.item-quantity');
-            const packTypeSelect = row.querySelector('.item-pack-type');
-            const packSizeInput = row.querySelector('.item-pack-size');
-            const metricsSelect = row.querySelector('.item-metrics');
-            const notesInput = row.querySelector('.item-notes');
+        quantity.disabled = !enabled;
+        packType.disabled = !enabled;
+        packSize.disabled = !enabled;
+        metrics.disabled = !enabled;
+        notes.disabled = !enabled;
 
-            quantityInput.disabled = !enabled;
-            packTypeSelect.disabled = !enabled;
-            packSizeInput.disabled = !enabled;
-            metricsSelect.disabled = !enabled;
-            notesInput.disabled = !enabled;
-
-            if (enabled) {
-                quantityInput.required = true;
-            } else {
-                quantityInput.required = false;
-            }
-        };
-
-        if (!searchInput) return;
-
-        searchInput.addEventListener('input', function() {
-            const searchTerm = this.value.toLowerCase();
-            const filteredItems = itemsList.filter(item =>
-                item.name.toLowerCase().includes(searchTerm) ||
-                item.code.toLowerCase().includes(searchTerm)
-            );
-
-            if (filteredItems.length > 0 && searchTerm.length > 0) {
-                dropdown.style.display = 'block';
-                dropdown.innerHTML = filteredItems.map(item => `
-                    <div class="search-dropdown-item" data-id="${item.id}" data-name="${item.name}" data-code="${item.code}">
-                        <div class="font-medium">${item.name}</div>
-                        <div class="item-code">Code: ${item.code}</div>
-                    </div>
-                `).join('');
-
-                // Add click handlers
-                dropdown.querySelectorAll('.search-dropdown-item').forEach(el => {
-                    el.addEventListener('click', function() {
-                        const itemId = this.dataset.id;
-                        const itemName = this.dataset.name;
-                        const itemCode = this.dataset.code;
-
-                        hiddenInput.value = itemId;
-                        searchInput.value = itemName;
-                        searchInput.style.display = 'none';
-                        selectedDisplay.style.display = 'flex';
-                        selectedNameSpan.innerHTML = `${itemName} <span class="text-xs text-gray-500">(${itemCode})</span>`;
-                        dropdown.style.display = 'none';
-                        enableFields(true);
-                    });
-                });
-            } else {
-                dropdown.style.display = 'none';
-            }
-        });
-
-        document.addEventListener('click', function(e) {
-            if (!searchInput.contains(e.target) && !dropdown.contains(e.target)) {
-                dropdown.style.display = 'none';
-            }
-        });
+        if (enabled) {
+            quantity.required = true;
+        } else {
+            quantity.required = false;
+            quantity.value = '';
+            packType.value = '';
+            packSize.value = '';
+            metrics.value = '';
+            notes.value = '';
+        }
     }
 
-    // Clear selected item
-    window.clearSelectedItem = function(index) {
-        const searchInput = document.getElementById(`item-search-${index}`);
-        const hiddenInput = document.querySelector(`#row-${index} .selected-item-id`);
-        const selectedDisplay = document.getElementById(`selected-display-${index}`);
+    // Clear selected item in a row
+    function clearSelectedItem(wrapper, rowElement) {
+        const searchInput = wrapper.querySelector('.item-search-input');
+        const dropdown = wrapper.querySelector('.search-results-dropdown');
+        const selectedBadge = wrapper.querySelector('.selected-item-badge');
+        const hiddenId = wrapper.querySelector('.selected-item-id');
 
-        hiddenInput.value = '';
+        // Reset UI
         searchInput.value = '';
         searchInput.style.display = 'block';
-        selectedDisplay.style.display = 'none';
+        selectedBadge.style.display = 'none';
+        hiddenId.value = '';
+        dropdown.classList.remove('show');
+        dropdown.innerHTML = '';
 
-        // Clear all field values
-        const row = document.getElementById(`row-${index}`);
-        row.querySelector('.item-quantity').value = '';
-        row.querySelector('.item-pack-type').value = '';
-        row.querySelector('.item-pack-size').value = '';
-        row.querySelector('.item-metrics').value = '';
-        row.querySelector('.item-notes').value = '';
+        // Disable and clear fields
+        toggleFieldsForRow(rowElement, false);
+    }
 
-        // Disable fields again
-        const quantityInput = row.querySelector('.item-quantity');
-        const packTypeSelect = row.querySelector('.item-pack-type');
-        const packSizeInput = row.querySelector('.item-pack-size');
-        const metricsSelect = row.querySelector('.item-metrics');
-        const notesInput = row.querySelector('.item-notes');
+    // Show all items in dropdown (for focus event)
+    function showAllItems(dropdownElement) {
+        renderDropdown(dropdownElement, itemsList, null);
+    }
 
-        quantityInput.disabled = true;
-        packTypeSelect.disabled = true;
-        packSizeInput.disabled = true;
-        metricsSelect.disabled = true;
-        notesInput.disabled = true;
-        quantityInput.required = false;
-    };
+    // Filter items based on search term
+    function filterAndShowItems(dropdownElement, searchTerm) {
+        if (searchTerm.trim() === '') {
+            renderDropdown(dropdownElement, itemsList, null);
+        } else {
+            const filtered = itemsList.filter(item =>
+                item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                item.code.toLowerCase().includes(searchTerm.toLowerCase())
+            );
+            renderDropdown(dropdownElement, filtered, null);
+        }
+    }
 
-    // Initialize all rows
-    function initializeRows() {
-        document.querySelectorAll('.item-row').forEach(row => {
-            const index = row.dataset.index;
-            if (index !== undefined) {
-                setupLiveSearch(parseInt(index));
+    // Setup search functionality for a specific row
+    function setupRowSearch(rowElement) {
+        const wrapper = rowElement.querySelector('.item-search-wrapper');
+        if (!wrapper) return;
+
+        const searchInput = wrapper.querySelector('.item-search-input');
+        const dropdown = wrapper.querySelector('.search-results-dropdown');
+        const selectedBadge = wrapper.querySelector('.selected-item-badge');
+        const clearBtn = selectedBadge.querySelector('.clear-item-btn');
+
+        let typingTimeout;
+
+        // Clear button handler
+        clearBtn.addEventListener('click', () => {
+            clearSelectedItem(wrapper, rowElement);
+        });
+
+        // When input is focused - show dropdown with ALL items
+        searchInput.addEventListener('focus', function() {
+            // Only show dropdown if no item is selected yet
+            const hiddenId = wrapper.querySelector('.selected-item-id');
+            if (!hiddenId.value) {
+                showAllItems(dropdown);
             }
+        });
+
+        // Search input handler with debounce
+        searchInput.addEventListener('input', function() {
+            const hiddenId = wrapper.querySelector('.selected-item-id');
+            // If an item is selected, don't show dropdown
+            if (hiddenId.value) return;
+
+            clearTimeout(typingTimeout);
+            typingTimeout = setTimeout(() => {
+                filterAndShowItems(dropdown, this.value);
+            }, 300);
+        });
+
+        // Close dropdown when clicking outside
+        document.addEventListener('click', function(e) {
+            if (!wrapper.contains(e.target)) {
+                dropdown.classList.remove('show');
+            }
+        });
+
+        // Prevent dropdown from closing when clicking inside it
+        dropdown.addEventListener('click', (e) => {
+            e.stopPropagation();
         });
     }
 
-    // Remove item
-    function removeItem(e) {
-        const button = e.target.closest('.remove-item');
-        if (!button) return;
-        const index = button.dataset.index;
-        const row = document.getElementById(`row-${index}`);
-        if (row) {
-            row.remove();
-        }
-        updateRowIndices();
+    // Helper to escape HTML
+    function escapeHtml(str) {
+        if (!str) return '';
+        return str.replace(/[&<>]/g, function(m) {
+            if (m === '&') return '&amp;';
+            if (m === '<') return '&lt;';
+            if (m === '>') return '&gt;';
+            return m;
+        });
     }
 
-    // Update row indices after removal
-    function updateRowIndices() {
+    // Remove item row
+    function removeItemRow(button) {
+        const row = button.closest('.item-row');
+        if (row) {
+            row.remove();
+            reindexRows();
+        }
+    }
+
+    // Reindex rows after removal
+    function reindexRows() {
         const rows = document.querySelectorAll('.item-row');
         rows.forEach((row, newIndex) => {
-            row.id = `row-${newIndex}`;
             row.dataset.index = newIndex;
+            row.id = `row-${newIndex}`;
 
-            // Update all name attributes in the row
-            row.querySelectorAll('[name]').forEach(el => {
-                const name = el.getAttribute('name');
+            // Update all input/select names
+            const inputs = row.querySelectorAll('input, select');
+            inputs.forEach(input => {
+                const name = input.getAttribute('name');
                 if (name) {
                     const newName = name.replace(/items\[\d+\]/, `items[${newIndex}]`);
-                    el.setAttribute('name', newName);
+                    input.setAttribute('name', newName);
                 }
             });
 
-            // Update IDs of elements
-            const searchInput = row.querySelector('.item-search');
-            if (searchInput) searchInput.id = `item-search-${newIndex}`;
-
-            const dropdown = row.querySelector('.search-dropdown');
-            if (dropdown) dropdown.id = `search-dropdown-${newIndex}`;
-
-            const selectedDisplay = row.querySelector('.selected-item-display');
-            if (selectedDisplay) selectedDisplay.id = `selected-display-${newIndex}`;
-
+            // Update remove button data-index
             const removeBtn = row.querySelector('.remove-item');
             if (removeBtn) removeBtn.dataset.index = newIndex;
-        });
 
-        // Reinitialize live search for all rows
-        initializeRows();
+            // Update wrapper data-row-index
+            const wrapper = row.querySelector('.item-search-wrapper');
+            if (wrapper) wrapper.dataset.rowIndex = newIndex;
+        });
     }
 
-    // Add new item button
+    // Add new item button handler
     document.getElementById('addItemBtn').addEventListener('click', function() {
         const tbody = document.getElementById('itemsBody');
-        const newIndex = document.querySelectorAll('.item-row').length;
-        const newRow = createNewRow(newIndex);
+        const newRow = createNewRow();
         tbody.appendChild(newRow);
-        setupLiveSearch(newIndex);
+
+        // Setup search for the new row
+        setupRowSearch(newRow);
 
         // Add remove event listener
         const removeBtn = newRow.querySelector('.remove-item');
-        if (removeBtn) {
-            removeBtn.addEventListener('click', removeItem);
-        }
+        removeBtn.addEventListener('click', () => removeItemRow(removeBtn));
     });
 
-    // Add remove event listeners to existing rows
-    document.querySelectorAll('.remove-item').forEach(btn => {
-        btn.addEventListener('click', removeItem);
-    });
+    // Initialize existing rows (if any from validation errors)
+    function initializeExistingRows() {
+        const rows = document.querySelectorAll('.item-row');
+        rows.forEach(row => {
+            setupRowSearch(row);
+            const removeBtn = row.querySelector('.remove-item');
+            if (removeBtn) {
+                removeBtn.addEventListener('click', () => removeItemRow(removeBtn));
+            }
 
-    // Form validation
+            // Check if this row already has an item selected (e.g., from old input)
+            const hiddenId = row.querySelector('.selected-item-id');
+            if (hiddenId && hiddenId.value) {
+                // We need to reconstruct the selected display
+                const wrapper = row.querySelector('.item-search-wrapper');
+                const searchInput = wrapper.querySelector('.item-search-input');
+                const selectedBadge = wrapper.querySelector('.selected-item-badge');
+                const selectedInfoSpan = selectedBadge.querySelector('.item-info');
+
+                // Find the item name from itemsList
+                const selectedItem = itemsList.find(item => item.id == hiddenId.value);
+                if (selectedItem) {
+                    searchInput.style.display = 'none';
+                    selectedInfoSpan.innerHTML = `${escapeHtml(selectedItem.name)} <span style="font-size:0.7rem; color:#6b7280;">(${escapeHtml(selectedItem.code)})</span>`;
+                    selectedBadge.style.display = 'flex';
+                    toggleFieldsForRow(row, true);
+                }
+            }
+        });
+    }
+
+    // Form validation before submit
     document.getElementById('requisitionForm').addEventListener('submit', function(e) {
         let hasValidItem = false;
         const rows = document.querySelectorAll('.item-row');
@@ -539,6 +640,8 @@
     // Add initial empty row if no rows exist
     if (document.querySelectorAll('.item-row').length === 0) {
         document.getElementById('addItemBtn').click();
+    } else {
+        initializeExistingRows();
     }
 </script>
 @endsection

@@ -14,6 +14,7 @@ class DepartmentRequisitionItem extends Model
     protected $fillable = [
         'department_requisition_id',
         'inventory_item_id',
+        'department_id',
         'quantity_requested',
         'requested_pack_type',
         'requested_pack_size',
@@ -26,7 +27,7 @@ class DepartmentRequisitionItem extends Model
         'returned_pack_size',
         'returned_total_pieces',
         'qauntity_sold',
-        
+
         'return_reason',
         'returned_at',
         'quantity_consumed',
@@ -36,6 +37,7 @@ class DepartmentRequisitionItem extends Model
 
     protected $casts = [
         'quantity_requested' => 'decimal:2',
+        'department_id' => 'integer',
         'requested_pack_size' => 'integer',
         'quantity_issued' => 'decimal:2',
         'issued_pack_size' => 'integer',

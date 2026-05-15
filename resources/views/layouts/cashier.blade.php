@@ -172,6 +172,7 @@
             Orders
         </a>
 
+
         <!-- Reports -->
         <a href="{{ route('restaurant.cashier.reports') }}"
            class="flex items-center px-4 py-3 text-sm hover:bg-orange-700 transition sidebar-nav-link
@@ -208,7 +209,7 @@
 </aside>
 
 {{-- TOP BAR --}}
-<div class="top-bar">
+<div class="top-bar no-print">
     <div class="top-bar-left">
         <button id="menuIconBtn" aria-label="Open menu">
             <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -216,7 +217,7 @@
             </svg>
         </button>
         <div>
-            <div class="text-base font-semibold text-orange-900">Cashier Module</div>
+            <div class="text-base font-semibold text-orange-900">Cashier Portal</div>
             <div class="text-xs text-gray-500">Point of Sale System</div>
         </div>
     </div>

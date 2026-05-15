@@ -29,6 +29,7 @@
     .stat-total { border-left-color: #3b82f6; }
     .stat-issued { border-left-color: #10b981; }
     .stat-consumed { border-left-color: #f59e0b; }
+    .stat-sold { border-left-color: #ef4444; }
     .stat-remaining { border-left-color: #8b5cf6; }
 
     .filter-card {
@@ -80,26 +81,19 @@
     .stock-medium { background: #fef3c7; color: #92400e; }
     .stock-low { background: #fee2e2; color: #991b1b; }
 
-    .search-wrapper {
-        display: flex;
-        gap: 1rem;
-        align-items: center;
-        margin-bottom: 1rem;
-    }
-    .live-search-input {
-        padding: 0.5rem 1rem;
-        border: 1px solid #d1d5db;
-        border-radius: 8px;
-        font-size: 0.75rem;
-        width: 300px;
-    }
-    .result-badge {
-        font-size: 0.7rem;
+    .pack-info {
+        font-size: 0.65rem;
         color: #6b7280;
+        margin-top: 0.25rem;
     }
     .highlight {
         background-color: #fef3c7;
         font-weight: bold;
+    }
+    .result-badge {
+        font-size: 0.7rem;
+        color: #6b7280;
+        margin-left: 0.5rem;
     }
 </style>
 
@@ -119,19 +113,11 @@
                 <p class="text-sm"><i class="fas fa-chart-line mr-1"></i> Total Items</p>
                 <p class="text-2xl font-bold">{{ $totalItems }}</p>
             </div>
-
-            <a href="{{ route('restaurant.requisitions.create') }}" class="bg-white text-red-600 px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-100 transition">
-                <i class="fas fa-plus mr-1"></i> Request from Store
-            </a>
-
-            <a href="{{ route('restaurant.stock.summary') }}" class="bg-white text-red-600 px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-100 transition">
-                <i class="fas fa-file-alt mr-1"></i> View Summary
-            </a>
         </div>
     </div>
 
     {{-- Statistics Cards --}}
-    <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+    <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
         <div class="stat-card stat-total">
             <h3><i class="fas fa-boxes mr-1"></i> Total Items</h3>
             <div class="value">{{ number_format($totalItems) }}</div>
@@ -147,36 +133,48 @@
             <div class="value">{{ number_format($totalConsumed, 2) }} units</div>
             <p class="text-xs text-gray-500 mt-1">Used in operations</p>
         </div>
+        <div class="stat-card stat-sold">
+            <h3><i class="fas fa-shopping-cart mr-1"></i> Total Sold</h3>
+            <div class="value">{{ number_format($totalSold, 2) }} units</div>
+            <p class="text-xs text-gray-500 mt-1">Sold to customers</p>
+        </div>
         <div class="stat-card stat-remaining">
             <h3><i class="fas fa-box-open mr-1"></i> Current Stock</h3>
             <div class="value">{{ number_format($totalStockValue, 2) }} units</div>
-            <p class="text-xs text-gray-500 mt-1">Available for use</p>
+            <p class="text-xs text-gray-500 mt-1">Available for use/sale</p>
         </div>
     </div>
 
-    {{-- Filters with Live Search --}}
+    {{-- Filters --}}
     <div class="filter-card">
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+        <form method="GET" action="{{ route('restaurant.stock.index') }}" class="grid grid-cols-1 md:grid-cols-3 gap-3">
             <div>
                 <label class="block text-xs font-medium text-gray-700 mb-1">Live Search</label>
-                <input type="text" id="liveSearch" class="filter-input" placeholder="🔍 Search by name or code...">
+                <input type="text" name="search" id="liveSearch" class="filter-input" placeholder="🔍 Search by name or code..." value="{{ request('search') }}">
                 <span id="searchResultCount" class="result-badge"></span>
             </div>
             <div>
                 <label class="block text-xs font-medium text-gray-700 mb-1">Category Filter</label>
-                <select id="categoryFilter" class="filter-input">
+                <select name="category_id" id="categoryFilter" class="filter-input">
                     <option value="">All Categories</option>
                     @foreach($categories as $cat)
-                        <option value="{{ strtolower($cat->name) }}">{{ $cat->name }}</option>
+                        <option value="{{ $cat->id }}" {{ request('category_id') == $cat->id ? 'selected' : '' }}>
+                            {{ $cat->name }}
+                        </option>
                     @endforeach
                 </select>
             </div>
             <div class="flex items-end">
-                <button id="resetFilters" class="bg-gray-300 text-gray-700 px-3 py-2 rounded-lg text-xs hover:bg-gray-400">
-                    <i class="fas fa-times mr-1"></i> Reset
-                </button>
+                <div class="flex gap-2">
+                    <button type="submit" class="bg-blue-600 text-white px-3 py-2 rounded-lg text-xs hover:bg-blue-700">
+                        <i class="fas fa-search mr-1"></i> Apply
+                    </button>
+                    <a href="{{ route('restaurant.stock.index') }}" class="bg-gray-300 text-gray-700 px-3 py-2 rounded-lg text-xs hover:bg-gray-400">
+                        <i class="fas fa-times mr-1"></i> Reset
+                    </a>
+                </div>
             </div>
-        </div>
+        </form>
     </div>
 
     {{-- Stock Table --}}
@@ -186,13 +184,14 @@
                 <thead>
                     <tr>
                         <th style="width: 5%">#</th>
-                        <th style="width: 25%">Item Name</th>
-                        <th style="width: 10%">Code</th>
-                        <th style="width: 8%">Unit</th>
-                        <th style="width: 12%" class="text-right">Issued</th>
-                        <th style="width: 12%" class="text-right">Consumed</th>
-                        <th style="width: 12%" class="text-right">Returned</th>
-                        <th style="width: 12%" class="text-right">Current Stock</th>
+                        <th style="width: 20%">Item Name</th>
+                        <th style="width: 8%">Code</th>
+                        <th style="width: 5%">Unit</th>
+                        <th style="width: 8%" class="text-right">Issued</th>
+                        <th style="width: 8%" class="text-right">Sold</th>
+                        <th style="width: 8%" class="text-right">Consumed</th>
+                        <th style="width: 8%" class="text-right">Returned</th>
+                        <th style="width: 10%" class="text-right">Current Stock</th>
                         <th style="width: 8%" class="text-center">Status</th>
                     </tr>
                 </thead>
@@ -203,33 +202,39 @@
                         $currentStock = $item['current_stock'];
                         if ($currentStock > 20) {
                             $stockClass = 'stock-high';
-                            $stockText  = 'High';
+                            $stockText = 'High';
                         } elseif ($currentStock > 5) {
                             $stockClass = 'stock-medium';
-                            $stockText  = 'Medium';
+                            $stockText = 'Medium';
                         } else {
                             $stockClass = 'stock-low';
-                            $stockText  = 'Low';
+                            $stockText = 'Low';
                         }
                     @endphp
                     <tr data-name="{{ strtolower($item['item_name']) }}"
-                        data-code="{{ strtolower($item['item_code']) }}"
-                        data-category="{{ strtolower($item['category']) }}">
+                        data-code="{{ strtolower($item['item_code']) }}">
                         <td class="text-center counter-cell">{{ $counter++ }}</td>
                         <td class="font-medium text-gray-800 name-cell">
                             {{ $item['item_name'] }}
-                            {{-- No pack_type/pack_size here — stock is aggregated across
-                                 multiple requisitions, each potentially with different pack types.
-                                 All quantities are already in base units. --}}
+                            @if(isset($item['pack_type']) && $item['pack_type'])
+                                <div class="pack-info">
+                                    <i class="fas fa-cubes"></i> {{ $item['pack_type'] }} ({{ $item['pack_size'] }} {{ $item['unit'] }}/pack)
+                                </div>
+                            @endif
                         </td>
                         <td class="text-gray-500 code-cell">{{ $item['item_code'] }}</td>
                         <td class="unit-cell">{{ $item['unit'] }}</td>
-                        <td class="text-right issued-cell">{{ number_format($item['total_issued_pieces'], 2) }}</td>
-                        <td class="text-right consumed-cell">{{ number_format($item['total_consumed'], 2) }}</td>
-                        <td class="text-right returned-cell">{{ number_format($item['total_returned'], 2) }}</td>
+                        <td class="text-right issued-cell">{{ number_format($item['issued'], 2) }}</td>
+                        <td class="text-right sold-cell">
+                            <span class="font-semibold {{ $item['sold'] > 0 ? 'text-red-600' : 'text-gray-400' }}">
+                                {{ number_format($item['sold'], 2) }}
+                            </span>
+                        </td>
+                        <td class="text-right consumed-cell">{{ number_format($item['consumed'], 2) }}</td>
+                        <td class="text-right returned-cell">{{ number_format($item['returned'], 2) }}</td>
                         <td class="text-right current-cell">
                             <span class="stock-badge {{ $stockClass }}">
-                                {{ number_format($currentStock, 2) }} {{ $item['unit'] }}
+                                {{ number_format($currentStock, 2) }}
                             </span>
                         </td>
                         <td class="text-center">
@@ -238,7 +243,7 @@
                     </tr>
                     @empty
                     <tr id="noResultsRow">
-                        <td colspan="9" class="text-center text-gray-500 py-8">
+                        <td colspan="10" class="text-center text-gray-500 py-8">
                             <i class="fas fa-box-open text-4xl mb-2 block"></i>
                             No stock items found. Items will appear here once issued from store.
                         </td>
@@ -249,10 +254,11 @@
                     <tr>
                         <td colspan="4" class="px-4 py-3 text-xs font-bold uppercase text-gray-500">Totals</td>
                         <td class="px-4 py-3 text-right font-bold text-green-600">{{ number_format($totalIssued, 2) }}</td>
+                        <td class="px-4 py-3 text-right font-bold text-red-600">{{ number_format($totalSold, 2) }}</td>
                         <td class="px-4 py-3 text-right font-bold text-amber-600">{{ number_format($totalConsumed, 2) }}</td>
                         <td class="px-4 py-3 text-right font-bold text-purple-600">{{ number_format($totalReturned, 2) }}</td>
                         <td class="px-4 py-3 text-right font-bold text-blue-600">{{ number_format($totalStockValue, 2) }}</td>
-                        <td class="px-4 py-3"></td>
+                        <td></td>
                     </tr>
                 </tfoot>
             </table>
@@ -263,31 +269,35 @@
 <script>
     document.addEventListener('DOMContentLoaded', function () {
         const liveSearch        = document.getElementById('liveSearch');
-        const categoryFilter    = document.getElementById('categoryFilter');
-        const resetBtn          = document.getElementById('resetFilters');
-        const tableBody         = document.getElementById('tableBody');
         const searchResultCount = document.getElementById('searchResultCount');
+        const tableBody         = document.getElementById('tableBody');
         const noResultsRow      = document.getElementById('noResultsRow');
 
-        // Store original innerHTML once so highlights can be removed cleanly
-        const rows = Array.from(tableBody.querySelectorAll('tr[data-name]'));
-        rows.forEach(row => {
-            const nameCell = row.querySelector('.name-cell');
-            const codeCell = row.querySelector('.code-cell');
-            if (nameCell) nameCell.dataset.originalName = nameCell.innerHTML;
-            if (codeCell) codeCell.dataset.originalCode = codeCell.innerHTML;
-        });
+        function storeOriginalText() {
+            const rows = tableBody.querySelectorAll('tr[data-name]');
+            rows.forEach(row => {
+                const nameCell = row.querySelector('.name-cell');
+                const codeCell = row.querySelector('.code-cell');
+                if (nameCell && !nameCell.dataset.originalText) {
+                    nameCell.dataset.originalText = nameCell.textContent;
+                }
+                if (codeCell && !codeCell.dataset.originalText) {
+                    codeCell.dataset.originalText = codeCell.textContent;
+                }
+            });
+        }
 
         function performSearch() {
-            const term     = liveSearch.value.toLowerCase().trim();
-            const category = categoryFilter.value.toLowerCase();
-            let visible    = 0;
+            const term = liveSearch.value.toLowerCase().trim();
+            const rows = tableBody.querySelectorAll('tr[data-name]');
+            let visible = 0;
 
             rows.forEach(row => {
-                const matchesSearch   = !term || row.dataset.name.includes(term) || row.dataset.code.includes(term);
-                const matchesCategory = !category || row.dataset.category === category;
+                const name = row.dataset.name || '';
+                const code = row.dataset.code || '';
+                const matchesSearch = !term || name.includes(term) || code.includes(term);
 
-                if (matchesSearch && matchesCategory) {
+                if (matchesSearch) {
                     row.style.display = '';
                     visible++;
                     applyHighlight(row, term);
@@ -297,44 +307,73 @@
                 }
             });
 
-            // Renumber visible rows
             let counter = 1;
-            rows.filter(r => r.style.display !== 'none').forEach(r => {
-                const cell = r.querySelector('.counter-cell');
-                if (cell) cell.textContent = counter++;
+            rows.forEach(row => {
+                if (row.style.display !== 'none') {
+                    const cell = row.querySelector('.counter-cell');
+                    if (cell) cell.textContent = counter++;
+                }
             });
 
-            searchResultCount.textContent = term || category ? `${visible} result${visible !== 1 ? 's' : ''} found` : '';
+            if (term) {
+                searchResultCount.textContent = `${visible} result${visible !== 1 ? 's' : ''} found`;
+            } else {
+                searchResultCount.textContent = '';
+            }
 
             if (noResultsRow) {
-                noResultsRow.style.display = visible === 0 && rows.length > 0 ? '' : 'none';
+                noResultsRow.style.display = (visible === 0 && rows.length > 0) ? '' : 'none';
             }
         }
 
         function applyHighlight(row, term) {
+            if (!term) return;
+
             const nameCell = row.querySelector('.name-cell');
             const codeCell = row.querySelector('.code-cell');
-            if (!term) { removeHighlight(row); return; }
-
             const regex = new RegExp(`(${term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
-            if (nameCell) nameCell.innerHTML = nameCell.dataset.originalName.replace(regex, '<span class="highlight">$1</span>');
-            if (codeCell) codeCell.innerHTML = codeCell.dataset.originalCode.replace(regex, '<span class="highlight">$1</span>');
+
+            if (nameCell && nameCell.dataset.originalText) {
+                const originalText = nameCell.dataset.originalText;
+                const packDiv = nameCell.querySelector('.pack-info');
+                if (packDiv) {
+                    const nameWithoutPack = originalText.replace(packDiv.textContent, '').trim();
+                    const highlightedName = nameWithoutPack.replace(regex, '<span class="highlight">$1</span>');
+                    nameCell.innerHTML = highlightedName + ' ' + packDiv.outerHTML;
+                } else {
+                    nameCell.innerHTML = originalText.replace(regex, '<span class="highlight">$1</span>');
+                }
+            }
+
+            if (codeCell && codeCell.dataset.originalText) {
+                codeCell.innerHTML = codeCell.dataset.originalText.replace(regex, '<span class="highlight">$1</span>');
+            }
         }
 
         function removeHighlight(row) {
             const nameCell = row.querySelector('.name-cell');
             const codeCell = row.querySelector('.code-cell');
-            if (nameCell && nameCell.dataset.originalName) nameCell.innerHTML = nameCell.dataset.originalName;
-            if (codeCell && codeCell.dataset.originalCode) codeCell.innerHTML = codeCell.dataset.originalCode;
+
+            if (nameCell && nameCell.dataset.originalText) {
+                const packDiv = nameCell.querySelector('.pack-info');
+                if (packDiv) {
+                    const nameWithoutPack = nameCell.dataset.originalText.replace(packDiv.textContent, '').trim();
+                    nameCell.innerHTML = nameWithoutPack + ' ' + packDiv.outerHTML;
+                } else {
+                    nameCell.innerHTML = nameCell.dataset.originalText;
+                }
+            }
+
+            if (codeCell && codeCell.dataset.originalText) {
+                codeCell.innerHTML = codeCell.dataset.originalText;
+            }
         }
 
-        liveSearch.addEventListener('input', performSearch);
-        categoryFilter.addEventListener('change', performSearch);
-        resetBtn.addEventListener('click', () => {
-            liveSearch.value    = '';
-            categoryFilter.value = '';
-            performSearch();
-        });
+        storeOriginalText();
+
+        if (liveSearch) {
+            liveSearch.addEventListener('input', performSearch);
+        }
     });
 </script>
 @endsection

@@ -229,7 +229,7 @@
 </aside>
 
 {{-- ── TOP BAR ── --}}
-<div class="top-bar">
+<div class="top-bar no-print">
     {{-- Left: Hamburger + Branding --}}
     <div class="top-bar-left">
         <button id="menuIconBtn" aria-label="Open menu">

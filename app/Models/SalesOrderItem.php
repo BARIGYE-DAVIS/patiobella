@@ -16,6 +16,8 @@ class SalesOrderItem extends Model
     protected $fillable = [
         'sales_order_id',
         'menu_item_id',
+        'inventory_item_id',
+        'item_name',
         'quantity',
         'unit_price',
         'total_price',
@@ -40,6 +42,11 @@ class SalesOrderItem extends Model
     public function menuItem()
     {
         return $this->belongsTo(MenuItem::class, 'menu_item_id');
+    }
+
+    public function inventoryItem()
+    {
+        return $this->belongsTo(InventoryItem::class, 'inventory_item_id');
     }
 
     // Accessors

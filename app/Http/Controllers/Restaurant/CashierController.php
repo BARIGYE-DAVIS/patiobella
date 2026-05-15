@@ -4,6 +4,7 @@
 namespace App\Http\Controllers\Restaurant;
 
 use App\Http\Controllers\Controller;
+use App\Models\DepartmentRequisitionItem;
 use App\Models\MenuItem;
 use App\Models\SalesOrder;
 use App\Models\SalesOrderItem;
@@ -33,42 +34,71 @@ class CashierController extends Controller
         }
     }
 
+
     /**
-     * Cashier Dashboard
-     */
-    public function dashboard()
-    {
-        try {
-            Log::info('Cashier dashboard accessed', ['user_id' => Auth::id()]);
+ * Cashier Dashboard
+ */
+public function dashboard()
+{
+    try {
+        Log::info('Cashier dashboard accessed', ['user_id' => Auth::id()]);
 
-            $user = Auth::user();
+        $user = Auth::user();
 
-            if (!$user->department || $user->department->name !== 'RESTAURANT') {
-                return redirect()->route('dashboard')->with('error', 'Unauthorized access.');
-            }
-
-            $roleName = $this->getRoleName($user);
-            if ($roleName !== 'Cashier') {
-                return redirect()->route('dashboard')->with('error', 'Cashier access only.');
-            }
-
-            $todaySales = SalesOrder::whereDate('created_at', today())->sum('total_amount');
-            $todayOrders = SalesOrder::whereDate('created_at', today())->count();
-            $pendingOrders = SalesOrder::where('status', 'pending')->count();
-
-            $recentOrders = SalesOrder::with('items.menuItem')
-                ->orderBy('created_at', 'desc')
-                ->limit(10)
-                ->get();
-
-            return view('restaurant.cashier.dashboard', compact('todaySales', 'todayOrders', 'pendingOrders', 'recentOrders'));
-
-        } catch (\Exception $e) {
-            Log::error('Cashier dashboard error', ['user_id' => Auth::id(), 'error' => $e->getMessage()]);
-            return redirect()->route('dashboard')->with('error', 'Failed to load dashboard.');
+        if (!$user->department || $user->department->name !== 'RESTAURANT') {
+            return redirect()->route('dashboard')->with('error', 'Unauthorized access.');
         }
-    }
 
+        $roleName = $this->getRoleName($user);
+        if ($roleName !== 'Cashier') {
+            return redirect()->route('dashboard')->with('error', 'Cashier access only.');
+        }
+
+        $todaySales = SalesOrder::whereDate('created_at', today())->sum('total_amount');
+        $todayOrders = SalesOrder::whereDate('created_at', today())->count();
+        $unpaidOrders = SalesOrder::where('payment_status', 'unpaid')->count();
+
+        // Calculate low stock count
+        $departmentId = $user->department_id;
+        $lowStockCount = 0;
+
+        $stockItems = DepartmentRequisitionItem::with(['inventoryItem'])
+            ->whereHas('departmentRequisition', function($q) use ($departmentId) {
+                $q->where('department_id', $departmentId)
+                  ->whereIn('status', ['issued', 'partially_issued', 'partially_consumed', 'partially_returned']);
+            })
+            ->where('issued_total_pieces', '>', 0)
+            ->get();
+
+        foreach ($stockItems as $item) {
+            $issued = (float) ($item->issued_total_pieces ?? 0);
+            $consumed = (float) ($item->quantity_consumed ?? 0);
+            $returned = (float) ($item->returned_total_pieces ?? 0);
+            $sold = (float) ($item->quantity_sold ?? 0);
+            $remaining = $issued - ($consumed + $returned + $sold);
+            if ($remaining > 0 && $remaining < 10) {
+                $lowStockCount++;
+            }
+        }
+
+        $recentOrders = SalesOrder::with('items.menuItem')
+            ->orderBy('created_at', 'desc')
+            ->limit(10)
+            ->get();
+
+        return view('restaurant.cashier.dashboard', compact(
+            'todaySales',
+            'todayOrders',
+            'unpaidOrders',
+            'lowStockCount',
+            'recentOrders'
+        ));
+
+    } catch (\Exception $e) {
+        Log::error('Cashier dashboard error', ['user_id' => Auth::id(), 'error' => $e->getMessage()]);
+        return redirect()->route('dashboard')->with('error', 'Failed to load dashboard.');
+    }
+}
     /**
      * Point of Sale (POS) Screen
      */
@@ -133,9 +163,96 @@ class CashierController extends Controller
     }
 
     /**
-     * Store Order
+     * Orders List - Show all orders with unpaid/paid filter
      */
-    public function storeOrder(Request $request)
+    public function orders(Request $request)
+    {
+        try {
+            $user = Auth::user();
+
+            if (!$user->department || $user->department->name !== 'RESTAURANT') {
+                return redirect()->route('dashboard')->with('error', 'Unauthorized access.');
+            }
+
+            $roleName = $this->getRoleName($user);
+            if ($roleName !== 'Cashier') {
+                return redirect()->route('dashboard')->with('error', 'Cashier access only.');
+            }
+
+            $status = $request->get('status', 'unpaid');
+            $search = $request->get('search', '');
+
+            $orders = SalesOrder::with(['cashier', 'items'])
+                ->when($status === 'unpaid', function($q) {
+                    $q->where('payment_status', 'unpaid');
+                })
+                ->when($status === 'paid', function($q) {
+                    $q->where('payment_status', 'paid');
+                })
+                ->when($search, function($q) use ($search) {
+                    $q->where('order_number', 'like', "%{$search}%");
+                })
+                ->orderBy('created_at', 'desc')
+                ->paginate(20);
+
+            if ($request->ajax()) {
+                $html = view('restaurant.cashier._orders_rows', compact('orders'))->render();
+                $pagination = $orders->appends(['status' => $status, 'search' => $search])->links()->toHtml();
+
+                return response()->json([
+                    'html' => $html,
+                    'pagination' => $pagination,
+                    'unpaidCount' => SalesOrder::where('payment_status', 'unpaid')->count(),
+                    'paidCount' => SalesOrder::where('payment_status', 'paid')->count(),
+                ]);
+            }
+
+            return view('restaurant.cashier.orders', compact('orders', 'status'));
+
+        } catch (\Exception $e) {
+            Log::error('Orders list error', ['error' => $e->getMessage()]);
+            if ($request->ajax()) {
+                return response()->json(['error' => $e->getMessage()], 500);
+            }
+            return redirect()->route('restaurant.cashier.dashboard')->with('error', 'Failed to load orders.');
+        }
+    }
+
+    /**
+     * Show a single order (invoice if unpaid, receipt if paid)
+     */
+    public function showOrder($id)
+    {
+        try {
+            $user = Auth::user();
+
+            if (!$user->department || $user->department->name !== 'RESTAURANT') {
+                return redirect()->route('dashboard')->with('error', 'Unauthorized access.');
+            }
+
+            $roleName = $this->getRoleName($user);
+            if ($roleName !== 'Cashier') {
+                return redirect()->route('dashboard')->with('error', 'Cashier access only.');
+            }
+
+            $order = SalesOrder::with('items')->findOrFail($id);
+
+            if ($order->payment_status !== 'paid') {
+                return view('restaurant.cashier.invoice', compact('order'));
+            } else {
+                return view('restaurant.cashier.receipt', compact('order'));
+            }
+
+        } catch (\Exception $e) {
+            Log::error('Show order error', ['order_id' => $id, 'error' => $e->getMessage()]);
+            return redirect()->route('restaurant.cashier.orders')->with('error', 'Order not found.');
+        }
+    }
+
+    /**
+     * Mark invoice as paid
+     */
+    public function markAsPaid($id, Request $request)
     {
         try {
             $user = Auth::user();
@@ -150,97 +267,69 @@ class CashierController extends Controller
             }
 
             $request->validate([
-                'items' => 'required|array|min:1',
-                'items.*.menu_item_id' => 'required|exists:menu_items,id',
-                'items.*.quantity' => 'required|integer|min:1',
-                'items.*.unit_price' => 'required|numeric|min:0',
-                'subtotal' => 'required|numeric|min:0',
-                'tax_amount' => 'required|numeric|min:0',
-                'total_amount' => 'required|numeric|min:0',
                 'payment_method' => 'required|in:cash,card,mobile_money',
-                'customer_type' => 'nullable|in:dine_in,takeaway,delivery',
-                'table_number' => 'nullable|string',
             ]);
 
             DB::beginTransaction();
 
-            $orderNumber = 'ORD-' . date('Ymd') . '-' . str_pad(rand(0, 9999), 4, '0', STR_PAD_LEFT);
+            $order = SalesOrder::findOrFail($id);
 
-            $order = SalesOrder::create([
-                'order_number' => $orderNumber,
-                'cashier_id' => Auth::id(),
-                'customer_type' => $request->customer_type ?? 'dine_in',
-                'table_number' => $request->table_number,
-                'subtotal' => $request->subtotal,
-                'tax_amount' => $request->tax_amount,
-                'total_amount' => $request->total_amount,
-                'payment_method' => $request->payment_method,
-                'status' => 'completed',
-            ]);
-
-            foreach ($request->items as $item) {
-                SalesOrderItem::create([
-                    'sales_order_id' => $order->id,
-                    'menu_item_id' => $item['menu_item_id'],
-                    'quantity' => $item['quantity'],
-                    'unit_price' => $item['unit_price'],
-                    'total_price' => $item['quantity'] * $item['unit_price'],
-                ]);
-
-                // Deduct inventory if linked
-                $menuItem = MenuItem::find($item['menu_item_id']);
-                if ($menuItem && $menuItem->inventory_item_id) {
-                    $inventory = InventoryItem::find($menuItem->inventory_item_id);
-                    if ($inventory) {
-                        $inventory->current_stock = max(0, $inventory->current_stock - $item['quantity']);
-                        $inventory->save();
-                    }
-                }
+            if ($order->payment_status === 'paid') {
+                return response()->json(['success' => false, 'message' => 'Order already paid'], 400);
             }
+
+            $order->payment_method = $request->payment_method;
+            $order->status = 'completed';
+            $order->payment_status = 'paid';
+            $order->save();
 
             DB::commit();
 
-            Log::info('Order completed', ['cashier_id' => Auth::id(), 'order_number' => $orderNumber]);
+            Log::info('Order marked as paid', [
+                'cashier_id' => Auth::id(),
+                'order_id' => $order->id,
+                'order_number' => $order->order_number,
+                'payment_method' => $request->payment_method
+            ]);
 
-            return response()->json(['success' => true, 'order_id' => $order->id, 'order_number' => $orderNumber]);
+            return response()->json([
+                'success' => true,
+                'order_id' => $order->id,
+                'order_number' => $order->order_number,
+                'total_amount' => $order->total_amount,
+                'message' => 'Payment successful'
+            ]);
 
         } catch (\Exception $e) {
             DB::rollBack();
-            Log::error('Order failed', ['error' => $e->getMessage()]);
+            Log::error('Payment failed', ['order_id' => $id, 'error' => $e->getMessage()]);
             return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
         }
     }
 
     /**
-     * View Receipt
+     * View Receipt for paid order
      */
     public function getReceipt($id)
     {
         try {
-            $order = SalesOrder::with('items.menuItem')->findOrFail($id);
+            $user = Auth::user();
+
+            if (!$user->department || $user->department->name !== 'RESTAURANT') {
+                return redirect()->route('dashboard')->with('error', 'Unauthorized access.');
+            }
+
+            $order = SalesOrder::with('items')->findOrFail($id);
+
+            if ($order->payment_status !== 'paid') {
+                return redirect()->route('restaurant.cashier.orders')->with('error', 'Order not paid yet.');
+            }
+
             return view('restaurant.cashier.receipt', compact('order'));
 
         } catch (\Exception $e) {
             Log::error('Receipt error', ['order_id' => $id, 'error' => $e->getMessage()]);
-            return redirect()->route('restaurant.cashier.dashboard')->with('error', 'Order not found.');
-        }
-    }
-
-    /**
-     * Orders List
-     */
-    public function orders(Request $request)
-    {
-        try {
-            $orders = SalesOrder::with('items.menuItem')
-                ->orderBy('created_at', 'desc')
-                ->paginate(20);
-
-            return view('restaurant.cashier.orders', compact('orders'));
-
-        } catch (\Exception $e) {
-            Log::error('Orders list error', ['error' => $e->getMessage()]);
-            return redirect()->route('restaurant.cashier.dashboard')->with('error', 'Failed to load orders.');
+            return redirect()->route('restaurant.cashier.orders')->with('error', 'Order not found.');
         }
     }
 
@@ -261,7 +350,8 @@ class CashierController extends Controller
             $date = $request->get('date', today()->toDateString());
 
             $orders = SalesOrder::whereDate('created_at', $date)
-                ->with('items.menuItem')
+                ->where('payment_status', 'paid')
+                ->with('items')
                 ->get();
 
             $totalSales = $orders->sum('total_amount');

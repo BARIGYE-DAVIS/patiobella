@@ -21,6 +21,8 @@ class SalesOrder extends Model
         'subtotal',
         'tax_amount',
         'total_amount',
+        'amount_paid', 
+        'change_amount',
         'payment_method',
         'status',
         'created_by',
@@ -31,6 +33,8 @@ class SalesOrder extends Model
         'subtotal' => 'decimal:2',
         'tax_amount' => 'decimal:2',
         'total_amount' => 'decimal:2',
+        'amount_paid' => 'decimal:2',
+        'change_amount' => 'decimal:2',
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
         'deleted_at' => 'datetime',
@@ -103,4 +107,4 @@ class SalesOrder extends Model
         ];
         return $badges[$this->status] ?? '<span class="badge-pending">' . $this->status . '</span>';
     }
-} 
+}

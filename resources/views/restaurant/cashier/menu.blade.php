@@ -301,7 +301,6 @@
         const searchResultCount = document.getElementById('searchResultCount');
         const loadingIndicator = document.getElementById('loadingIndicator');
         const noResultsRow = document.getElementById('noResultsRow');
-        const totalItemsCount = document.getElementById('totalItemsCount');
 
         let searchTimeout;
         let originalRows = [];
@@ -312,7 +311,6 @@
             const rows = tableBody.querySelectorAll('tr');
             rows.forEach(row => {
                 originalRows.push({
-                    html: row.innerHTML,
                     name: row.dataset.name || '',
                     category: row.dataset.category || '',
                     price: parseFloat(row.dataset.price) || 0,
@@ -323,6 +321,54 @@
         }
         storeOriginalRows();
 
+        // Walk all TEXT_NODEs inside an element, skipping script/style
+        function walkTextNodes(el, cb) {
+            const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT, {
+                acceptNode: function(n) {
+                    const tag = n.parentNode.tagName;
+                    return (tag === 'SCRIPT' || tag === 'STYLE')
+                        ? NodeFilter.FILTER_REJECT
+                        : NodeFilter.FILTER_ACCEPT;
+                }
+            });
+            const nodes = [];
+            let n;
+            while ((n = walker.nextNode())) nodes.push(n);
+            // Collect first, then mutate — safe DOM walk
+            nodes.forEach(cb);
+        }
+
+        // Highlight matching text by operating on text nodes only — never touches HTML tags
+        function highlightText(row, term) {
+            const regex = new RegExp(term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
+            walkTextNodes(row, function(node) {
+                if (!node.nodeValue.trim()) return;
+                if (!regex.test(node.nodeValue)) { regex.lastIndex = 0; return; }
+                regex.lastIndex = 0;
+
+                const frag = document.createDocumentFragment();
+                let last = 0;
+                node.nodeValue.replace(regex, function(match, offset) {
+                    frag.appendChild(document.createTextNode(node.nodeValue.slice(last, offset)));
+                    const mark = document.createElement('span');
+                    mark.className = 'highlight';
+                    mark.dataset.hl = '1';
+                    mark.textContent = match;
+                    frag.appendChild(mark);
+                    last = offset + match.length;
+                });
+                frag.appendChild(document.createTextNode(node.nodeValue.slice(last)));
+                node.parentNode.replaceChild(frag, node);
+            });
+        }
+
+        // Remove highlights by unwrapping all highlight spans
+        function removeHighlight(row) {
+            row.querySelectorAll('span[data-hl]').forEach(function(span) {
+                span.replaceWith(document.createTextNode(span.textContent));
+            });
+        }
+
         // Perform live search
         function performSearch() {
             const searchTerm = searchInput.value.toLowerCase();
@@ -331,7 +377,7 @@
             let visibleCount = 0;
             const rows = tableBody.querySelectorAll('tr');
 
-            rows.forEach((row, index) => {
+            rows.forEach(function(row, index) {
                 const original = originalRows[index];
                 if (!original) return;
 
@@ -347,17 +393,17 @@
                 if (matchesSearch && matchesCategory) {
                     row.style.display = '';
                     visibleCount++;
+                    removeHighlight(row);
                     if (searchTerm !== '') {
                         highlightText(row, searchTerm);
-                    } else {
-                        removeHighlight(row);
                     }
                 } else {
+                    removeHighlight(row);
                     row.style.display = 'none';
                 }
             });
 
-            searchResultCount.textContent = `${visibleCount} results found`;
+            searchResultCount.textContent = visibleCount + ' results found';
 
             if (visibleCount === 0 && rows.length > 0) {
                 noResultsRow.classList.remove('hidden');
@@ -368,36 +414,10 @@
             }
         }
 
-        function highlightText(row, term) {
-            const cells = row.querySelectorAll('td');
-            cells.forEach(cell => {
-                const originalText = cell.getAttribute('data-original-text');
-                if (!originalText) {
-                    cell.setAttribute('data-original-text', cell.innerHTML);
-                }
-                const text = cell.getAttribute('data-original-text');
-                if (text && term) {
-                    const regex = new RegExp(`(${term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
-                    cell.innerHTML = text.replace(regex, '<span class="highlight">$1</span>');
-                }
-            });
-        }
-
-        function removeHighlight(row) {
-            const cells = row.querySelectorAll('td');
-            cells.forEach(cell => {
-                const original = cell.getAttribute('data-original-text');
-                if (original) {
-                    cell.innerHTML = original;
-                    cell.removeAttribute('data-original-text');
-                }
-            });
-        }
-
         searchInput.addEventListener('input', function() {
             clearTimeout(searchTimeout);
             loadingIndicator.style.display = 'inline-block';
-            searchTimeout = setTimeout(() => {
+            searchTimeout = setTimeout(function() {
                 performSearch();
                 loadingIndicator.style.display = 'none';
             }, 300);

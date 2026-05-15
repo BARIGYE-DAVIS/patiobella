@@ -20,17 +20,6 @@
         transform: translateY(-2px);
         box-shadow: 0 4px 6px rgba(0,0,0,0.1);
     }
-    .stat-card h3 {
-        font-size: 0.7rem;
-        text-transform: uppercase;
-        color: #6b7280;
-        margin-bottom: 0.5rem;
-        letter-spacing: 0.5px;
-    }
-    .stat-card .value {
-        font-size: 1.5rem;
-        font-weight: bold;
-    }
     .data-table {
         width: 100%;
         border-collapse: collapse;
@@ -52,33 +41,7 @@
     .data-table tr:hover {
         background: #f8fafc;
     }
-    .text-right {
-        text-align: right;
-    }
-    .badge-completed {
-        background: #d1fae5;
-        color: #065f46;
-        padding: 2px 8px;
-        border-radius: 20px;
-        font-size: 0.7rem;
-        font-weight: 500;
-    }
-    .btn-start-order {
-        background: #ea580c;
-        color: white;
-        padding: 0.75rem 1.5rem;
-        border-radius: 12px;
-        font-size: 1rem;
-        font-weight: 600;
-        transition: all 0.2s;
-        display: inline-flex;
-        align-items: center;
-        gap: 0.5rem;
-    }
-    .btn-start-order:hover {
-        background: #c2410c;
-        color: white;
-    }
+    .text-right { text-align: right; }
 </style>
 
 <div class="space-y-6">
@@ -101,28 +64,20 @@
     </div>
 
     {{-- Statistics Cards --}}
-    <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div class="stat-card" style="border-left-color: #10b981;">
-            <h3><i class="fas fa-chart-line mr-1"></i> Today's Sales</h3>
-            <div class="value text-green-600">UGX {{ number_format($todaySales, 2) }}</div>
-            <p class="text-xs text-gray-500 mt-1">Total revenue today</p>
+            <h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                <i class="fas fa-chart-line mr-1"></i> Today's Sales
+            </h3>
+            <div class="text-2xl font-bold text-green-600 mt-1">UGX {{ number_format($todaySales, 2) }}</div>
+            <p class="text-xs text-gray-400 mt-1">Total revenue today</p>
         </div>
         <div class="stat-card" style="border-left-color: #3b82f6;">
-            <h3><i class="fas fa-receipt mr-1"></i> Today's Orders</h3>
-            <div class="value text-blue-600">{{ $todayOrders }}</div>
-            <p class="text-xs text-gray-500 mt-1">Orders completed</p>
-        </div>
-        <div class="stat-card" style="border-left-color: #f59e0b;">
-            <h3><i class="fas fa-hourglass-half mr-1"></i> Pending Orders</h3>
-            <div class="value text-orange-600">{{ $pendingOrders }}</div>
-            <p class="text-xs text-gray-500 mt-1">Awaiting completion</p>
-        </div>
-        <div class="stat-card" style="border-left-color: #8b5cf6;">
-            <h3><i class="fas fa-user mr-1"></i> Average Order</h3>
-            <div class="value text-purple-600">
-                UGX {{ $todayOrders > 0 ? number_format($todaySales / $todayOrders, 2) : '0.00' }}
-            </div>
-            <p class="text-xs text-gray-500 mt-1">Average value today</p>
+            <h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                <i class="fas fa-receipt mr-1"></i> Today's Orders
+            </h3>
+            <div class="text-2xl font-bold text-blue-600 mt-1">{{ $todayOrders }}</div>
+            <p class="text-xs text-gray-400 mt-1">Orders completed</p>
         </div>
     </div>
 
@@ -141,29 +96,27 @@
                         <th>Time</th>
                         <th>Customer Type</th>
                         <th class="text-right">Amount</th>
-                        <th>Status</th>
                         <th>Action</th>
                     </tr>
                 </thead>
                 <tbody>
                     @forelse($recentOrders as $order)
                     <tr>
-                        <td class="font-mono">{{ $order->order_number }}</td>
-                        <td>{{ $order->created_at->format('H:i A') }}</td>
-                        <td>{{ ucfirst(str_replace('_', ' ', $order->customer_type ?? 'dine_in')) }}</td>
-                        <td class="text-right">UGX {{ number_format($order->total_amount, 2) }}</td>
-                        <td><span class="badge-completed">Completed</span></td>
+                        <td class="font-mono text-sm">{{ $order->order_number }}</td>
+                        <td class="text-sm">{{ $order->created_at->format('h:i A') }}</td>
+                        <td class="text-sm">{{ ucfirst(str_replace('_', ' ', $order->customer_type ?? 'dine_in')) }}</td>
+                        <td class="text-right text-sm font-semibold">UGX {{ number_format($order->total_amount, 2) }}</td>
                         <td>
-                            <a href="{{ route('restaurant.cashier.receipt', $order->id) }}" class="text-blue-600 hover:underline text-sm">
+                            <a href="{{ route('restaurant.cashier.receipt', $order->id) }}" class="text-orange-600 hover:text-orange-800 text-sm">
                                 <i class="fas fa-print mr-1"></i> Receipt
                             </a>
                         </td>
                     </tr>
                     @empty
                     <tr>
-                        <td colspan="6" class="text-center text-gray-500 py-8">
+                        <td colspan="5" class="text-center text-gray-500 py-8">
                             <i class="fas fa-receipt text-4xl mb-2 block"></i>
-                            No orders yet today. Start a new order!
+                            No orders yet today. Start a new sale!
                         </td>
                     </tr>
                     @endforelse
@@ -172,11 +125,15 @@
         </div>
     </div>
 
-    {{-- Start New Order Button --}}
-    <div class="text-center">
-        <a href="{{ route('restaurant.cashier.pos') }}" class="btn-start-order">
-            <i class="fas fa-plus-circle text-lg"></i>
-            Start New Order
+    {{-- Quick Actions --}}
+    <div class="flex justify-center gap-4">
+        <a href="{{ route('restaurant.cashier.pos') }}"
+           class="bg-orange-600 text-white px-6 py-3 rounded-lg text-lg font-semibold hover:bg-orange-700 transition inline-flex items-center gap-2">
+            <i class="fas fa-cash-register"></i> Start New Sale
+        </a>
+        <a href="{{ route('restaurant.cashier.daily-summary') }}"
+           class="bg-gray-600 text-white px-6 py-3 rounded-lg text-lg font-semibold hover:bg-gray-700 transition inline-flex items-center gap-2">
+            <i class="fas fa-chart-bar"></i> Daily Summary
         </a>
     </div>
 </div>

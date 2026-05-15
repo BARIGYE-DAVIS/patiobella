@@ -5,7 +5,6 @@ namespace App\Http\Controllers\Restaurant;
 
 use App\Http\Controllers\Controller;
 use App\Models\Category;
-use App\Models\DepartmentRequisition;
 use App\Models\DepartmentRequisitionItem;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -14,12 +13,7 @@ class RestaurantStockController extends Controller
 {
     /**
      * Display current stock for the restaurant department.
-     *
-     * Current stock per item (in base units) =
-     *   SUM(issued_total_pieces) - SUM(returned_total_pieces) - SUM(quantity_consumed) - SUM(quantity_sold)
-     *
-     * All four columns are already stored in base units in department_requisition_items,
-     * so we aggregate directly — no pack arithmetic needed here.
+     * Shows only requisitions that still have remaining stock.
      */
     public function index(Request $request)
     {
@@ -29,11 +23,9 @@ class RestaurantStockController extends Controller
             return redirect()->route('dashboard')->with('error', 'Unauthorized access');
         }
 
-        // Use the department's actual ID from the loaded relationship — never trust
-        // $user->department_id alone since it can be null if the FK isn't eager-loaded.
-        $departmentId = $user->department->id;
+        $departmentId = $user->department_id;
 
-        // ── Base query: all issued items for this department ──────────────────
+        // Get all requisition items for this department
         $query = DepartmentRequisitionItem::with([
                 'inventoryItem.category',
                 'departmentRequisition',
@@ -45,14 +37,11 @@ class RestaurantStockController extends Controller
                       'partially_issued',
                       'partially_consumed',
                       'partially_returned',
-                      'fully_consumed',
-                      'completed',
-                      'returned',
                   ]);
             })
             ->where('issued_total_pieces', '>', 0);
 
-        // ── Search filter ─────────────────────────────────────────────────────
+        // Search filter
         if ($request->filled('search')) {
             $search = $request->search;
             $query->whereHas('inventoryItem', function ($q) use ($search) {
@@ -61,7 +50,7 @@ class RestaurantStockController extends Controller
             });
         }
 
-        // ── Category filter ───────────────────────────────────────────────────
+        // Category filter
         if ($request->filled('category_id')) {
             $query->whereHas('inventoryItem', function ($q) use ($request) {
                 $q->where('category_id', $request->category_id);
@@ -70,63 +59,50 @@ class RestaurantStockController extends Controller
 
         $rows = $query->get();
 
-        // ── Aggregate per inventory item ──────────────────────────────────────
-        // Each inventory item can appear across multiple requisitions.
-        // We sum all base-unit columns and derive current stock once.
-        $stockMap = [];
+        // Calculate remaining stock PER REQUISITION ITEM
+        // Only include items where remaining > 0
+        $stockData = [];
 
         foreach ($rows as $row) {
-            $id = $row->inventory_item_id;
+            $issued = (float) ($row->issued_total_pieces ?? 0);
+            $consumed = (float) ($row->quantity_consumed ?? 0);
+            $returned = (float) ($row->returned_total_pieces ?? 0);
+            $sold = (float) ($row->quantity_sold ?? 0);
 
-            if (!isset($stockMap[$id])) {
-                $stockMap[$id] = [
-                    'item_id'              => $id,
+            $remaining = $issued - ($consumed + $returned + $sold);
+
+            // ONLY include if remaining stock > 0
+            if ($remaining > 0) {
+                $stockData[] = [
+                    'requisition_number'   => $row->departmentRequisition->requisition_number ?? 'N/A',
+                    'item_id'              => $row->inventory_item_id,
                     'item_name'            => $row->inventoryItem->name ?? 'N/A',
                     'item_code'            => $row->inventoryItem->item_code ?? '',
                     'category'             => $row->inventoryItem->category->name ?? 'N/A',
-                    // Prefer metrics from the item row; fall back to inventory base_unit
                     'unit'                 => $row->metrics ?? ($row->inventoryItem->base_unit ?? 'units'),
-                    // Aggregated base-unit totals (keys match view expectations)
-                    'total_issued_pieces'  => 0.0,   // issued_total_pieces (base units)
-                    'total_returned'       => 0.0,   // returned_total_pieces (base units)
-                    'total_consumed'       => 0.0,   // quantity_consumed (base units)
-                    'total_sold'           => 0.0,   // quantity_sold (base units)
-                    'current_stock'        => 0.0,
-                    'requisition_count'    => 0,
+                    'issued'               => $issued,
+                    'consumed'             => $consumed,
+                    'returned'             => $returned,
+                    'sold'                 => $sold,
+                    'current_stock'        => $remaining,
+                    'pack_type'            => $row->issued_pack_type,
+                    'pack_size'            => $row->issued_pack_size,
                 ];
             }
-
-            $stockMap[$id]['total_issued_pieces'] += (float) ($row->issued_total_pieces   ?? 0);
-            $stockMap[$id]['total_returned']       += (float) ($row->returned_total_pieces ?? 0);
-            $stockMap[$id]['total_consumed']       += (float) ($row->quantity_consumed     ?? 0);
-            $stockMap[$id]['total_sold']           += (float) ($row->quantity_sold         ?? 0);
-            $stockMap[$id]['requisition_count']  += 1;
         }
 
-        // ── Derive current stock & filter out zeroes/negatives ────────────────
-        foreach ($stockMap as &$data) {
-            $data['current_stock'] = $data['total_issued_pieces']
-                - $data['total_returned']
-                - $data['total_consumed']
-                - $data['total_sold'];
-        }
-        unset($data);
-
-        // Only show items still in hand
-        $stockData = array_filter($stockMap, fn($d) => $d['current_stock'] > 0);
-
-        // Sort alphabetically by item name
+        // Sort by item name
         usort($stockData, fn($a, $b) => strcmp($a['item_name'], $b['item_name']));
 
-        // ── Summary statistics ────────────────────────────────────────────────
+        // Summary statistics (only from active stock)
         $totalItems      = count($stockData);
-        $totalIssued     = array_sum(array_column($stockData, 'total_issued_pieces'));
-        $totalConsumed   = array_sum(array_column($stockData, 'total_consumed'));
-        $totalReturned   = array_sum(array_column($stockData, 'total_returned'));
-        $totalSold       = array_sum(array_column($stockData, 'total_sold'));
+        $totalIssued     = array_sum(array_column($stockData, 'issued'));
+        $totalConsumed   = array_sum(array_column($stockData, 'consumed'));
+        $totalReturned   = array_sum(array_column($stockData, 'returned'));
+        $totalSold       = array_sum(array_column($stockData, 'sold'));
         $totalStockValue = array_sum(array_column($stockData, 'current_stock'));
 
-        // ── Categories for filter dropdown ────────────────────────────────────
+        // Categories for filter
         $categories = Category::where('is_active', true)->orderBy('name')->get();
 
         return view('restaurant.stock.index', compact(
@@ -143,7 +119,6 @@ class RestaurantStockController extends Controller
 
     /**
      * Stock summary for dashboard widget (AJAX).
-     * Low-stock threshold: current stock < 10 base units.
      */
     public function getSummary()
     {
@@ -153,41 +128,34 @@ class RestaurantStockController extends Controller
             return response()->json(['success' => false, 'message' => 'Unauthorized'], 403);
         }
 
-        $departmentId = $user->department->id;
+        $departmentId = $user->department_id;
 
-        $rows = DepartmentRequisitionItem::whereHas('departmentRequisition', function ($q) use ($departmentId) {
+        $rows = DepartmentRequisitionItem::with(['departmentRequisition'])
+            ->whereHas('departmentRequisition', function ($q) use ($departmentId) {
                 $q->where('department_id', $departmentId)
                   ->whereIn('status', [
                       'issued',
                       'partially_issued',
                       'partially_consumed',
                       'partially_returned',
-                      'fully_consumed',
-                      'completed',
-                      'returned',
                   ]);
             })
             ->where('issued_total_pieces', '>', 0)
-            ->get(['inventory_item_id', 'issued_total_pieces', 'returned_total_pieces', 'quantity_consumed', 'quantity_sold']);
+            ->get();
 
-        // Aggregate per item
-        $totals = [];
-        foreach ($rows as $row) {
-            $id = $row->inventory_item_id;
-            $totals[$id] = ($totals[$id] ?? 0)
-                + (float) $row->issued_total_pieces
-                - (float) $row->returned_total_pieces
-                - (float) $row->quantity_consumed
-                - (float) $row->quantity_sold;
-        }
-
-        $totalItems    = 0;
+        $totalItems = 0;
         $lowStockItems = 0;
 
-        foreach ($totals as $stock) {
-            if ($stock > 0) {
+        foreach ($rows as $row) {
+            $issued = (float) ($row->issued_total_pieces ?? 0);
+            $consumed = (float) ($row->quantity_consumed ?? 0);
+            $returned = (float) ($row->returned_total_pieces ?? 0);
+            $sold = (float) ($row->quantity_sold ?? 0);
+            $remaining = $issued - ($consumed + $returned + $sold);
+
+            if ($remaining > 0) {
                 $totalItems++;
-                if ($stock < 10) {
+                if ($remaining < 10) {
                     $lowStockItems++;
                 }
             }

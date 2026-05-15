@@ -537,30 +537,40 @@ Route::prefix('restaurant')->name('restaurant.')->middleware(['auth', 'restauran
 // =====================================================
 // CASHIER MODULE Routes (All URLs under /restaurant/cashier)
 // =====================================================
+Route::prefix('restaurant/cashier')->name('restaurant.cashier.')->middleware(['auth', 'cashier'])->group(function () {
 
-Route::prefix('restaurant/cashier')->name('restaurant.cashier.')->middleware(['auth'])->group(function () {
+    // =====================================================
+    // DASHBOARD & MAIN PAGES
+    // =====================================================
 
-    // Dashboard
-    Route::get('/dashboard', [App\Http\Controllers\Restaurant\CashierController::class, 'dashboard'])->name('dashboard');
+    Route::get('/dashboard', [App\Http\Controllers\Restaurant\CashierPosController::class, 'dashboard'])->name('dashboard');
+    Route::get('/pos', [App\Http\Controllers\Restaurant\CashierPosController::class, 'pos'])->name('pos');
+    Route::get('/menu', [App\Http\Controllers\Restaurant\CashierPosController::class, 'menu'])->name('menu');
+    Route::get('/orders', [App\Http\Controllers\Restaurant\CashierPosController::class, 'orders'])->name('orders');
 
-    // Point of Sale (POS)
-    Route::get('/pos', [App\Http\Controllers\Restaurant\CashierController::class, 'pos'])->name('pos');
+    // =====================================================
+    // INVOICE & SALE PROCESSING
+    // =====================================================
 
-    // Menu (Read-only for cashier)
-    Route::get('/menu', [App\Http\Controllers\Restaurant\CashierController::class, 'menu'])->name('menu');
+    Route::post('/create-invoice', [App\Http\Controllers\Restaurant\CashierPosController::class, 'createInvoice'])->name('create-invoice');
+    Route::get('/invoice/{id}', [App\Http\Controllers\Restaurant\CashierPosController::class, 'getInvoice'])->name('invoice');
+    Route::post('/sale/{id}/pay', [App\Http\Controllers\Restaurant\CashierPosController::class, 'markAsPaid'])->name('mark-as-paid');
+    Route::get('/receipt/{id}', [App\Http\Controllers\Restaurant\CashierPosController::class, 'getReceipt'])->name('receipt');
+    Route::get('/orders/{id}', [App\Http\Controllers\Restaurant\CashierPosController::class, 'showOrder'])->name('orders.show');
 
-    // Orders
-    Route::get('/orders', [App\Http\Controllers\Restaurant\CashierController::class, 'orders'])->name('orders');
+    // =====================================================
+    // STOCK & AJAX
+    // =====================================================
 
-    // Receipt
-    Route::get('/receipt/{id}', [App\Http\Controllers\Restaurant\CashierController::class, 'getReceipt'])->name('receipt');
+    Route::get('/stock/{itemId}/{type}', [App\Http\Controllers\Restaurant\CashierPosController::class, 'getStock'])->name('get-stock');
 
-    // Process Order (AJAX)
-    Route::post('/order', [App\Http\Controllers\Restaurant\CashierController::class, 'storeOrder'])->name('store');
+    // =====================================================
+    // REPORTS
+    // =====================================================
 
-    // Reports
-    Route::get('/reports', [App\Http\Controllers\Restaurant\CashierController::class, 'reports'])->name('reports');
-    Route::get('/reports/daily', [App\Http\Controllers\Restaurant\CashierController::class, 'dailyReport'])->name('reports.daily');
-    Route::get('/reports/export/excel', [App\Http\Controllers\Restaurant\CashierController::class, 'exportExcel'])->name('reports.export.excel');
-    Route::get('/reports/export/pdf', [App\Http\Controllers\Restaurant\CashierController::class, 'exportPdf'])->name('reports.export.pdf');
+    Route::get('/daily-summary', [App\Http\Controllers\Restaurant\CashierPosController::class, 'dailySummary'])->name('daily-summary');
+    Route::get('/reports', [App\Http\Controllers\Restaurant\CashierPosController::class, 'reports'])->name('reports');
+    Route::get('/reports/daily', [App\Http\Controllers\Restaurant\CashierPosController::class, 'dailyReport'])->name('reports.daily');
+    Route::get('/reports/export/excel', [App\Http\Controllers\Restaurant\CashierPosController::class, 'exportExcel'])->name('reports.export.excel');
+    Route::get('/reports/export/pdf', [App\Http\Controllers\Restaurant\CashierPosController::class, 'exportPdf'])->name('reports.export.pdf');
 });
