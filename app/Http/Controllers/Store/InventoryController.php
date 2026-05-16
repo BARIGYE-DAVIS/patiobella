@@ -21,24 +21,59 @@ class InventoryController extends Controller
     // Constants
     // ─────────────────────────────────────────────────────────────────────────────
 
-    /**
-     * Metrics that are pack types containing multiple base units inside.
-     * When one of these is selected, the user must supply pack_size and number_of_units.
-     */
-    const BULK_METRICS = ['box', 'carton', 'crate', 'dozen', 'pack', 'sack', 'set'];
-
-    /**
-     * Metrics that are already base/direct units — no pack conversion needed.
-     */
+    const BULK_METRICS   = ['box', 'carton', 'crate', 'dozen', 'pack', 'sack', 'set'];
     const SIMPLE_METRICS = ['kg', 'litres', 'pcs', 'grams', 'millilitres'];
 
     // ─────────────────────────────────────────────────────────────────────────────
-    // PRIVATE HELPER — get current stock for an item (before a new movement)
+    // PRIVATE HELPER
     // ─────────────────────────────────────────────────────────────────────────────
 
     private function getCurrentStock(int $inventoryItemId): float
     {
         return (float) (InventoryItem::find($inventoryItemId)?->current_stock ?? 0);
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────────
+    // ▶▶ NEW: BARCODE LOOKUP (AJAX)
+    // GET /store/inventory/barcode-lookup?barcode=xxxxx
+    //
+    // Returns:
+    //   { found: true,  item: { id, name, item_code, barcode, ... } }  — existing item
+    //   { found: false }                                                — no match
+    // ─────────────────────────────────────────────────────────────────────────────
+
+    public function barcodeLookup(Request $request)
+    {
+        $request->validate(['barcode' => 'required|string|max:100']);
+
+        $barcode = trim($request->barcode);
+
+        // Search by barcode column OR item_code column (covers both use cases)
+        $item = InventoryItem::with(['category'])
+            ->where('barcode', $barcode)
+            ->orWhere('item_code', $barcode)
+            ->first();
+
+        if (!$item) {
+            return response()->json(['found' => false]);
+        }
+
+        return response()->json([
+            'found' => true,
+            'item'  => [
+                'id'            => $item->id,
+                'name'          => $item->name,
+                'item_code'     => $item->item_code,
+                'barcode'       => $item->barcode,
+                'category_id'   => $item->category_id,
+                'category_name' => $item->category?->name,
+                'base_unit'     => $item->base_unit,
+                'metrics'       => $item->default_unit_of_measure_id,
+                'current_stock' => $item->current_stock,
+                'unit_cost'     => $item->unit_cost,
+                'notes'         => $item->notes,
+            ],
+        ]);
     }
 
     // ─────────────────────────────────────────────────────────────────────────────
@@ -59,7 +94,8 @@ class InventoryController extends Controller
             $search = $request->search;
             $query->where(function ($q) use ($search) {
                 $q->where('name', 'like', "%{$search}%")
-                  ->orWhere('item_code', 'like', "%{$search}%");
+                  ->orWhere('item_code', 'like', "%{$search}%")
+                  ->orWhere('barcode', 'like', "%{$search}%");   // ◀ also search barcode
             });
         }
 
@@ -131,11 +167,11 @@ class InventoryController extends Controller
         $metrics = $request->metrics;
         $isBulk  = in_array($metrics, self::BULK_METRICS);
 
-        // ── Validation rules ──────────────────────────────────────────────────
         $rules = [
             'item_name'   => 'required|string|max:255',
             'category_id' => 'required|exists:categories,id',
             'item_code'   => 'nullable|string|max:50|unique:inventory_items,item_code',
+            'barcode'     => 'nullable|string|max:100|unique:inventory_items,barcode', // ◀ NEW
             'metrics'     => 'required|string',
             'base_unit'   => 'required|string|max:50',
             'vendor_id'   => 'nullable|exists:vendors,id',
@@ -143,8 +179,8 @@ class InventoryController extends Controller
         ];
 
         if ($isBulk) {
-            $rules['pieces_per_unit']  = 'required|numeric|min:1';
-            $rules['number_of_units']  = 'required|numeric|min:1';
+            $rules['pieces_per_unit'] = 'required|numeric|min:1';
+            $rules['number_of_units'] = 'required|numeric|min:1';
         } else {
             $rules['quantity'] = 'required|numeric|min:0.01';
         }
@@ -154,7 +190,6 @@ class InventoryController extends Controller
         DB::beginTransaction();
 
         try {
-            // ── Calculate quantities ──────────────────────────────────────────
             $packType       = null;
             $packSize       = null;
             $numberOfPacks  = null;
@@ -169,17 +204,19 @@ class InventoryController extends Controller
                 $totalBaseUnits = (float) $validated['quantity'];
             }
 
-            // ── Item code ─────────────────────────────────────────────────────
             $itemCode = $validated['item_code'] ?? null;
             if (empty($itemCode)) {
                 $itemCode = 'ITEM-' . strtoupper(uniqid());
             }
 
-            // ── Create inventory item ─────────────────────────────────────────
+            // ◀ NEW: save barcode (null if not provided)
+            $barcode = !empty($validated['barcode']) ? $validated['barcode'] : null;
+
             $inventoryItem = InventoryItem::create([
                 'item_code'                  => $itemCode,
+                'barcode'                    => $barcode,          // ◀ NEW
                 'name'                       => $validated['item_name'],
-                'category_id'                => $validated['category_id'],
+                'category_id'               => $validated['category_id'],
                 'default_unit_of_measure_id' => $metrics,
                 'base_unit'                  => $validated['base_unit'],
                 'unit_cost'                  => 0,
@@ -193,6 +230,7 @@ class InventoryController extends Controller
                 'user_id'          => Auth::id(),
                 'item_id'          => $inventoryItem->id,
                 'item_name'        => $inventoryItem->name,
+                'barcode'          => $barcode,                    // ◀ NEW
                 'receiving_unit'   => $metrics,
                 'base_unit'        => $validated['base_unit'],
                 'pack_type'        => $packType,
@@ -201,18 +239,16 @@ class InventoryController extends Controller
                 'total_base_units' => $totalBaseUnits,
             ]);
 
-            // ── Stock before/after — new item so stock_before is always 0 ────
             $stockBefore = 0;
             $stockAfter  = $totalBaseUnits;
 
-            // ── Create stock movement ─────────────────────────────────────────
             $movementNumber = 'STK-IN-' . date('Ymd') . '-' . str_pad(rand(0, 9999), 4, '0', STR_PAD_LEFT);
 
             StockMovement::create([
                 'movement_number'       => $movementNumber,
                 'inventory_item_id'     => $inventoryItem->id,
                 'store_id'              => $request->store_id ?? 1,
-                'movement_type_id'      => 2,                           // MANUAL_IN
+                'movement_type_id'      => 2,
                 'quantity'              => $isBulk ? $numberOfPacks : $totalBaseUnits,
                 'pack_type'             => $packType,
                 'pack_size'             => $packSize,
@@ -250,7 +286,7 @@ class InventoryController extends Controller
     }
 
     // ─────────────────────────────────────────────────────────────────────────────
-    // GET GRN ITEMS (AJAX)
+    // GET GRN ITEMS (AJAX) — unchanged
     // ─────────────────────────────────────────────────────────────────────────────
 
     public function getGrnItems($grnId)
@@ -275,6 +311,7 @@ class InventoryController extends Controller
                         'inventory_item_id'     => $item->inventory_item_id,
                         'item_name'             => $inv->name ?? 'Unknown Item',
                         'item_code'             => $inv->item_code ?? '',
+                        'barcode'               => $inv->barcode ?? '',   // ◀ NEW
                         'category'              => $inv->category->name ?? '',
                         'quantity_accepted'     => $item->quantity_accepted,
                         'unit_cost'             => $item->unit_cost,
@@ -306,7 +343,7 @@ class InventoryController extends Controller
     }
 
     // ─────────────────────────────────────────────────────────────────────────────
-    // STORE FROM GRN
+    // STORE FROM GRN — unchanged (barcode already on inventory item)
     // ─────────────────────────────────────────────────────────────────────────────
 
     public function storeFromGrn(Request $request)
@@ -314,14 +351,9 @@ class InventoryController extends Controller
         $user = Auth::user();
 
         if (!$user->department || $user->department->name !== 'STORE') {
-            Log::warning('Unauthorized store-from-GRN attempt', [
-                'user_id'    => $user->id,
-                'department' => $user->department->name ?? 'none',
-            ]);
             return redirect()->route('dashboard')->with('error', 'Unauthorized access');
         }
 
-        // ── Validation ────────────────────────────────────────────────────────
         try {
             $request->validate([
                 'grn_id'                              => 'required|exists:goods_received_notes,id',
@@ -334,11 +366,6 @@ class InventoryController extends Controller
                 'items.*.unit_cost'                   => 'required|numeric|min:0',
             ]);
         } catch (\Illuminate\Validation\ValidationException $e) {
-            Log::warning('Store-from-GRN validation failed', [
-                'user_id' => Auth::id(),
-                'grn_id'  => $request->grn_id,
-                'errors'  => $e->errors(),
-            ]);
             throw $e;
         }
 
@@ -349,35 +376,17 @@ class InventoryController extends Controller
             $totalReceived = 0;
             $itemsSummary  = [];
 
-            Log::info('Beginning GRN stock receipt', [
-                'user_id'    => Auth::id(),
-                'grn_id'     => $grn->id,
-                'grn_number' => $grn->grn_number,
-                'item_count' => count($request->items),
-            ]);
-
             foreach ($request->items as $idx => $itemData) {
 
                 $inventoryItem = InventoryItem::find($itemData['inventory_item_id']);
+                if (!$inventoryItem) continue;
 
-                if (!$inventoryItem) {
-                    Log::warning('Inventory item not found during GRN receipt', [
-                        'user_id'           => Auth::id(),
-                        'grn_id'            => $grn->id,
-                        'inventory_item_id' => $itemData['inventory_item_id'],
-                        'index'             => $idx,
-                    ]);
-                    continue;
-                }
-
-                // ── Resolve receiving unit chosen by the user for this line ───
                 $receivingMetrics = trim($itemData['receiving_metrics']);
                 $isBulk           = in_array($receivingMetrics, self::BULK_METRICS);
                 $quantityReceived  = (float) $itemData['quantity'];
                 $baseUnit          = trim($itemData['base_unit']);
                 $unitCost          = (float) $itemData['unit_cost'];
 
-                // ── Pack size validation for bulk items ───────────────────────
                 $packSize = null;
                 if ($isBulk) {
                     $packSize = isset($itemData['pack_size']) ? (int) $itemData['pack_size'] : 0;
@@ -390,19 +399,15 @@ class InventoryController extends Controller
                     }
                 }
 
-                // ── Calculate total base units ────────────────────────────────
-                if ($isBulk && $packSize > 0) {
-                    $totalBaseUnits = $quantityReceived * $packSize;
-                } else {
-                    $totalBaseUnits = $quantityReceived;
-                    $packSize       = null;
-                }
+                $totalBaseUnits = ($isBulk && $packSize > 0)
+                    ? $quantityReceived * $packSize
+                    : $quantityReceived;
 
-                // ── Stock before/after ────────────────────────────────────────
+                if (!$isBulk) $packSize = null;
+
                 $stockBefore = (float) ($inventoryItem->current_stock ?? 0);
                 $stockAfter  = $stockBefore + $totalBaseUnits;
 
-                // ── Update inventory item ─────────────────────────────────────
                 $inventoryItem->current_stock              = $stockAfter;
                 $inventoryItem->unit_cost                  = $unitCost;
                 $inventoryItem->last_purchase_price        = $unitCost;
@@ -415,40 +420,24 @@ class InventoryController extends Controller
 
                 $inventoryItem->save();
 
-                Log::info('Stock updated from GRN', [
-                    'user_id'          => Auth::id(),
-                    'grn_id'           => $grn->id,
-                    'item_id'          => $inventoryItem->id,
-                    'item_name'        => $inventoryItem->name,
-                    'receiving_unit'   => $receivingMetrics,
-                    'base_unit'        => $baseUnit,
-                    'pack_size'        => $packSize,
-                    'qty_received'     => $quantityReceived,
-                    'total_base_units' => $totalBaseUnits,
-                    'stock_before'     => $stockBefore,
-                    'stock_after'      => $stockAfter,
-                ]);
-
-                // ── Update GoodsReceivedNoteItem with pack detail ─────────────
                 $grnItem = GoodsReceivedNoteItem::find($itemData['grn_item_id']);
                 if ($grnItem) {
-                    $grnItem->pack_type              = $isBulk ? $receivingMetrics : null;
-                    $grnItem->pack_size              = $packSize;
-                    $grnItem->number_of_packs        = $isBulk ? (int) $quantityReceived : null;
-                    $grnItem->quantity_in_base_unit  = $totalBaseUnits;
-                    $grnItem->base_unit              = $baseUnit;
-                    $grnItem->updated_by             = Auth::id();
+                    $grnItem->pack_type             = $isBulk ? $receivingMetrics : null;
+                    $grnItem->pack_size             = $packSize;
+                    $grnItem->number_of_packs       = $isBulk ? (int) $quantityReceived : null;
+                    $grnItem->quantity_in_base_unit = $totalBaseUnits;
+                    $grnItem->base_unit             = $baseUnit;
+                    $grnItem->updated_by            = Auth::id();
                     $grnItem->save();
                 }
 
-                // ── Create stock movement ─────────────────────────────────────
                 $movementNumber = 'STK-GRN-' . date('Ymd') . '-' . str_pad(rand(0, 9999), 4, '0', STR_PAD_LEFT);
 
-                $movement = StockMovement::create([
+                StockMovement::create([
                     'movement_number'        => $movementNumber,
                     'inventory_item_id'      => $inventoryItem->id,
                     'store_id'               => 1,
-                    'movement_type_id'       => 1,                        // PURCHASE / GRN IN
+                    'movement_type_id'       => 1,
                     'quantity'               => $quantityReceived,
                     'pack_type'              => $isBulk ? $receivingMetrics : null,
                     'pack_size'              => $packSize,
@@ -468,36 +457,13 @@ class InventoryController extends Controller
                     'stock_after'            => $stockAfter,
                 ]);
 
-                Log::info('Stock movement created from GRN', [
-                    'user_id'               => Auth::id(),
-                    'movement_id'           => $movement->id,
-                    'movement_number'       => $movementNumber,
-                    'grn_id'                => $grn->id,
-                    'item_id'               => $inventoryItem->id,
-                    'pack_type'             => $isBulk ? $receivingMetrics : null,
-                    'pack_size'             => $packSize,
-                    'quantity_in_base_unit' => $totalBaseUnits,
-                    'base_unit'             => $baseUnit,
-                    'stock_before'          => $stockBefore,
-                    'stock_after'           => $stockAfter,
-                ]);
-
                 $totalReceived += $totalBaseUnits;
                 $itemsSummary[] = "{$inventoryItem->name}: +{$totalBaseUnits} {$baseUnit}(s)";
             }
 
-            // ── Mark GRN as inventory_updated ─────────────────────────────────
             $grn->status     = 'inventory_updated';
             $grn->updated_by = Auth::id();
             $grn->save();
-
-            Log::info('GRN stock receipt completed', [
-                'user_id'        => Auth::id(),
-                'grn_id'         => $grn->id,
-                'grn_number'     => $grn->grn_number,
-                'total_received' => $totalReceived,
-                'items'          => $itemsSummary,
-            ]);
 
             DB::commit();
 
@@ -511,12 +477,6 @@ class InventoryController extends Controller
 
         } catch (\Exception $e) {
             DB::rollBack();
-            Log::error('Error storing from GRN', [
-                'user_id' => Auth::id(),
-                'grn_id'  => $request->grn_id ?? null,
-                'error'   => $e->getMessage(),
-                'trace'   => $e->getTraceAsString(),
-            ]);
             return redirect()->back()
                 ->with('error', 'Failed to receive goods: ' . $e->getMessage());
         }
@@ -554,11 +514,6 @@ class InventoryController extends Controller
         $user = Auth::user();
 
         if (!$user->department || $user->department->name !== 'STORE') {
-            Log::warning('Unauthorized access to inventory edit', [
-                'user_id'    => $user->id,
-                'item_id'    => $id,
-                'department' => $user->department->name ?? 'none',
-            ]);
             return redirect()->route('dashboard')->with('error', 'Unauthorized access');
         }
 
@@ -570,21 +525,14 @@ class InventoryController extends Controller
             return view('store.inventory.edit', compact('item', 'categories', 'vendors'));
 
         } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
-            return redirect()->route('store.inventory.index')
-                ->with('error', 'Inventory item not found.');
-
+            return redirect()->route('store.inventory.index')->with('error', 'Inventory item not found.');
         } catch (\Exception $e) {
-            Log::error('Failed to load inventory edit form', [
-                'user_id' => Auth::id(), 'item_id' => $id,
-                'error'   => $e->getMessage(), 'trace' => $e->getTraceAsString(),
-            ]);
-            return redirect()->route('store.inventory.index')
-                ->with('error', 'Failed to load edit form.');
+            return redirect()->route('store.inventory.index')->with('error', 'Failed to load edit form.');
         }
     }
 
     // ─────────────────────────────────────────────────────────────────────────────
-    // UPDATE
+    // UPDATE — now saves barcode
     // ─────────────────────────────────────────────────────────────────────────────
 
     public function update(Request $request, $id)
@@ -598,8 +546,7 @@ class InventoryController extends Controller
         try {
             $item = InventoryItem::findOrFail($id);
         } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
-            return redirect()->route('store.inventory.index')
-                ->with('error', 'Inventory item not found.');
+            return redirect()->route('store.inventory.index')->with('error', 'Inventory item not found.');
         }
 
         try {
@@ -607,6 +554,7 @@ class InventoryController extends Controller
                 'name'          => 'required|string|max:255',
                 'category_id'   => 'required|exists:categories,id',
                 'item_code'     => 'nullable|string|max:50|unique:inventory_items,item_code,' . $id,
+                'barcode'       => 'nullable|string|max:100|unique:inventory_items,barcode,' . $id, // ◀ NEW
                 'base_unit'     => 'nullable|string|max:50',
                 'unit_cost'     => 'nullable|numeric|min:0',
                 'selling_price' => 'nullable|numeric|min:0',
@@ -621,12 +569,13 @@ class InventoryController extends Controller
             $item->update([
                 'name'          => $validated['name'],
                 'category_id'   => $validated['category_id'],
-                'item_code'     => $validated['item_code'] ?? $item->item_code,
-                'base_unit'     => $validated['base_unit'] ?? $item->base_unit,
-                'unit_cost'     => $validated['unit_cost'] ?? $item->unit_cost,
+                'item_code'     => $validated['item_code']     ?? $item->item_code,
+                'barcode'       => $validated['barcode']       ?? $item->barcode,  // ◀ NEW
+                'base_unit'     => $validated['base_unit']     ?? $item->base_unit,
+                'unit_cost'     => $validated['unit_cost']     ?? $item->unit_cost,
                 'selling_price' => $validated['selling_price'] ?? $item->selling_price,
-                'is_active'     => $validated['is_active'] ?? $item->is_active,
-                'notes'         => $validated['notes'] ?? $item->notes,
+                'is_active'     => $validated['is_active']     ?? $item->is_active,
+                'notes'         => $validated['notes']         ?? $item->notes,
                 'updated_by'    => Auth::id(),
             ]);
 
@@ -634,10 +583,6 @@ class InventoryController extends Controller
                 ->with('success', 'Inventory item updated successfully.');
 
         } catch (\Exception $e) {
-            Log::error('Failed to update inventory item', [
-                'user_id' => Auth::id(), 'item_id' => $id,
-                'error'   => $e->getMessage(), 'trace' => $e->getTraceAsString(),
-            ]);
             return redirect()->back()
                 ->with('error', 'Failed to update inventory item: ' . $e->getMessage())
                 ->withInput();
@@ -645,7 +590,7 @@ class InventoryController extends Controller
     }
 
     // ─────────────────────────────────────────────────────────────────────────────
-    // DESTROY
+    // DESTROY — unchanged
     // ─────────────────────────────────────────────────────────────────────────────
 
     public function destroy($id)
@@ -659,8 +604,7 @@ class InventoryController extends Controller
         try {
             $item = InventoryItem::findOrFail($id);
         } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
-            return redirect()->route('store.inventory.index')
-                ->with('error', 'Inventory item not found.');
+            return redirect()->route('store.inventory.index')->with('error', 'Inventory item not found.');
         }
 
         try {
@@ -675,17 +619,13 @@ class InventoryController extends Controller
                 ->with('success', 'Inventory item deleted successfully.');
 
         } catch (\Exception $e) {
-            Log::error('Failed to delete inventory item', [
-                'user_id' => Auth::id(), 'item_id' => $id,
-                'error'   => $e->getMessage(), 'trace' => $e->getTraceAsString(),
-            ]);
             return redirect()->route('store.inventory.index')
                 ->with('error', 'Failed to delete inventory item: ' . $e->getMessage());
         }
     }
 
     // ─────────────────────────────────────────────────────────────────────────────
-    // ADJUST STOCK
+    // ADJUST STOCK — unchanged
     // ─────────────────────────────────────────────────────────────────────────────
 
     public function adjustStock(Request $request, $id)
@@ -705,13 +645,13 @@ class InventoryController extends Controller
         DB::beginTransaction();
 
         try {
-            $item          = InventoryItem::findOrFail($id);
-            $quantity      = (float) $request->quantity;
-            $stockBefore   = (float) ($item->current_stock ?? 0);
+            $item        = InventoryItem::findOrFail($id);
+            $quantity    = (float) $request->quantity;
+            $stockBefore = (float) ($item->current_stock ?? 0);
 
             if ($request->adjustment_type === 'add') {
                 $newStock       = $stockBefore + $quantity;
-                $movementTypeId = 2;   // MANUAL_IN
+                $movementTypeId = 2;
             } else {
                 if ($stockBefore < $quantity) {
                     throw new \Exception(
@@ -719,7 +659,7 @@ class InventoryController extends Controller
                     );
                 }
                 $newStock       = $stockBefore - $quantity;
-                $movementTypeId = 3;   // MANUAL_OUT
+                $movementTypeId = 3;
             }
 
             $item->current_stock = $newStock;

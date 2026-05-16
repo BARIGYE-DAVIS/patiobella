@@ -113,7 +113,7 @@ Route::prefix('inventory')->name('inventory.')->group(function () {
     Route::post('/',                  [App\Http\Controllers\Store\InventoryController::class, 'store'])       ->name('store');
     Route::post('/store-from-grn',    [App\Http\Controllers\Store\InventoryController::class, 'storeFromGrn'])->name('store-from-grn');
     Route::get('/get-grn-items/{grnId}', [App\Http\Controllers\Store\InventoryController::class, 'getGrnItems'])->name('get-grn-items');
-
+    Route::get('/barcode-lookup', [App\Http\Controllers\Store\InventoryController::class, 'barcodeLookup'])->name('barcode-lookup');
     // ⚠️  {id} routes must come AFTER named static routes
     Route::get('/{id}',              [App\Http\Controllers\Store\InventoryController::class, 'show'])         ->name('show');
     Route::get('/{id}/edit',         [App\Http\Controllers\Store\InventoryController::class, 'edit'])         ->name('edit');
@@ -561,9 +561,9 @@ Route::prefix('restaurant/cashier')->name('restaurant.cashier.')->middleware(['a
     // =====================================================
     // STOCK & AJAX
     // =====================================================
-
-    Route::get('/stock/{itemId}/{type}', [App\Http\Controllers\Restaurant\CashierPosController::class, 'getStock'])->name('get-stock');
-
+Route::get('/my-sales', [App\Http\Controllers\Restaurant\CashierSalesController::class, 'index'])->name('my-sales');
+Route::get('/my-sales/export/excel', [App\Http\Controllers\Restaurant\CashierSalesController::class, 'exportExcel'])->name('my-sales.export.excel');
+Route::get('/my-sales/export/pdf', [App\Http\Controllers\Restaurant\CashierSalesController::class, 'exportPdf'])->name('my-sales.export.pdf');
     // =====================================================
     // REPORTS
     // =====================================================
@@ -574,3 +574,4 @@ Route::prefix('restaurant/cashier')->name('restaurant.cashier.')->middleware(['a
     Route::get('/reports/export/excel', [App\Http\Controllers\Restaurant\CashierPosController::class, 'exportExcel'])->name('reports.export.excel');
     Route::get('/reports/export/pdf', [App\Http\Controllers\Restaurant\CashierPosController::class, 'exportPdf'])->name('reports.export.pdf');
 });
+

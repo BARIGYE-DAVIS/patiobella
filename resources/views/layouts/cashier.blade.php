@@ -164,6 +164,13 @@
             Menu
         </a>
 
+        <a href="{{ route('restaurant.cashier.my-sales') }}"
+   class="flex items-center px-4 py-3 text-sm hover:bg-orange-700 transition sidebar-nav-link
+          {{ request()->routeIs('restaurant.cashier.my-sales*') ? 'sidebar-active' : '' }}">
+    <i class="fas fa-chart-line w-5 h-5 mr-3"></i>
+    My Sales
+</a>
+
         <!-- Orders -->
         <a href="{{ route('restaurant.cashier.orders') }}"
            class="flex items-center px-4 py-3 text-sm hover:bg-orange-700 transition sidebar-nav-link

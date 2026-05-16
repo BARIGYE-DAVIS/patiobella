@@ -20,14 +20,11 @@
         background: white;
         border-radius: 12px;
         padding: 1.25rem;
-        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
         border-left: 4px solid;
         transition: transform 0.2s, box-shadow 0.2s;
     }
-    .stat-card:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-    }
+    .stat-card:hover { transform: translateY(-2px); box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
     .stat-card .stat-label {
         font-size: 0.7rem;
         text-transform: uppercase;
@@ -54,11 +51,7 @@
     /* =========================================
        TABS
     ========================================= */
-    .tabs {
-        display: flex;
-        gap: 0.5rem;
-        border-bottom: 1px solid #e5e7eb;
-    }
+    .tabs { display: flex; gap: 0.5rem; border-bottom: 1px solid #e5e7eb; }
     .tab-btn {
         padding: 0.75rem 1.5rem;
         font-size: 0.875rem;
@@ -70,11 +63,10 @@
         color: #6b7280;
         transition: color 0.2s, border-color 0.2s;
     }
-    .tab-btn.active  { color: #ea580c; border-bottom-color: #ea580c; }
+    .tab-btn.active          { color: #ea580c; border-bottom-color: #ea580c; }
     .tab-btn:hover:not(.active) { color: #374151; }
-
-    .tab-content         { display: none; }
-    .tab-content.active  { display: block; }
+    .tab-content             { display: none; }
+    .tab-content.active      { display: block; }
 
     /* =========================================
        CHART CONTAINERS
@@ -94,13 +86,10 @@
         padding-left: 0.75rem;
         margin-bottom: 1.5rem;
     }
-    canvas {
-        max-height: 350px;
-        width: 100% !important;
-    }
+    canvas { max-height: 350px; width: 100% !important; }
 
     /* =========================================
-       PILL / FILTER BUTTONS
+       PILL BUTTONS
     ========================================= */
     .pill-btn {
         padding: 0.4rem 1rem;
@@ -113,18 +102,35 @@
         background: #f3f4f6;
         color: #374151;
     }
-    .pill-btn.active         { background: #ea580c; color: white; }
-    .pill-btn:not(.active):hover { background: #e5e7eb; }
+    .pill-btn.active               { background: #ea580c; color: white; }
+    .pill-btn:not(.active):hover   { background: #e5e7eb; }
 
     /* =========================================
-       SALES LIST PANEL
+       EXPORT BUTTONS
     ========================================= */
-    .list-panel {
-        background: white;
-        border: 1px solid #e5e7eb;
-        border-radius: 12px;
-        overflow: hidden;
+    .export-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4rem;
+        padding: 0.5rem 1rem;
+        border-radius: 8px;
+        font-size: 0.8rem;
+        font-weight: 500;
+        cursor: pointer;
+        border: none;
+        text-decoration: none;
+        transition: background 0.2s, transform 0.1s;
     }
+    .export-btn:hover            { transform: translateY(-1px); text-decoration: none; }
+    .export-btn-excel            { background: #16a34a; color: white; }
+    .export-btn-excel:hover      { background: #15803d; color: white; }
+    .export-btn-pdf              { background: #dc2626; color: white; }
+    .export-btn-pdf:hover        { background: #b91c1c; color: white; }
+
+    /* =========================================
+       LIST PANEL
+    ========================================= */
+    .list-panel { background: white; border: 1px solid #e5e7eb; border-radius: 12px; overflow: hidden; }
     .list-panel-header {
         display: flex;
         justify-content: space-between;
@@ -137,13 +143,9 @@
     }
 
     /* =========================================
-       SEARCH INPUT
+       SEARCH
     ========================================= */
-    .search-wrapper {
-        position: relative;
-        display: inline-flex;
-        align-items: center;
-    }
+    .search-wrapper { position: relative; display: inline-flex; align-items: center; }
     .search-wrapper .search-icon {
         position: absolute;
         left: 0.65rem;
@@ -165,13 +167,7 @@
     /* =========================================
        DATA TABLE
     ========================================= */
-    .data-table {
-        width: 100%;
-        border-collapse: collapse;
-        font-size: 0.8rem;
-    }
-
-    /* Sticky header */
+    .data-table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
     .data-table thead tr th {
         position: sticky;
         top: 0;
@@ -187,10 +183,8 @@
         border-bottom: 2px solid #e2e8f0;
         white-space: nowrap;
     }
-    .data-table thead tr th.text-right { text-align: right; }
+    .data-table thead tr th.text-right  { text-align: right; }
     .data-table thead tr th.text-center { text-align: center; }
-
-    /* Body rows */
     .data-table tbody tr td {
         padding: 0.75rem 1rem;
         border-bottom: 1px solid #f1f5f9;
@@ -198,28 +192,14 @@
         color: #374151;
     }
     .data-table tbody tr:last-child td { border-bottom: none; }
-    .data-table tbody tr:hover td    { background: #fff7ed; }
-
-    /* Column-specific alignment */
-    .data-table .col-amount { text-align: right; font-weight: 600; white-space: nowrap; }
-    .data-table .col-action { text-align: center; }
-
-    /* Invoice number */
-    .invoice-num {
-        font-family: 'Courier New', monospace;
-        font-size: 0.75rem;
-        font-weight: 700;
-        color: #1e293b;
-    }
-
-    /* Date/time */
+    .data-table tbody tr:hover td      { background: #fff7ed; }
+    .data-table .col-amount  { text-align: right; font-weight: 600; white-space: nowrap; }
+    .data-table .col-action  { text-align: center; }
+    .invoice-num  { font-family: 'Courier New', monospace; font-size: 0.75rem; font-weight: 700; color: #1e293b; }
     .cell-datetime { font-size: 0.75rem; color: #64748b; white-space: nowrap; }
 
-    /* Cashier */
-    .cell-cashier { font-size: 0.8rem; }
-
     /* =========================================
-       ITEM BADGES
+       BADGES
     ========================================= */
     .badge {
         display: inline-block;
@@ -232,11 +212,7 @@
     }
     .badge-menu  { background: #d1fae5; color: #065f46; }
     .badge-other { background: #fef3c7; color: #92400e; }
-
-    /* =========================================
-       PAYMENT METHOD PILL
-    ========================================= */
-    .pay-method { font-size: 0.78rem; white-space: nowrap; }
+    .pay-method  { font-size: 0.78rem; white-space: nowrap; }
 
     /* =========================================
        VIEW BUTTON
@@ -258,12 +234,21 @@
     /* =========================================
        EMPTY STATE
     ========================================= */
-    .empty-state {
-        padding: 3rem 1rem;
-        text-align: center;
-        color: #9ca3af;
-    }
+    .empty-state { padding: 3rem 1rem; text-align: center; color: #9ca3af; }
     .empty-state i { font-size: 2.5rem; display: block; margin-bottom: 0.5rem; }
+
+    /* =========================================
+       PERIOD BADGE
+    ========================================= */
+    .period-badge {
+        display: inline-block;
+        background: rgba(255,255,255,0.2);
+        border: 1px solid rgba(255,255,255,0.4);
+        border-radius: 20px;
+        padding: 0.25rem 0.75rem;
+        font-size: 0.75rem;
+        font-weight: 500;
+    }
 </style>
 
 <div class="space-y-6">
@@ -276,58 +261,86 @@
                     <i class="fas fa-chart-line mr-2"></i>Sales Analytics Dashboard
                 </h2>
                 <p class="text-orange-100 mt-1 text-sm">Comprehensive sales reports and trends</p>
+                <div class="mt-2">
+                    @if($period === 'all_time')
+                        <span class="period-badge"><i class="fas fa-infinity mr-1"></i> All Time</span>
+                    @else
+                        <span class="period-badge">
+                            <i class="fas fa-calendar mr-1"></i>
+                            {{ \Carbon\Carbon::parse($from)->format('d M Y') }}
+                            &ndash;
+                            {{ \Carbon\Carbon::parse($to)->format('d M Y') }}
+                        </span>
+                    @endif
+                </div>
             </div>
-            <div class="text-right">
-                <p class="text-sm"><i class="fas fa-calendar mr-1"></i> Reporting Period</p>
-                <p class="text-lg font-bold">
-                    {{ \Carbon\Carbon::parse($from)->format('d M Y') }}
-                    &ndash;
-                    {{ \Carbon\Carbon::parse($to)->format('d M Y') }}
-                </p>
+
+            {{-- Export buttons --}}
+            <div class="flex flex-col gap-2 items-end">
+                <div class="flex gap-2">
+                    <a href="{{ route('restaurant.sales.export.excel', array_merge(request()->query(), ['period' => $period, 'start_date' => $from, 'end_date' => $to])) }}"
+                       class="export-btn export-btn-excel">
+                        <i class="fas fa-file-excel"></i> Export Excel
+                    </a>
+                    <a href="{{ route('restaurant.sales.export.pdf', array_merge(request()->query(), ['period' => $period, 'start_date' => $from, 'end_date' => $to])) }}"
+                       class="export-btn export-btn-pdf">
+                        <i class="fas fa-file-pdf"></i> Export PDF
+                    </a>
+                </div>
+                <p class="text-orange-200 text-xs">Exports reflect the current filter period</p>
             </div>
         </div>
     </div>
 
     {{-- ===== DATE FILTER BAR ===== --}}
     <div class="filter-bar">
-        <form method="GET" action="{{ route('restaurant.sales.index') }}" class="grid grid-cols-1 md:grid-cols-6 gap-3 items-end">
-            <div>
-                <label class="block text-xs font-medium text-gray-700 mb-1">Quick Period</label>
-                <select name="period" id="periodSelect" class="w-full p-2 border border-gray-300 rounded-lg text-sm">
-                    <option value="today"      {{ $period == 'today'      ? 'selected' : '' }}>Today</option>
-                    <option value="yesterday"  {{ $period == 'yesterday'  ? 'selected' : '' }}>Yesterday</option>
-                    <option value="this_week"  {{ $period == 'this_week'  ? 'selected' : '' }}>This Week</option>
-                    <option value="this_month" {{ $period == 'this_month' ? 'selected' : '' }}>This Month</option>
-                    <option value="last_month" {{ $period == 'last_month' ? 'selected' : '' }}>Last Month</option>
-                    <option value="custom"     {{ request('start_date')   ? 'selected' : '' }}>Custom Range</option>
-                </select>
-            </div>
+        <form method="GET" action="{{ route('restaurant.sales.index') }}" id="filterForm">
+            <div class="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
 
-            <div id="customDateRange"
-                 style="display: {{ request('start_date') ? 'flex' : 'none' }}; gap: 8px; grid-column: span 2;">
-                <div class="flex-1">
-                    <label class="block text-xs font-medium text-gray-700 mb-1">Start Date</label>
-                    <input type="date" name="start_date"
-                           class="w-full p-2 border border-gray-300 rounded-lg text-sm"
-                           value="{{ request('start_date', $from) }}">
+                {{-- Quick period --}}
+                <div class="md:col-span-2">
+                    <label class="block text-xs font-medium text-gray-700 mb-1">Quick Period</label>
+                    <select name="period" id="periodSelect"
+                            class="w-full p-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-orange-500">
+                        <option value="all_time"    {{ $period === 'all_time'    ? 'selected' : '' }}>All Time</option>
+                        <option value="today"       {{ $period === 'today'       ? 'selected' : '' }}>Today</option>
+                        <option value="yesterday"   {{ $period === 'yesterday'   ? 'selected' : '' }}>Yesterday</option>
+                        <option value="this_week"   {{ $period === 'this_week'   ? 'selected' : '' }}>This Week</option>
+                        <option value="this_month"  {{ $period === 'this_month'  ? 'selected' : '' }}>This Month</option>
+                        <option value="last_month"  {{ $period === 'last_month'  ? 'selected' : '' }}>Last Month</option>
+                        <option value="custom"      {{ $period === 'custom'      ? 'selected' : '' }}>Custom Range</option>
+                    </select>
                 </div>
-                <div class="flex-1">
-                    <label class="block text-xs font-medium text-gray-700 mb-1">End Date</label>
-                    <input type="date" name="end_date"
-                           class="w-full p-2 border border-gray-300 rounded-lg text-sm"
-                           value="{{ request('end_date', $to) }}">
-                </div>
-            </div>
 
-            <div class="flex items-end gap-2">
-                <button type="submit"
-                        class="bg-orange-600 hover:bg-orange-700 text-white px-4 py-2 rounded-lg text-sm">
-                    <i class="fas fa-sync-alt mr-1"></i> Apply
-                </button>
-                <a href="{{ route('restaurant.sales.index') }}"
-                   class="bg-gray-200 hover:bg-gray-300 text-gray-700 px-4 py-2 rounded-lg text-sm">
-                    <i class="fas fa-times mr-1"></i> Reset
-                </a>
+                {{-- Custom date inputs (hidden unless custom selected) --}}
+                <div id="customDateRange"
+                     class="md:col-span-4"
+                     style="display: {{ $period === 'custom' ? 'flex' : 'none' }}; gap: 8px;">
+                    <div class="flex-1">
+                        <label class="block text-xs font-medium text-gray-700 mb-1">Start Date</label>
+                        <input type="date" name="start_date"
+                               class="w-full p-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-orange-500"
+                               value="{{ request('start_date', $from) }}">
+                    </div>
+                    <div class="flex-1">
+                        <label class="block text-xs font-medium text-gray-700 mb-1">End Date</label>
+                        <input type="date" name="end_date"
+                               class="w-full p-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-orange-500"
+                               value="{{ request('end_date', $to) }}">
+                    </div>
+                </div>
+
+                {{-- Actions --}}
+                <div class="md:col-span-2 flex items-end gap-2">
+                    <button type="submit"
+                            class="bg-orange-600 hover:bg-orange-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors">
+                        <i class="fas fa-sync-alt mr-1"></i> Apply
+                    </button>
+                    <a href="{{ route('restaurant.sales.index') }}"
+                       class="bg-gray-200 hover:bg-gray-300 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium transition-colors">
+                        <i class="fas fa-times mr-1"></i> Reset
+                    </a>
+                </div>
             </div>
         </form>
     </div>
@@ -365,7 +378,6 @@
     {{-- ===== TAB 1: ANALYTICS ===== --}}
     <div id="tab-analytics" class="tab-content active">
 
-        {{-- Product type filter --}}
         <div class="filter-bar mb-6">
             <div class="flex flex-wrap gap-3 items-center">
                 <span class="text-xs font-semibold text-gray-600">Filter Products in Chart:</span>
@@ -419,8 +431,8 @@
     <div id="tab-sales-list" class="tab-content">
         <div class="list-panel">
 
-            {{-- List header: filters + search --}}
             <div class="list-panel-header">
+                {{-- Item type filter --}}
                 <div class="flex gap-2 flex-wrap">
                     <button type="button" class="pill-btn active" data-list-filter="all">
                         <i class="fas fa-list mr-1"></i> All Sales
@@ -433,25 +445,24 @@
                     </button>
                 </div>
 
-                <div class="search-wrapper">
-                    <i class="fas fa-search search-icon"></i>
-                    <input type="text"
-                           id="salesSearchInput"
-                           class="search-input"
-                           placeholder="Search invoice # or item name…">
+                {{-- Search + row count --}}
+                <div class="flex items-center gap-3">
+                    <span id="rowCountBadge"
+                          class="text-xs bg-orange-100 text-orange-700 font-semibold px-3 py-1 rounded-full">
+                        {{ $salesList->count() }} orders
+                    </span>
+                    <div class="search-wrapper">
+                        <i class="fas fa-search search-icon"></i>
+                        <input type="text"
+                               id="salesSearchInput"
+                               class="search-input"
+                               placeholder="Search invoice # or item…">
+                    </div>
                 </div>
             </div>
 
             {{-- Table --}}
-            <div style="max-height: 520px; overflow-y: auto;">
-                @php
-                    $salesList = \App\Models\SalesOrder::with('items')
-                        ->whereDate('created_at', '>=', $from)
-                        ->whereDate('created_at', '<=', $to)
-                        ->where('payment_status', 'paid')
-                        ->orderBy('created_at', 'desc')
-                        ->get();
-                @endphp
+            <div style="max-height: 560px; overflow-y: auto;">
 
                 <table class="data-table">
                     <thead>
@@ -468,8 +479,10 @@
                     <tbody id="salesListBody">
                         @forelse($salesList as $sale)
                         <tr class="sale-row"
-                            data-order-number="{{ $sale->order_number }}"
-                            data-items="{{ implode(',', $sale->items->pluck('item_name')->toArray()) }}">
+                            data-order-number="{{ strtolower($sale->order_number) }}"
+                            data-items="{{ strtolower(implode(',', $sale->items->pluck('item_name')->toArray())) }}"
+                            data-has-menu="{{ $sale->items->filter(fn($i) => in_array($i->item_name, $menuItemNames))->count() > 0 ? '1' : '0' }}"
+                            data-has-other="{{ $sale->items->filter(fn($i) => !in_array($i->item_name, $menuItemNames))->count() > 0 ? '1' : '0' }}">
 
                             <td><span class="invoice-num">{{ $sale->order_number }}</span></td>
 
@@ -478,7 +491,7 @@
                                 <span class="text-gray-400">{{ $sale->created_at->format('h:i A') }}</span>
                             </td>
 
-                            <td class="cell-cashier">{{ $sale->cashier->first_name ?? '—' }}</td>
+                            <td style="font-size:0.8rem;">{{ $sale->cashier->first_name ?? '—' }}</td>
 
                             <td>
                                 @foreach($sale->items as $item)
@@ -507,7 +520,7 @@
                             </td>
                         </tr>
                         @empty
-                        <tr>
+                        <tr id="emptyInitial">
                             <td colspan="7">
                                 <div class="empty-state">
                                     <i class="fas fa-receipt"></i>
@@ -519,6 +532,20 @@
                     </tbody>
                 </table>
             </div>
+
+            {{-- List footer: totals --}}
+            @if($salesList->count() > 0)
+            <div style="padding: 0.75rem 1.5rem; background: #f9fafb; border-top: 1px solid #e5e7eb; display: flex; justify-content: space-between; align-items: center;">
+                <span id="visibleSummary" class="text-xs text-gray-500">
+                    Showing all {{ $salesList->count() }} orders
+                </span>
+                <span class="text-sm font-bold text-gray-800">
+                    Visible Total: <span id="visibleTotal" class="text-orange-600">
+                        UGX {{ number_format($salesData['total_sales'], 0) }}
+                    </span>
+                </span>
+            </div>
+            @endif
         </div>
     </div>
 
@@ -530,260 +557,230 @@
 (function () {
     'use strict';
 
-    /* -------------------------------------------------------
-       DATA FROM SERVER
-    ------------------------------------------------------- */
-    const menuItemNames   = @json($menuItemNames ?? []);
-    const allProducts     = @json($topProducts);
-    const dailyTrendData  = @json($dailyTrend);
-    const hourlyData      = @json($hourlySales);
-    const paymentData     = @json($paymentMethods);
+    /* ─────────────────────────────────────────────────────
+       SERVER DATA
+    ───────────────────────────────────────────────────── */
+    const menuItemNames  = @json($menuItemNames ?? []);
+    const allProducts    = @json($topProducts);
+    const dailyTrendData = @json($dailyTrend);
+    const hourlyData     = @json($hourlySales);
+    const paymentData    = @json($paymentMethods);
 
-    /* -------------------------------------------------------
+    /* ─────────────────────────────────────────────────────
        CATEGORISE PRODUCTS
-    ------------------------------------------------------- */
+    ───────────────────────────────────────────────────── */
     const menuProducts      = allProducts.filter(p =>  menuItemNames.includes(p.item_name));
     const inventoryProducts = allProducts.filter(p => !menuItemNames.includes(p.item_name));
 
-    /* -------------------------------------------------------
-       SHARED CHART OPTIONS
-    ------------------------------------------------------- */
-    const baseLineOptions = {
+    /* ─────────────────────────────────────────────────────
+       SHARED OPTIONS
+    ───────────────────────────────────────────────────── */
+    const ugxLabel = ctx => 'UGX ' + ctx.raw.toLocaleString();
+
+    const baseOpts = {
         responsive: true,
         maintainAspectRatio: true,
         plugins: { legend: { position: 'top' } },
     };
 
-    function ugxTooltip(context) {
-        return 'UGX ' + context.raw.toLocaleString();
-    }
-
-    /* -------------------------------------------------------
-       DAILY TREND CHART
-    ------------------------------------------------------- */
-    const dailyTrendChart = new Chart(
-        document.getElementById('dailyTrendChart'),
-        {
-            type: 'line',
-            data: {
-                labels:   dailyTrendData.map(d => d.date),
-                datasets: [{
-                    label:           'Sales (UGX)',
-                    data:            dailyTrendData.map(d => d.total),
-                    borderColor:     '#ea580c',
-                    backgroundColor: 'rgba(234,88,12,0.1)',
-                    tension:         0.4,
-                    fill:            true,
-                    pointRadius:     4,
-                    pointHoverRadius: 6,
-                }],
-            },
-            options: {
-                ...baseLineOptions,
-                plugins: {
-                    ...baseLineOptions.plugins,
-                    tooltip: { callbacks: { label: ugxTooltip } },
-                },
-            },
-        }
-    );
-
-    /* -------------------------------------------------------
-       HOURLY SALES CHART
-    ------------------------------------------------------- */
-    const hourLabels = Array.from({ length: 24 }, (_, i) => {
-        const ampm = i >= 12 ? 'PM' : 'AM';
-        const h    = i % 12 || 12;
-        return `${h}:00 ${ampm}`;
+    /* ─────────────────────────────────────────────────────
+       DAILY TREND
+    ───────────────────────────────────────────────────── */
+    const dailyTrendChart = new Chart(document.getElementById('dailyTrendChart'), {
+        type: 'line',
+        data: {
+            labels:   dailyTrendData.map(d => d.date),
+            datasets: [{
+                label:            'Sales (UGX)',
+                data:             dailyTrendData.map(d => d.total),
+                borderColor:      '#ea580c',
+                backgroundColor:  'rgba(234,88,12,0.1)',
+                tension:          0.4,
+                fill:             true,
+                pointRadius:      4,
+                pointHoverRadius: 6,
+            }],
+        },
+        options: { ...baseOpts, plugins: { ...baseOpts.plugins, tooltip: { callbacks: { label: ugxLabel } } } },
     });
 
-    const hourlySalesChart = new Chart(
-        document.getElementById('hourlySalesChart'),
-        {
-            type: 'line',
-            data: {
-                labels:   hourLabels,
-                datasets: [{
-                    label:           'Sales (UGX)',
-                    data:            Object.values(hourlyData),
-                    borderColor:     '#3b82f6',
-                    backgroundColor: 'rgba(59,130,246,0.1)',
-                    tension:         0.4,
-                    fill:            true,
-                    pointRadius:     3,
-                }],
-            },
-            options: {
-                ...baseLineOptions,
-                plugins: {
-                    ...baseLineOptions.plugins,
-                    tooltip: { callbacks: { label: ugxTooltip } },
-                },
-            },
-        }
-    );
+    /* ─────────────────────────────────────────────────────
+       HOURLY
+    ───────────────────────────────────────────────────── */
+    const hourLabels = Array.from({ length: 24 }, (_, i) => {
+        const h = i % 12 || 12;
+        return `${h}:00 ${i >= 12 ? 'PM' : 'AM'}`;
+    });
 
-    /* -------------------------------------------------------
-       PAYMENT METHODS PIE CHART
-    ------------------------------------------------------- */
-    const paymentLabelMap = { cash: '💵 Cash', card: '💳 Card', mobile_money: '📱 Mobile Money' };
-    const paymentLabels   = paymentData.map(p => paymentLabelMap[p.payment_method] ?? p.payment_method);
-    const paymentTotals   = paymentData.map(p => p.total);
+    const hourlySalesChart = new Chart(document.getElementById('hourlySalesChart'), {
+        type: 'line',
+        data: {
+            labels:   hourLabels,
+            datasets: [{
+                label:           'Sales (UGX)',
+                data:            Object.values(hourlyData),
+                borderColor:     '#3b82f6',
+                backgroundColor: 'rgba(59,130,246,0.1)',
+                tension:         0.4,
+                fill:            true,
+                pointRadius:     3,
+            }],
+        },
+        options: { ...baseOpts, plugins: { ...baseOpts.plugins, tooltip: { callbacks: { label: ugxLabel } } } },
+    });
 
-    const paymentMethodsChart = new Chart(
-        document.getElementById('paymentMethodsChart'),
-        {
-            type: 'pie',
-            data: {
-                labels:   paymentLabels,
-                datasets: [{
-                    data:            paymentTotals,
-                    backgroundColor: ['#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6'],
-                }],
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: true,
-                plugins: {
-                    legend: { position: 'right' },
-                    tooltip: {
-                        callbacks: {
-                            label(context) {
-                                const total      = context.dataset.data.reduce((a, b) => a + b, 0);
-                                const percentage = ((context.raw / total) * 100).toFixed(1);
-                                return `${context.label}: UGX ${context.raw.toLocaleString()} (${percentage}%)`;
-                            },
+    /* ─────────────────────────────────────────────────────
+       PAYMENT PIE
+    ───────────────────────────────────────────────────── */
+    const payLabelMap = { cash: '💵 Cash', card: '💳 Card', mobile_money: '📱 Mobile Money' };
+
+    const paymentMethodsChart = new Chart(document.getElementById('paymentMethodsChart'), {
+        type: 'pie',
+        data: {
+            labels:   paymentData.map(p => payLabelMap[p.payment_method] ?? p.payment_method),
+            datasets: [{
+                data:            paymentData.map(p => p.total),
+                backgroundColor: ['#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6'],
+            }],
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            plugins: {
+                legend: { position: 'right' },
+                tooltip: {
+                    callbacks: {
+                        label(ctx) {
+                            const sum  = ctx.dataset.data.reduce((a, b) => a + b, 0);
+                            const pct  = ((ctx.raw / sum) * 100).toFixed(1);
+                            return `${ctx.label}: UGX ${ctx.raw.toLocaleString()} (${pct}%)`;
                         },
                     },
                 },
             },
-        }
-    );
+        },
+    });
 
-    /* -------------------------------------------------------
-       TOP PRODUCTS CHART (dynamic filter)
-    ------------------------------------------------------- */
+    /* ─────────────────────────────────────────────────────
+       TOP PRODUCTS BAR (dynamic)
+    ───────────────────────────────────────────────────── */
     let topProductsChart = null;
 
-    function buildTopProductsChart(filter) {
-        const filterConfig = {
-            all:       { data: allProducts,      color: '#f59e0b', label: '(All Items)' },
-            menu:      { data: menuProducts,     color: '#10b981', label: '(Menu Items Only)' },
-            inventory: { data: inventoryProducts, color: '#3b82f6', label: '(Other Items Only)' },
+    function buildTopProducts(filter) {
+        const cfg = {
+            all:       { data: allProducts,       color: '#f59e0b', label: '(All Items)' },
+            menu:      { data: menuProducts,      color: '#10b981', label: '(Menu Items)' },
+            inventory: { data: inventoryProducts, color: '#3b82f6', label: '(Other Items)' },
         };
-        const { data, color, label } = filterConfig[filter] ?? filterConfig.all;
+        const { data, color, label } = cfg[filter] || cfg.all;
 
         document.getElementById('productFilterLabel').textContent = label;
 
         if (topProductsChart) topProductsChart.destroy();
 
-        topProductsChart = new Chart(
-            document.getElementById('topProductsChart'),
-            {
-                type: 'bar',
-                data: {
-                    labels:   data.map(p => p.item_name.length > 25 ? p.item_name.slice(0, 25) + '…' : p.item_name),
-                    datasets: [{
-                        label:           'Revenue (UGX)',
-                        data:            data.map(p => p.total_revenue),
-                        backgroundColor: color,
-                        borderRadius:    8,
-                    }],
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: true,
-                    plugins: {
-                        legend: { position: 'top' },
-                        tooltip: { callbacks: { label: ugxTooltip } },
-                    },
-                },
-            }
-        );
+        topProductsChart = new Chart(document.getElementById('topProductsChart'), {
+            type: 'bar',
+            data: {
+                labels:   data.map(p => p.item_name.length > 22 ? p.item_name.slice(0, 22) + '…' : p.item_name),
+                datasets: [{
+                    label:           'Revenue (UGX)',
+                    data:            data.map(p => p.total_revenue),
+                    backgroundColor: color,
+                    borderRadius:    8,
+                }],
+            },
+            options: { ...baseOpts, plugins: { ...baseOpts.plugins, tooltip: { callbacks: { label: ugxLabel } } } },
+        });
     }
 
-    buildTopProductsChart('all');
+    buildTopProducts('all');
 
-    /* -------------------------------------------------------
-       PRODUCT FILTER BUTTONS (chart tab)
-    ------------------------------------------------------- */
+    /* ─────────────────────────────────────────────────────
+       CHART FILTER BUTTONS
+    ───────────────────────────────────────────────────── */
     document.querySelectorAll('[data-filter]').forEach(btn => {
         btn.addEventListener('click', () => {
             document.querySelectorAll('[data-filter]').forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
-            buildTopProductsChart(btn.dataset.filter);
+            buildTopProducts(btn.dataset.filter);
         });
     });
 
-    /* -------------------------------------------------------
+    /* ─────────────────────────────────────────────────────
        TABS
-    ------------------------------------------------------- */
+    ───────────────────────────────────────────────────── */
     document.querySelectorAll('.tab-btn').forEach(btn => {
         btn.addEventListener('click', () => {
             const tabId = btn.dataset.tab;
-
             document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
             document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-
             btn.classList.add('active');
             document.getElementById(`tab-${tabId}`).classList.add('active');
 
-            // Resize charts when switching back to analytics
             if (tabId === 'analytics') {
                 setTimeout(() => {
                     [dailyTrendChart, hourlySalesChart, paymentMethodsChart].forEach(c => c?.update());
-                    buildTopProductsChart(
-                        document.querySelector('[data-filter].active')?.dataset.filter ?? 'all'
-                    );
+                    buildTopProducts(document.querySelector('[data-filter].active')?.dataset.filter ?? 'all');
                 }, 80);
             }
         });
     });
 
-    /* -------------------------------------------------------
-       CUSTOM DATE RANGE TOGGLE
-    ------------------------------------------------------- */
+    /* ─────────────────────────────────────────────────────
+       CUSTOM DATE TOGGLE
+    ───────────────────────────────────────────────────── */
     document.getElementById('periodSelect').addEventListener('change', function () {
         document.getElementById('customDateRange').style.display =
             this.value === 'custom' ? 'flex' : 'none';
     });
 
-    /* -------------------------------------------------------
-       SALES LIST — SEARCH & FILTER
-    ------------------------------------------------------- */
-    let currentListFilter = 'all';
-    let currentSearch     = '';
+    /* ─────────────────────────────────────────────────────
+       SALES LIST — SEARCH + FILTER
+    ───────────────────────────────────────────────────── */
+    let listFilter = 'all';
+    let searchTerm = '';
 
     function applyListFilters() {
-        const rows = document.querySelectorAll('#salesListBody .sale-row');
-        let visible = 0;
+        const rows    = document.querySelectorAll('#salesListBody .sale-row');
+        let   visible = 0;
+        let   visibleTotal = 0;
 
         rows.forEach(row => {
-            const orderNum = (row.dataset.orderNumber ?? '').toLowerCase();
-            const items    = (row.dataset.items ?? '').toLowerCase();
-            const matchesSearch = !currentSearch || orderNum.includes(currentSearch) || items.includes(currentSearch);
+            const orderNum = row.dataset.orderNumber ?? '';
+            const items    = row.dataset.items ?? '';
+            const hasMenu  = row.dataset.hasMenu === '1';
+            const hasOther = row.dataset.hasOther === '1';
 
-            let matchesFilter = true;
-            if (currentListFilter !== 'all') {
-                const badges     = row.querySelectorAll('.badge');
-                matchesFilter    = [...badges].some(badge =>
-                    currentListFilter === 'menu'
-                        ? badge.classList.contains('badge-menu')
-                        : badge.classList.contains('badge-other')
-                );
-            }
+            // Search match
+            const matchSearch = !searchTerm
+                || orderNum.includes(searchTerm)
+                || items.includes(searchTerm);
 
-            const show = matchesSearch && matchesFilter;
+            // Filter match
+            let matchFilter = true;
+            if (listFilter === 'menu')      matchFilter = hasMenu;
+            if (listFilter === 'inventory') matchFilter = hasOther;
+
+            const show = matchSearch && matchFilter;
             row.style.display = show ? '' : 'none';
-            if (show) visible++;
+
+            if (show) {
+                visible++;
+                // Sum from the amount cell (strip non-numeric)
+                const amountCell = row.querySelector('.col-amount');
+                if (amountCell) {
+                    const num = parseFloat(amountCell.textContent.replace(/[^0-9.]/g, ''));
+                    if (!isNaN(num)) visibleTotal += num;
+                }
+            }
         });
 
-        // Toggle "no results" row
+        // No-results message
         const existing = document.getElementById('noResultsMessage');
         if (visible === 0 && rows.length > 0) {
             if (!existing) {
-                const tr = document.createElement('tr');
-                tr.id    = 'noResultsMessage';
+                const tr    = document.createElement('tr');
+                tr.id       = 'noResultsMessage';
                 tr.innerHTML = `<td colspan="7">
                     <div class="empty-state">
                         <i class="fas fa-search"></i>
@@ -795,21 +792,37 @@
         } else {
             existing?.remove();
         }
+
+        // Update count badge
+        const badge = document.getElementById('rowCountBadge');
+        if (badge) badge.textContent = `${visible} order${visible !== 1 ? 's' : ''}`;
+
+        // Update visible total
+        const totalEl = document.getElementById('visibleTotal');
+        if (totalEl) totalEl.textContent = 'UGX ' + visibleTotal.toLocaleString();
+
+        // Update summary text
+        const summaryEl = document.getElementById('visibleSummary');
+        if (summaryEl) {
+            summaryEl.textContent = visible === rows.length
+                ? `Showing all ${visible} orders`
+                : `Showing ${visible} of ${rows.length} orders`;
+        }
     }
 
-    // List filter buttons
+    // List filter pills
     document.querySelectorAll('[data-list-filter]').forEach(btn => {
         btn.addEventListener('click', () => {
             document.querySelectorAll('[data-list-filter]').forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
-            currentListFilter = btn.dataset.listFilter;
+            listFilter = btn.dataset.listFilter;
             applyListFilters();
         });
     });
 
     // Search input
     document.getElementById('salesSearchInput')?.addEventListener('input', function () {
-        currentSearch = this.value.toLowerCase().trim();
+        searchTerm = this.value.toLowerCase().trim();
         applyListFilters();
     });
 

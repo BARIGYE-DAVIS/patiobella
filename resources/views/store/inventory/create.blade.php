@@ -28,10 +28,9 @@
     .grn-table { width:100%; border-collapse:collapse; font-size:13px; }
     .grn-table th, .grn-table td { padding:10px 12px; border:1px solid #e5e7eb; vertical-align:top; }
     .grn-table th { background:#f9fafb; font-weight:600; white-space:nowrap; }
-    .grn-row-bulk    { background:#fffbeb; }   /* warm yellow tint for pack rows */
-    .grn-row-simple  { background:#eff6ff; }   /* light blue tint for direct rows */
+    .grn-row-bulk    { background:#fffbeb; }
+    .grn-row-simple  { background:#eff6ff; }
 
-    /* ── Per-row receiving panel (like manual form) ─────────── */
     .grn-recv-panel  { margin-top:8px; border-radius:6px; padding:10px 12px; font-size:12px; }
     .grn-recv-bulk   { background:#fef3c7; border:1px solid #fcd34d; }
     .grn-recv-simple { background:#e0f2fe; border:1px solid #7dd3fc; }
@@ -39,6 +38,141 @@
                        border-radius:6px; padding:4px 10px; font-size:12px; color:#166534; margin-top:6px; }
     .grn-stock-badge { display:inline-block; background:#f3f4f6; border:1px solid #d1d5db;
                        border-radius:6px; padding:3px 8px; font-size:11px; color:#374151; }
+
+    /* ── ▶ BARCODE SCANNER STYLES ───────────────────────────── */
+    .barcode-field-wrap {
+        position: relative;
+    }
+    .barcode-field-wrap input {
+        padding-right: 2.8rem;
+    }
+    .barcode-scan-btn {
+        position: absolute;
+        right: 0.5rem;
+        top: 50%;
+        transform: translateY(-50%);
+        background: none;
+        border: none;
+        cursor: pointer;
+        color: #6b7280;
+        padding: 0.2rem;
+        line-height: 1;
+        transition: color 0.15s;
+    }
+    .barcode-scan-btn:hover { color: #059669; }
+
+    /* Camera scanner modal */
+    #barcodeScanModal {
+        display: none;
+        position: fixed;
+        inset: 0;
+        background: rgba(0,0,0,0.7);
+        z-index: 9999;
+        align-items: center;
+        justify-content: center;
+    }
+    #barcodeScanModal.open { display: flex; }
+    .scan-modal-box {
+        background: #fff;
+        border-radius: 16px;
+        width: 100%;
+        max-width: 480px;
+        overflow: hidden;
+        box-shadow: 0 20px 60px rgba(0,0,0,0.4);
+    }
+    .scan-modal-header {
+        background: #059669;
+        color: #fff;
+        padding: 1rem 1.25rem;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+    .scan-modal-header h3 { font-size: 1rem; font-weight: 700; margin: 0; }
+    .scan-modal-body { padding: 1.25rem; }
+    #scannerVideo {
+        width: 100%;
+        border-radius: 10px;
+        background: #000;
+        display: block;
+        min-height: 240px;
+    }
+    .scan-viewfinder {
+        position: relative;
+        border-radius: 10px;
+        overflow: hidden;
+    }
+    .scan-line {
+        position: absolute;
+        left: 10%; right: 10%;
+        height: 2px;
+        background: #22c55e;
+        box-shadow: 0 0 8px #22c55e;
+        animation: scanMove 2s ease-in-out infinite;
+        top: 20%;
+    }
+    @keyframes scanMove {
+        0%   { top: 20%; }
+        50%  { top: 75%; }
+        100% { top: 20%; }
+    }
+    .scan-status {
+        text-align: center;
+        font-size: 0.82rem;
+        color: #6b7280;
+        margin-top: 0.75rem;
+        min-height: 1.4rem;
+    }
+    .scan-result-banner {
+        display: none;
+        background: #f0fdf4;
+        border: 1px solid #86efac;
+        border-radius: 8px;
+        padding: 0.75rem 1rem;
+        margin-top: 0.75rem;
+        font-size: 0.85rem;
+        color: #166534;
+    }
+    .scan-result-banner.found { display: block; }
+    .scan-result-banner.not-found {
+        display: block;
+        background: #fffbeb;
+        border-color: #fcd34d;
+        color: #92400e;
+    }
+    .scan-manual-input {
+        display: flex;
+        gap: 0.5rem;
+        margin-top: 0.75rem;
+    }
+    .scan-manual-input input {
+        flex: 1;
+        padding: 0.45rem 0.75rem;
+        border: 1px solid #d1d5db;
+        border-radius: 8px;
+        font-size: 0.82rem;
+    }
+    .btn-scan-confirm {
+        background: #059669;
+        color: #fff;
+        border: none;
+        border-radius: 8px;
+        padding: 0.45rem 1rem;
+        font-size: 0.82rem;
+        cursor: pointer;
+        font-weight: 600;
+    }
+    .btn-scan-confirm:hover { background: #047857; }
+    .btn-scan-cancel {
+        background: #f3f4f6;
+        color: #374151;
+        border: none;
+        border-radius: 8px;
+        padding: 0.45rem 1rem;
+        font-size: 0.82rem;
+        cursor: pointer;
+        font-weight: 600;
+    }
 </style>
 
 <div class="bg-white rounded-lg shadow-sm overflow-hidden">
@@ -107,7 +241,38 @@
                     </div>
                 </div>
 
+                {{-- ▶▶ BARCODE ROW — placed right after item name/category ── --}}
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                    <div>
+                        <label class="block font-medium text-gray-700 mb-1">
+                            Barcode
+                            <span class="text-xs text-gray-500 font-normal ml-1">(scan or type — optional)</span>
+                        </label>
+                        <div class="barcode-field-wrap">
+                            <input type="text" name="barcode" id="barcode_input"
+                                   class="w-full px-3 py-2 border rounded-lg @error('barcode') border-red-500 @enderror"
+                                   value="{{ old('barcode') }}"
+                                   placeholder="Scan barcode or type manually…"
+                                   autocomplete="off">
+                            {{-- Camera scan button --}}
+                            <button type="button" class="barcode-scan-btn" id="openScannerBtn"
+                                    title="Scan with camera">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" fill="none" stroke="currentColor"
+                                     stroke-width="1.8" viewBox="0 0 24 24">
+                                    <path d="M3 9V5a2 2 0 012-2h4M3 15v4a2 2 0 002 2h4M21 9V5a2 2 0 00-2-2h-4M21 15v4a2 2 0 01-2 2h-4"/>
+                                    <line x1="7" y1="12" x2="17" y2="12" stroke-width="2.5"/>
+                                    <line x1="7" y1="9"  x2="7"  y2="15"/>
+                                    <line x1="10" y1="9" x2="10" y2="15"/>
+                                    <line x1="14" y1="9" x2="14" y2="15"/>
+                                    <line x1="17" y1="9" x2="17" y2="15"/>
+                                </svg>
+                            </button>
+                        </div>
+                        @error('barcode')<p class="text-red-500 text-xs mt-1">{{ $message }}</p>@enderror
+                        {{-- Live lookup result ─ shown when an existing item is found --}}
+                        <div id="barcodeLookupResult" class="hidden mt-2 p-2 rounded-lg text-xs"></div>
+                    </div>
+
                     <div>
                         <label class="block font-medium text-gray-700 mb-1">Item Code</label>
                         <input type="text" name="item_code" id="item_code" placeholder="Auto-generated if empty"
@@ -115,6 +280,10 @@
                                value="{{ old('item_code') }}">
                         @error('item_code')<p class="text-red-500 text-xs mt-1">{{ $message }}</p>@enderror
                     </div>
+                </div>
+                {{-- ▶▶ END BARCODE ROW ──────────────────────────────────── --}}
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
                     <div>
                         <label class="block font-medium text-gray-700 mb-1">How are you receiving this item? <span class="text-red-500">*</span></label>
                         <select name="metrics" id="metrics" required
@@ -138,6 +307,9 @@
                             </optgroup>
                         </select>
                         @error('metrics')<p class="text-red-500 text-xs mt-1">{{ $message }}</p>@enderror
+                    </div>
+                    <div>
+                        {{-- placeholder for grid balance --}}
                     </div>
                 </div>
 
@@ -261,11 +433,9 @@
                     @csrf
                     <input type="hidden" name="grn_id" id="selected_grn_id">
 
-                    {{-- Summary banner --}}
                     <div class="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-800">
                         <strong>ℹ️ Instructions:</strong> For each item below, choose <em>how you are receiving it</em>
-                        (direct unit or pack unit) and fill in the quantities. The system will calculate total stock
-                        and top it up to what is already in inventory.
+                        (direct unit or pack unit) and fill in the quantities.
                     </div>
 
                     <div id="grnItemsTable"></div>
@@ -301,6 +471,7 @@
                     <div><span class="preview-label">Item Name:</span>    <span id="preview_item" class="font-semibold">—</span></div>
                     <div><span class="preview-label">Category:</span>     <span id="preview_category">—</span></div>
                     <div><span class="preview-label">Item Code:</span>    <span id="preview_code">—</span></div>
+                    <div><span class="preview-label">Barcode:</span>      <span id="preview_barcode">—</span></div>
                     <div><span class="preview-label">Receiving Unit:</span><span id="preview_metrics">—</span></div>
                     <div class="col-span-2"><span class="preview-label">Base/Sell Unit:</span>   <span id="preview_base_unit" class="font-semibold text-purple-700">—</span></div>
                     <div class="col-span-2"><span class="preview-label">Receipt Detail:</span>   <span id="preview_type">—</span></div>
@@ -319,6 +490,38 @@
     </div>
 </div>
 
+{{-- ▶▶ BARCODE CAMERA SCANNER MODAL ─────────────────────────── --}}
+<div id="barcodeScanModal">
+    <div class="scan-modal-box">
+        <div class="scan-modal-header">
+            <h3>📷 Scan Barcode</h3>
+            <button type="button" id="closeScannerBtn" style="background:none;border:none;color:#fff;font-size:1.3rem;cursor:pointer;line-height:1;">✕</button>
+        </div>
+        <div class="scan-modal-body">
+            <div class="scan-viewfinder">
+                <video id="scannerVideo" autoplay playsinline></video>
+                <div class="scan-line"></div>
+            </div>
+            <p class="scan-status" id="scanStatus">Point camera at the barcode…</p>
+
+            <div id="scanResultBanner" class="scan-result-banner"></div>
+
+            {{-- Fallback: type barcode manually inside modal --}}
+            <div class="scan-manual-input">
+                <input type="text" id="scanManualInput" placeholder="Or type / paste barcode here…" autocomplete="off">
+                <button type="button" class="btn-scan-confirm" id="scanManualConfirm">Use</button>
+            </div>
+
+            <div class="mt-3 flex justify-end">
+                <button type="button" class="btn-scan-cancel" id="cancelScannerBtn">Cancel</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{{-- ▶▶ ZXing barcode library (no npm needed) ─────────────────── --}}
+<script src="https://cdn.jsdelivr.net/npm/@zxing/browser@0.1.1/umd/index.min.js"></script>
+
 <script>
 // ═══════════════════════════════════════════════════════════════════
 // Shared helpers
@@ -327,20 +530,13 @@ const BULK_METRICS   = ['box','carton','crate','dozen','pack','sack','set'];
 const SIMPLE_METRICS = ['kg','litres','pcs','grams','millilitres'];
 
 const BASE_UNIT_OPTIONS = [
-    { value:'bottle', label:'Bottle'  },
-    { value:'can',    label:'Can'     },
-    { value:'piece',  label:'Piece'   },
-    { value:'glass',  label:'Glass'   },
-    { value:'plate',  label:'Plate'   },
-    { value:'kg',     label:'Kg'      },
-    { value:'gram',   label:'Gram'    },
-    { value:'litre',  label:'Litre'   },
-    { value:'ml',     label:'ml'      },
-    { value:'sachet', label:'Sachet'  },
-    { value:'egg',    label:'Egg'     },
-    { value:'roll',   label:'Roll'    },
-    { value:'strip',  label:'Strip'   },
-    { value:'unit',   label:'Unit'    },
+    { value:'bottle', label:'Bottle'  }, { value:'can',    label:'Can'     },
+    { value:'piece',  label:'Piece'   }, { value:'glass',  label:'Glass'   },
+    { value:'plate',  label:'Plate'   }, { value:'kg',     label:'Kg'      },
+    { value:'gram',   label:'Gram'    }, { value:'litre',  label:'Litre'   },
+    { value:'ml',     label:'ml'      }, { value:'sachet', label:'Sachet'  },
+    { value:'egg',    label:'Egg'     }, { value:'roll',   label:'Roll'    },
+    { value:'strip',  label:'Strip'   }, { value:'unit',   label:'Unit'    },
 ];
 
 const RECEIVING_UNIT_OPTIONS = [
@@ -363,25 +559,20 @@ const DIRECT_BASE_MAP = { kg:'kg', grams:'gram', litres:'litre', millilitres:'ml
 function buildBaseUnitSelect(name, selectedValue = '') {
     let opts = `<option value="">-- Select --</option>`;
     BASE_UNIT_OPTIONS.forEach(o => {
-        const sel = o.value === selectedValue ? 'selected' : '';
-        opts += `<option value="${o.value}" ${sel}>${o.label}</option>`;
+        opts += `<option value="${o.value}" ${o.value===selectedValue?'selected':''}>${o.label}</option>`;
     });
     return `<select name="${name}" class="w-full px-2 py-1 border rounded text-sm">${opts}</select>`;
 }
 
 function buildReceivingUnitSelect(name, selectedValue = '') {
-    const directOpts = RECEIVING_UNIT_OPTIONS.filter(o => o.group === 'direct');
-    const packOpts   = RECEIVING_UNIT_OPTIONS.filter(o => o.group === 'pack');
+    const directOpts = RECEIVING_UNIT_OPTIONS.filter(o => o.group==='direct');
+    const packOpts   = RECEIVING_UNIT_OPTIONS.filter(o => o.group==='pack');
     let html = `<select name="${name}" class="w-full px-2 py-1 border rounded text-sm">
         <option value="">-- Select --</option>
         <optgroup label="Direct Units">`;
-    directOpts.forEach(o => {
-        html += `<option value="${o.value}" ${o.value===selectedValue?'selected':''}>${o.label}</option>`;
-    });
+    directOpts.forEach(o => { html += `<option value="${o.value}" ${o.value===selectedValue?'selected':''}>${o.label}</option>`; });
     html += `</optgroup><optgroup label="Pack Units">`;
-    packOpts.forEach(o => {
-        html += `<option value="${o.value}" ${o.value===selectedValue?'selected':''}>${o.label}</option>`;
-    });
+    packOpts.forEach(o => { html += `<option value="${o.value}" ${o.value===selectedValue?'selected':''}>${o.label}</option>`; });
     html += `</optgroup></select>`;
     return html;
 }
@@ -412,7 +603,7 @@ document.getElementById('grnCard').addEventListener('click', function () {
 });
 
 // ═══════════════════════════════════════════════════════════════════
-// MANUAL FORM logic (unchanged from original)
+// MANUAL FORM logic
 // ═══════════════════════════════════════════════════════════════════
 const metricsSelect     = document.getElementById('metrics');
 const baseUnitSelect    = document.getElementById('base_unit');
@@ -497,21 +688,21 @@ function showPreview() {
     const totalQuantity = calculateManualTotal();
     if (totalQuantity <= 0)               { alert('Total quantity must be greater than zero.'); return; }
 
-    const catSel     = document.getElementById('category_id');
-    const storeSel   = document.querySelector('select[name="store_id"]');
-    const vendorSel  = document.querySelector('select[name="vendor_id"]');
-    const metrics    = metricsSelect.value;
-    const bu         = baseUnitSelect.value;
-    let detail       = '';
-    if (BULK_METRICS.includes(metrics)) {
-        detail = `${numberOfUnits.value} ${metrics}(s) × ${piecesPerUnit.value} ${bu} = ${totalQuantity} ${bu}s`;
-    } else {
-        detail = `${totalQuantity} ${metrics} (direct receipt)`;
-    }
+    const catSel    = document.getElementById('category_id');
+    const storeSel  = document.querySelector('select[name="store_id"]');
+    const vendorSel = document.querySelector('select[name="vendor_id"]');
+    const metrics   = metricsSelect.value;
+    const bu        = baseUnitSelect.value;
+    const barcode   = document.getElementById('barcode_input').value.trim();
+
+    let detail = BULK_METRICS.includes(metrics)
+        ? `${numberOfUnits.value} ${metrics}(s) × ${piecesPerUnit.value} ${bu} = ${totalQuantity} ${bu}s`
+        : `${totalQuantity} ${metrics} (direct receipt)`;
 
     document.getElementById('preview_item').innerText      = itemName;
     document.getElementById('preview_category').innerText  = catSel.options[catSel.selectedIndex]?.text || '—';
     document.getElementById('preview_code').innerText      = document.getElementById('item_code').value || 'Auto-generated';
+    document.getElementById('preview_barcode').innerText   = barcode || '—';   // ◀ NEW
     document.getElementById('preview_metrics').innerText   = metrics;
     document.getElementById('preview_base_unit').innerText = bu;
     document.getElementById('preview_type').innerText      = detail;
@@ -525,7 +716,117 @@ function closePreview() { document.getElementById('previewModal').style.display 
 function submitForm()   { document.getElementById('manualForm').submit(); }
 
 // ═══════════════════════════════════════════════════════════════════
-// GRN SECTION — Load & render
+// ▶▶ BARCODE — lookup + camera scanner
+// ═══════════════════════════════════════════════════════════════════
+
+// ── 1. Live lookup when user types/scans into the barcode field ──
+const barcodeInput    = document.getElementById('barcode_input');
+const lookupResultEl  = document.getElementById('barcodeLookupResult');
+let lookupTimer;
+
+barcodeInput.addEventListener('input', function () {
+    clearTimeout(lookupTimer);
+    const val = this.value.trim();
+    if (val.length < 3) { lookupResultEl.classList.add('hidden'); return; }
+    lookupTimer = setTimeout(() => lookupBarcode(val), 400);
+});
+
+// Keyboard-wedge scanners fire all chars then Enter quickly;
+// treat Enter inside the barcode field as "trigger lookup now"
+barcodeInput.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') {
+        e.preventDefault();
+        clearTimeout(lookupTimer);
+        lookupBarcode(this.value.trim());
+    }
+});
+
+function lookupBarcode(code) {
+    if (!code) return;
+    fetch(`{{ route('store.inventory.barcode-lookup') }}?barcode=${encodeURIComponent(code)}`, {
+        headers: { 'X-Requested-With': 'XMLHttpRequest' }
+    })
+    .then(r => r.json())
+    .then(data => {
+        lookupResultEl.classList.remove('hidden', 'bg-green-50', 'border-green-300',
+                                        'text-green-800', 'bg-yellow-50', 'border-yellow-300', 'text-yellow-800');
+        if (data.found) {
+            // Item already exists — warn the user (they might want to top it up via stock adjust instead)
+            lookupResultEl.classList.add('bg-yellow-50', 'border', 'border-yellow-300', 'text-yellow-800');
+            lookupResultEl.innerHTML =
+                `⚠️ <strong>${data.item.name}</strong> already exists (stock: ${data.item.current_stock} ${data.item.base_unit}).
+                 <a href="/store/inventory/${data.item.id}" class="underline font-semibold ml-1" target="_blank">View item →</a>`;
+        } else {
+            lookupResultEl.classList.add('bg-green-50', 'border', 'border-green-300', 'text-green-800');
+            lookupResultEl.innerHTML = `✅ New barcode — this item does not exist yet. Fill in the form to add it.`;
+        }
+    })
+    .catch(() => { lookupResultEl.classList.add('hidden'); });
+}
+
+// ── 2. Camera barcode scanner (ZXing) ───────────────────────────
+let codeReader = null;
+let scannerStream = null;
+
+document.getElementById('openScannerBtn').addEventListener('click', openScanner);
+document.getElementById('closeScannerBtn').addEventListener('click', closeScanner);
+document.getElementById('cancelScannerBtn').addEventListener('click', closeScanner);
+
+function openScanner() {
+    document.getElementById('barcodeScanModal').classList.add('open');
+    document.getElementById('scanStatus').textContent = 'Starting camera…';
+    document.getElementById('scanResultBanner').className = 'scan-result-banner';
+    document.getElementById('scanManualInput').value = '';
+
+    if (typeof ZXingBrowser === 'undefined') {
+        document.getElementById('scanStatus').textContent = 'Scanner library not loaded. Use manual input below.';
+        return;
+    }
+
+    codeReader = new ZXingBrowser.BrowserMultiFormatReader();
+    codeReader.listVideoInputDevices().then(devices => {
+        if (!devices || devices.length === 0) {
+            document.getElementById('scanStatus').textContent = 'No camera found. Use manual input below.';
+            return;
+        }
+        // Prefer back camera on mobile
+        const deviceId = (devices.find(d => /back|rear|environment/i.test(d.label)) || devices[0]).deviceId;
+        document.getElementById('scanStatus').textContent = 'Point camera at barcode…';
+
+        codeReader.decodeFromVideoDevice(deviceId, 'scannerVideo', (result, err) => {
+            if (result) {
+                const code = result.getText();
+                applyScannedBarcode(code);
+            }
+        });
+    }).catch(() => {
+        document.getElementById('scanStatus').textContent = 'Camera permission denied. Use manual input below.';
+    });
+}
+
+function closeScanner() {
+    if (codeReader) { try { codeReader.reset(); } catch(e) {} codeReader = null; }
+    document.getElementById('barcodeScanModal').classList.remove('open');
+}
+
+function applyScannedBarcode(code) {
+    closeScanner();
+    barcodeInput.value = code;
+    barcodeInput.dispatchEvent(new Event('input'));       // trigger live lookup
+    barcodeInput.focus();
+}
+
+// Manual confirm inside the scanner modal
+document.getElementById('scanManualConfirm').addEventListener('click', function () {
+    const val = document.getElementById('scanManualInput').value.trim();
+    if (val) applyScannedBarcode(val);
+});
+document.getElementById('scanManualInput').addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') { e.preventDefault(); document.getElementById('scanManualConfirm').click(); }
+});
+
+// ═══════════════════════════════════════════════════════════════════
+// GRN SECTION
 // ═══════════════════════════════════════════════════════════════════
 document.getElementById('loadGrnBtn').addEventListener('click', function () {
     hideInlineError('grnErrorBox');
@@ -550,7 +851,6 @@ document.getElementById('loadGrnBtn').addEventListener('click', function () {
         .finally(() => { btn.textContent = 'Load GRN Items'; btn.disabled = false; });
 });
 
-// ── Render GRN items ────────────────────────────────────────────────
 function renderGrnItems(items, grnId) {
     document.getElementById('selected_grn_id').value = grnId;
     let html = '';
@@ -565,24 +865,21 @@ function renderGrnItems(items, grnId) {
 
         html += `
         <div class="border border-gray-200 rounded-lg mb-4 overflow-hidden" id="grnRow_${idx}">
-            <!-- Item header -->
             <div class="flex items-start justify-between px-4 py-3 bg-gray-50 border-b border-gray-200">
                 <div>
                     <span class="font-semibold text-gray-800">${item.item_name}</span>
                     ${item.item_code ? `<span class="ml-2 text-xs text-gray-500">${item.item_code}</span>` : ''}
+                    ${item.barcode   ? `<span class="ml-2 text-xs font-mono bg-gray-100 px-1 rounded">${item.barcode}</span>` : ''}
                     ${item.category  ? `<span class="ml-2 px-2 py-0.5 bg-blue-100 text-blue-700 text-xs rounded-full">${item.category}</span>` : ''}
                 </div>
                 <span class="grn-stock-badge">Current stock: ${currentStock} ${defaultBaseUnit}(s)</span>
             </div>
 
-            <!-- Hidden fields -->
             <input type="hidden" name="items[${idx}][grn_item_id]"       value="${item.id}">
             <input type="hidden" name="items[${idx}][inventory_item_id]" value="${item.inventory_item_id}">
             <input type="hidden" name="items[${idx}][unit_cost]"         value="${item.unit_cost}">
 
             <div class="p-4 grid grid-cols-1 md:grid-cols-2 gap-4">
-
-                <!-- LEFT: Receiving unit + pack details -->
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">
                         How are you receiving this item? <span class="text-red-500">*</span>
@@ -604,7 +901,6 @@ function renderGrnItems(items, grnId) {
                         </optgroup>
                     </select>
 
-                    <!-- Base unit selector -->
                     <div class="mt-3">
                         <label class="block text-sm font-medium text-purple-800 mb-1">
                             Individual unit you sell/consume <span class="text-red-500">*</span>
@@ -620,13 +916,9 @@ function renderGrnItems(items, grnId) {
                         </select>
                     </div>
 
-                    <!-- Dynamic pack / qty panel -->
-                    <div id="grnPanel_${idx}" class="grn-recv-panel ${isBulkDefault ? 'grn-recv-bulk' : 'grn-recv-simple'} mt-3">
-                        <!-- filled by onGrnMetricsChange -->
-                    </div>
+                    <div id="grnPanel_${idx}" class="grn-recv-panel ${isBulkDefault ? 'grn-recv-bulk' : 'grn-recv-simple'} mt-3"></div>
                 </div>
 
-                <!-- RIGHT: Quantity to receive + unit cost + total summary -->
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">
                         Quantity to Receive <span class="text-red-500">*</span>
@@ -636,9 +928,7 @@ function renderGrnItems(items, grnId) {
                            name="items[${idx}][quantity]"
                            id="grnQty_${idx}"
                            value="${qtyAccepted}"
-                           min="0.01"
-                           max="${qtyAccepted}"
-                           step="0.01"
+                           min="0.01" max="${qtyAccepted}" step="0.01"
                            class="w-full px-3 py-2 border rounded-lg text-sm"
                            oninput="recalcGrnRow(${idx})">
 
@@ -648,7 +938,6 @@ function renderGrnItems(items, grnId) {
                                class="w-full px-3 py-2 border bg-gray-50 rounded-lg text-sm text-gray-600">
                     </div>
 
-                    <!-- Total base units badge -->
                     <div id="grnTotal_${idx}" class="grn-conv-badge mt-3 hidden">
                         Will add <strong id="grnTotalVal_${idx}">0</strong>
                         <span id="grnTotalUnit_${idx}">${defaultBaseUnit}</span>(s) to stock
@@ -660,12 +949,9 @@ function renderGrnItems(items, grnId) {
     });
 
     document.getElementById('grnItemsTable').innerHTML = html;
-
-    // Trigger initial render for each row
     items.forEach((item, idx) => onGrnMetricsChange(idx));
 }
 
-// ── Called when receiving_metrics changes for a GRN row ─────────────
 function onGrnMetricsChange(idx) {
     const metrics   = document.getElementById(`grnMetrics_${idx}`)?.value || '';
     const panelEl   = document.getElementById(`grnPanel_${idx}`);
@@ -673,7 +959,6 @@ function onGrnMetricsChange(idx) {
 
     panelEl.className = `grn-recv-panel mt-3 ${isBulk ? 'grn-recv-bulk' : 'grn-recv-simple'}`;
 
-    // Auto-fill base unit for direct units
     const baseUnitSel = document.getElementById(`grnBaseUnit_${idx}`);
     if (!isBulk && DIRECT_BASE_MAP[metrics] && baseUnitSel) {
         baseUnitSel.value = DIRECT_BASE_MAP[metrics];
@@ -695,7 +980,6 @@ function onGrnMetricsChange(idx) {
                 </div>
             </div>`;
     } else {
-        // For direct units hide pack_size (send 1 so validation passes)
         panelEl.innerHTML = `
             <input type="hidden" name="items[${idx}][pack_size]" value="1">
             <p class="text-xs text-blue-700">✔ Receiving directly — no unpacking needed.</p>`;
@@ -704,11 +988,8 @@ function onGrnMetricsChange(idx) {
     recalcGrnRow(idx);
 }
 
-function onGrnBaseUnitChange(idx) {
-    recalcGrnRow(idx);
-}
+function onGrnBaseUnitChange(idx) { recalcGrnRow(idx); }
 
-// ── Recalculate total base units for a GRN row ───────────────────────
 function recalcGrnRow(idx) {
     const metrics    = document.getElementById(`grnMetrics_${idx}`)?.value || '';
     const baseUnit   = document.getElementById(`grnBaseUnit_${idx}`)?.value || 'unit';
@@ -738,7 +1019,6 @@ function recalcGrnRow(idx) {
     }
 }
 
-// ── Cancel GRN ──────────────────────────────────────────────────────
 document.getElementById('cancelGrnBtn').addEventListener('click', function () {
     document.getElementById('grnItemsContainer').style.display = 'none';
     document.getElementById('grn_select').value = '';
@@ -746,12 +1026,11 @@ document.getElementById('cancelGrnBtn').addEventListener('click', function () {
     hideInlineError('grnErrorBox');
 });
 
-// ── GRN form submit validation ───────────────────────────────────────
 document.getElementById('grnForm').addEventListener('submit', function (e) {
     const rows = document.querySelectorAll('[id^="grnMetrics_"]');
     let errors = [];
 
-    rows.forEach((sel, i) => {
+    rows.forEach((sel) => {
         const idx      = sel.id.replace('grnMetrics_', '');
         const metrics  = sel.value;
         const baseUnit = document.getElementById(`grnBaseUnit_${idx}`)?.value;
@@ -776,14 +1055,19 @@ document.getElementById('grnForm').addEventListener('submit', function (e) {
 // ═══════════════════════════════════════════════════════════════════
 // Init
 // ═══════════════════════════════════════════════════════════════════
-// Default to manual card active
 document.getElementById('manualCard').classList.add('active','border-yellow-500','bg-yellow-50');
 document.getElementById('manualSection').style.display = 'block';
 
-// Restore after validation failure
 const oldMetrics = '{{ old("metrics") }}';
 if (oldMetrics) { metricsSelect.value = oldMetrics; updateManualForm(); }
 const oldBase = '{{ old("base_unit") }}';
 if (oldBase) { baseUnitSelect.value = oldBase; }
+
+// Restore barcode if validation failed and page was re-rendered
+const oldBarcode = '{{ old("barcode") }}';
+if (oldBarcode) {
+    barcodeInput.value = oldBarcode;
+    lookupBarcode(oldBarcode);
+}
 </script>
 @endsection
