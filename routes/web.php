@@ -575,3 +575,71 @@ Route::get('/my-sales/export/pdf', [App\Http\Controllers\Restaurant\CashierSales
     Route::get('/reports/export/pdf', [App\Http\Controllers\Restaurant\CashierPosController::class, 'exportPdf'])->name('reports.export.pdf');
 });
 
+// =====================================================
+// BAR MODULE Routes
+// =====================================================
+Route::prefix('bar')->name('bar.')->middleware(['auth', 'bar'])->group(function () {
+
+    // =====================================================
+    // BAR MANAGER / ADMIN Routes
+    // =====================================================
+
+    // Dashboard
+    Route::get('/dashboard', [App\Http\Controllers\Bar\BarDashboardController::class, 'index'])->name('dashboard');
+
+    // Profile
+    Route::get('/profile', [App\Http\Controllers\Bar\BarProfileController::class, 'edit'])->name('profile.edit');
+    Route::put('/profile', [App\Http\Controllers\Bar\BarProfileController::class, 'update'])->name('profile.update');
+
+    // Point of Sale (POS) - Manager can also access
+    Route::get('/pos', [App\Http\Controllers\Bar\BarPosController::class, 'index'])->name('pos');
+    Route::post('/create-invoice', [App\Http\Controllers\Bar\BarPosController::class, 'createInvoice'])->name('create-invoice');
+    Route::post('/sale/{id}/pay', [App\Http\Controllers\Bar\BarPosController::class, 'markAsPaid'])->name('mark-as-paid');
+    Route::get('/orders', [App\Http\Controllers\Bar\BarPosController::class, 'orders'])->name('orders');
+    Route::get('/orders/{id}', [App\Http\Controllers\Bar\BarPosController::class, 'showOrder'])->name('orders.show');
+    Route::get('/invoice/{id}', [App\Http\Controllers\Bar\BarPosController::class, 'getInvoice'])->name('invoice');
+    Route::get('/receipt/{id}', [App\Http\Controllers\Bar\BarPosController::class, 'getReceipt'])->name('receipt');
+
+    // Stock Management
+    Route::get('/stock', [App\Http\Controllers\Bar\BarStockController::class, 'index'])->name('stock');
+
+    // Requisitions
+    Route::prefix('requisitions')->name('requisitions.')->group(function () {
+        Route::get('/', [App\Http\Controllers\Bar\BarRequisitionController::class, 'index'])->name('index');
+        Route::get('/create', [App\Http\Controllers\Bar\BarRequisitionController::class, 'create'])->name('create');
+        Route::post('/', [App\Http\Controllers\Bar\BarRequisitionController::class, 'store'])->name('store');
+        Route::get('/{id}', [App\Http\Controllers\Bar\BarRequisitionController::class, 'show'])->name('show');
+    });
+
+    // Sales Reports
+    Route::prefix('sales')->name('sales.')->group(function () {
+        Route::get('/', [App\Http\Controllers\Bar\BarSalesController::class, 'index'])->name('index');
+    });
+
+    // Invoices / Payslips
+    Route::prefix('invoices')->name('invoices.')->group(function () {
+        Route::get('/', [App\Http\Controllers\Bar\BarInvoiceController::class, 'index'])->name('index');
+        Route::get('/{id}', [App\Http\Controllers\Bar\BarInvoiceController::class, 'show'])->name('show');
+    });
+
+    // Cashiers Management
+    Route::prefix('cashiers')->name('cashiers.')->group(function () {
+        Route::get('/', [App\Http\Controllers\Bar\BarCashierController::class, 'index'])->name('index');
+    });
+
+    // Reports
+    Route::prefix('reports')->name('reports.')->group(function () {
+        Route::get('/daily', [App\Http\Controllers\Bar\BarReportController::class, 'daily'])->name('daily');
+        Route::get('/monthly', [App\Http\Controllers\Bar\BarReportController::class, 'monthly'])->name('monthly');
+    });
+
+    // Notifications
+Route::prefix('notifications')->name('notifications.')->group(function () {
+    Route::get('/check', [App\Http\Controllers\Bar\BarNotificationController::class, 'check'])->name('check');
+    Route::get('/mark-read/{id}', [App\Http\Controllers\Bar\BarNotificationController::class, 'markAsRead'])->name('mark-read');
+    Route::get('/mark-all-read', [App\Http\Controllers\Bar\BarNotificationController::class, 'markAllAsRead'])->name('mark-all-read');
+});
+
+    // My Sales (Cashier personal sales)
+    Route::get('/my-sales', [App\Http\Controllers\Bar\BarCashierController::class, 'mySales'])->name('my-sales');
+});

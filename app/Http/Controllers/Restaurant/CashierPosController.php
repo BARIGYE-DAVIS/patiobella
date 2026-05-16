@@ -391,17 +391,18 @@ public function processSale(Request $request)
 
         $orderNumber = 'SALE-' . date('Ymd') . '-' . str_pad(rand(0, 9999), 4, '0', STR_PAD_LEFT);
 
-        $order = SalesOrder::create([
-            'order_number' => $orderNumber,
-            'cashier_id' => Auth::id(),
-            'customer_type' => 'dine_in',
-            'subtotal' => $request->total_amount,
-            'tax_amount' => 0,
-            'total_amount' => $request->total_amount,
-            'payment_method' => $request->payment_method,
-            'payment_status' => 'paid',
-            'status' => 'completed',
-        ]);
+    $order = SalesOrder::create([
+    'order_number' => $orderNumber,
+    'cashier_id' => Auth::id(),
+    'department_id' => Auth::user()->department_id,  // ← ADD THIS LINE
+    'customer_type' => $request->customer_type ?? 'dine_in',
+    'subtotal' => $request->total_amount,
+    'tax_amount' => 0,
+    'total_amount' => $request->total_amount,
+    'payment_method' => null,
+    'status' => 'pending',
+    'payment_status' => 'unpaid',
+    ]);
 
         DB::commit();
 

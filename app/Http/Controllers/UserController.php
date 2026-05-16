@@ -19,8 +19,8 @@ class UserController extends Controller
     public function index(Request $request)
     {
         $users = User::with(['role', 'department'])
-            ->when($request->filled('role'), function ($query) use ($request) {
-                return $query->where('role', $request->role);
+            ->when($request->filled('role_id'), function ($query) use ($request) {
+                return $query->where('role_id', $request->role_id);
             })
             ->when($request->filled('department_id'), function ($query) use ($request) {
                 return $query->where('department_id', $request->department_id);
@@ -80,42 +80,51 @@ class UserController extends Controller
     /**
      * Store a newly created user.
      */
-public function store(Request $request)
-{
-    try {
-        if (!Auth::user()->is_super_admin && !Auth::user()->can_create_users) {
-            return redirect()->route('users.index')
-                ->with('error', 'You do not have permission to create users.');
+    public function store(Request $request)
+    {
+        try {
+            if (!Auth::user()->is_super_admin && !Auth::user()->can_create_users) {
+                return redirect()->route('users.index')
+                    ->with('error', 'You do not have permission to create users.');
+            }
+
+            $validated = $request->validate([
+                'first_name'       => 'required|string|max:100',
+                'last_name'        => 'nullable|string|max:100',
+                'email'            => 'required|email|unique:users,email',
+                'password'         => 'required|string|min:8',
+                'role_id'          => 'required|exists:roles,id',
+                'department_id'    => 'nullable|exists:departments,id',
+                'is_active'        => 'sometimes|boolean',
+                'can_create_users' => 'sometimes|boolean',
+            ]);
+
+            // Get the role for logging only
+            $role = Role::find($validated['role_id']);
+
+            $validated['password'] = Hash::make($validated['password']);
+            $validated['role'] = $validated['role_id'];  // Save INTEGER, same as role_id
+            $validated['is_super_admin'] = false;
+            $validated['created_by'] = Auth::id();
+
+            $user = User::create($validated);
+
+            Log::info('User created', [
+                'user_id' => $user->id,
+                'role_id' => $validated['role_id'],
+                'role_name' => $role->name
+            ]);
+
+            return redirect()->route('users.index')->with('success', 'User created successfully.');
+
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return redirect()->back()->withErrors($e->errors())->withInput();
+        } catch (\Exception $e) {
+            Log::error('Error creating user: ' . $e->getMessage());
+            return redirect()->back()->with('error', 'An error occurred: ' . $e->getMessage())->withInput();
         }
-
-        $validated = $request->validate([
-            'first_name'       => 'required|string|max:100',
-            'last_name'        => 'nullable|string|max:100',
-            'email'            => 'required|email|unique:users,email',
-            'password'         => 'required|string|min:8',
-            'role_id'          => 'required|exists:roles,id',  // ← role_id
-            'department_id'    => 'nullable|exists:departments,id',
-            'is_active'        => 'sometimes|boolean',
-            'can_create_users' => 'sometimes|boolean',
-        ]);
-
-        $validated['password']       = Hash::make($validated['password']);
-        $validated['is_super_admin'] = false;
-        $validated['created_by']     = Auth::id();
-
-        $user = User::create($validated);
-
-        Log::info('User created', ['user_id' => $user->id]);
-
-        return redirect()->route('users.index')->with('success', 'User created successfully.');
-
-    } catch (\Illuminate\Validation\ValidationException $e) {
-        return redirect()->back()->withErrors($e->errors())->withInput();
-    } catch (\Exception $e) {
-        Log::error('Error creating user: ' . $e->getMessage());
-        return redirect()->back()->with('error', 'An error occurred: ' . $e->getMessage())->withInput();
     }
-}
+
     /**
      * Display the specified user.
      */
@@ -154,7 +163,6 @@ public function store(Request $request)
             }
 
             $user = User::findOrFail($id);
-            Log::info('User found', ['user' => $user->id, 'role' => $user->role]);
 
             // Cannot edit super admin unless you are super admin
             if ($user->is_super_admin && !Auth::user()->is_super_admin) {
@@ -165,12 +173,6 @@ public function store(Request $request)
 
             $roles = Role::where('is_active', true)->orderBy('name')->get();
             $departments = Department::where('is_active', true)->orderBy('name')->get();
-
-            Log::info('Edit form data loaded', [
-                'roles_count' => $roles->count(),
-                'departments_count' => $departments->count(),
-                'user_role_id' => $user->role
-            ]);
 
             return view('users.edit', compact('user', 'roles', 'departments'));
         } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
@@ -186,82 +188,92 @@ public function store(Request $request)
         }
     }
 
- /**
- * Update the specified user.
- */
-public function update(Request $request, $id)
-{
-    try {
-        if (!Auth::user()->is_super_admin && !Auth::user()->can_create_users) {
-            return redirect()->route('users.index')
-                ->with('error', 'You do not have permission to update users.');
+    /**
+     * Update the specified user.
+     */
+    public function update(Request $request, $id)
+    {
+        try {
+            if (!Auth::user()->is_super_admin && !Auth::user()->can_create_users) {
+                return redirect()->route('users.index')
+                    ->with('error', 'You do not have permission to update users.');
+            }
+
+            $user = User::findOrFail($id);
+
+            if ($user->is_super_admin && !Auth::user()->is_super_admin) {
+                return redirect()->route('users.index')
+                    ->with('error', 'You cannot edit a super administrator.');
+            }
+
+            $validated = $request->validate([
+                'first_name'       => 'required|string|max:100',
+                'last_name'        => 'nullable|string|max:100',
+                'email'            => ['required', 'email', Rule::unique('users', 'email')->ignore($id)],
+                'role_id'          => 'required|exists:roles,id',
+                'department_id'    => 'nullable|exists:departments,id',
+                'is_active'        => 'sometimes|boolean',
+                'can_create_users' => 'sometimes|boolean',
+            ]);
+
+            // Get the role for logging only
+            $role = Role::find($validated['role_id']);
+
+            $validated['role'] = $validated['role_id'];  // Save INTEGER, same as role_id
+            $validated['updated_by'] = Auth::id();
+
+            if ($request->filled('password')) {
+                $request->validate(['password' => 'required|string|min:8|confirmed']);
+                $validated['password'] = Hash::make($request->password);
+            }
+
+            $user->update($validated);
+
+            Log::info('User updated', [
+                'user_id' => $user->id,
+                'role_id' => $validated['role_id'],
+                'role_name' => $role->name
+            ]);
+
+            return redirect()->route('users.index')->with('success', 'User updated successfully.');
+
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return redirect()->back()->withErrors($e->errors())->withInput();
+        } catch (\Exception $e) {
+            Log::error('Error updating user: ' . $e->getMessage());
+            return redirect()->back()->with('error', 'An error occurred: ' . $e->getMessage())->withInput();
         }
-
-        $user = User::findOrFail($id);
-
-        if ($user->is_super_admin && !Auth::user()->is_super_admin) {
-            return redirect()->route('users.index')
-                ->with('error', 'You cannot edit a super administrator.');
-        }
-
-        $validated = $request->validate([
-            'first_name'       => 'required|string|max:100',
-            'last_name'        => 'nullable|string|max:100',
-            'email'            => ['required', 'email', Rule::unique('users', 'email')->ignore($id)],
-            'role_id'          => 'required|exists:roles,id',  // ← role_id
-            'department_id'    => 'nullable|exists:departments,id',
-            'is_active'        => 'sometimes|boolean',
-            'can_create_users' => 'sometimes|boolean',
-        ]);
-
-        if ($request->filled('password')) {
-            $request->validate(['password' => 'required|string|min:8|confirmed']);
-            $validated['password'] = Hash::make($request->password);
-        }
-
-        $validated['updated_by'] = Auth::id();
-        $user->update($validated);
-
-        Log::info('User updated', ['user_id' => $user->id]);
-
-        return redirect()->route('users.index')->with('success', 'User updated successfully.');
-
-    } catch (\Illuminate\Validation\ValidationException $e) {
-        return redirect()->back()->withErrors($e->errors())->withInput();
-    } catch (\Exception $e) {
-        Log::error('Error updating user: ' . $e->getMessage());
-        return redirect()->back()->with('error', 'An error occurred: ' . $e->getMessage())->withInput();
     }
-}
-/**
- * Update password only.
- */
-public function updatePassword(Request $request, $id)
-{
-    try {
-        if (!Auth::user()->is_super_admin && !Auth::user()->can_create_users) {
-            return redirect()->route('users.index')->with('error', 'You do not have permission.');
+
+    /**
+     * Update password only.
+     */
+    public function updatePassword(Request $request, $id)
+    {
+        try {
+            if (!Auth::user()->is_super_admin && !Auth::user()->can_create_users) {
+                return redirect()->route('users.index')->with('error', 'You do not have permission.');
+            }
+
+            $user = User::findOrFail($id);
+
+            $validated = $request->validate([
+                'password' => 'required|string|min:8|confirmed',
+            ]);
+
+            $user->update([
+                'password' => Hash::make($validated['password']),
+                'updated_by' => Auth::user()->id
+            ]);
+
+            Log::info('Password updated for user', ['user_id' => $id, 'updated_by' => Auth::id()]);
+
+            return redirect()->route('users.edit', $id)->with('success', 'Password updated successfully.');
+        } catch (\Exception $e) {
+            Log::error('Error updating password: ' . $e->getMessage());
+            return redirect()->back()->with('error', 'Failed to update password.')->withInput();
         }
-
-        $user = User::findOrFail($id);
-
-        $validated = $request->validate([
-            'password' => 'required|string|min:8|confirmed',
-        ]);
-
-        $user->update([
-            'password' => Hash::make($validated['password']),
-            'updated_by' => Auth::user()->id
-        ]);
-
-        Log::info('Password updated for user', ['user_id' => $id, 'updated_by' => Auth::id()]);
-
-        return redirect()->route('users.edit', $id)->with('success', 'Password updated successfully.');
-    } catch (\Exception $e) {
-        Log::error('Error updating password: ' . $e->getMessage());
-        return redirect()->back()->with('error', 'Failed to update password.')->withInput();
     }
-}
 
     /**
      * Delete (soft delete) the specified user.

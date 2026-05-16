@@ -76,8 +76,10 @@ class SalesController extends Controller
                 break;
             case 'all_time':
             default:
-                // Earliest sale date → today
-                $earliest = SalesOrder::where('payment_status', 'paid')->min('created_at');
+                // Earliest sale date → today (filtered by department)
+                $earliest = SalesOrder::where('payment_status', 'paid')
+                    ->where('department_id', Auth::user()->department_id)
+                    ->min('created_at');
                 $from = $earliest
                     ? \Carbon\Carbon::parse($earliest)->format('Y-m-d')
                     : now()->format('Y-m-d');
@@ -124,11 +126,13 @@ class SalesController extends Controller
 
             [$from, $to, $period] = $this->resolveDateRange($request);
 
-            $salesData      = $this->getSalesData($from, $to);
-            $topProducts    = $this->getTopProducts($from, $to);
-            $hourlySales    = $this->getHourlySales($from, $to);
-            $dailyTrend     = $this->getDailyTrend($from, $to);
-            $paymentMethods = $this->getPaymentMethodStats($from, $to);
+            $departmentId = $user->department_id;
+
+            $salesData      = $this->getSalesData($from, $to, $departmentId);
+            $topProducts    = $this->getTopProducts($from, $to, $departmentId);
+            $hourlySales    = $this->getHourlySales($from, $to, $departmentId);
+            $dailyTrend     = $this->getDailyTrend($from, $to, $departmentId);
+            $paymentMethods = $this->getPaymentMethodStats($from, $to, $departmentId);
             $menuItemNames  = MenuItem::where('is_active', true)->pluck('name')->toArray();
 
             // Fetch sales list here so it's available everywhere in the view
@@ -136,11 +140,13 @@ class SalesController extends Controller
                 ->whereDate('created_at', '>=', $from)
                 ->whereDate('created_at', '<=', $to)
                 ->where('payment_status', 'paid')
+                ->where('department_id', $departmentId)
                 ->orderBy('created_at', 'desc')
                 ->get();
 
             Log::info('Sales dashboard loaded', [
                 'user_id'      => $user->id,
+                'department_id'=> $departmentId,
                 'period'       => $period,
                 'from'         => $from,
                 'to'           => $to,
@@ -176,7 +182,7 @@ class SalesController extends Controller
             $filename = 'sales_report_' . $from . '_to_' . $to . '.xlsx';
 
             return Excel::download(
-                new \App\Exports\SalesReportExport($from, $to),
+                new \App\Exports\SalesReportExport($from, $to, $user->department_id),
                 $filename
             );
 
@@ -199,13 +205,15 @@ class SalesController extends Controller
             }
 
             [$from, $to, $period] = $this->resolveDateRange($request);
+            $departmentId = $user->department_id;
 
-            $salesData   = $this->getSalesData($from, $to);
-            $topProducts = $this->getTopProducts($from, $to, 20);
+            $salesData   = $this->getSalesData($from, $to, $departmentId);
+            $topProducts = $this->getTopProducts($from, $to, $departmentId, 20);
             $salesList   = SalesOrder::with('items')
                 ->whereDate('created_at', '>=', $from)
                 ->whereDate('created_at', '<=', $to)
                 ->where('payment_status', 'paid')
+                ->where('department_id', $departmentId)
                 ->orderBy('created_at', 'desc')
                 ->get();
 
@@ -271,6 +279,7 @@ class SalesController extends Controller
             $order = SalesOrder::create([
                 'order_number'   => $orderNumber,
                 'cashier_id'     => Auth::id(),
+                'department_id'  => $user->department_id,
                 'customer_type'  => $request->customer_type ?? 'dine_in',
                 'subtotal'       => $request->total_amount,
                 'tax_amount'     => 0,
@@ -321,7 +330,7 @@ class SalesController extends Controller
             if (!$user->department || $user->department->name !== 'RESTAURANT') {
                 return redirect()->route('dashboard')->with('error', 'Unauthorized access');
             }
-            $order = SalesOrder::with('items')->findOrFail($id);
+            $order = SalesOrder::with('items')->where('department_id', $user->department_id)->findOrFail($id);
             return view('restaurant.sales.show', compact('order'));
         } catch (\Exception $e) {
             return redirect()->route('restaurant.sales.index')->with('error', 'Sale not found.');
@@ -335,7 +344,7 @@ class SalesController extends Controller
             if (!$user->department || $user->department->name !== 'RESTAURANT') {
                 return redirect()->route('dashboard')->with('error', 'Unauthorized access');
             }
-            $order = SalesOrder::with('items')->findOrFail($id);
+            $order = SalesOrder::with('items')->where('department_id', $user->department_id)->findOrFail($id);
             return view('restaurant.sales.receipt', compact('order'));
         } catch (\Exception $e) {
             return redirect()->route('restaurant.sales.index')->with('error', 'Receipt not found.');
@@ -352,6 +361,7 @@ class SalesController extends Controller
             $date   = $request->get('date', today()->toDateString());
             $orders = SalesOrder::whereDate('created_at', $date)
                 ->where('payment_status', 'paid')
+                ->where('department_id', $user->department_id)
                 ->with('items')
                 ->get();
 
@@ -370,11 +380,12 @@ class SalesController extends Controller
     // PRIVATE HELPERS
     // =========================================================
 
-    private function getSalesData($from, $to): array
+    private function getSalesData($from, $to, $departmentId): array
     {
         $orders = SalesOrder::whereDate('created_at', '>=', $from)
             ->whereDate('created_at', '<=', $to)
             ->where('payment_status', 'paid')
+            ->where('department_id', $departmentId)
             ->get();
 
         return [
@@ -387,6 +398,7 @@ class SalesController extends Controller
                 $q->whereDate('created_at', '>=', $from)
                   ->whereDate('created_at', '<=', $to)
                   ->where('payment_status', 'paid')
+                  ->where('department_id', $departmentId)
             )->sum('quantity'),
             'cash_sales'          => $orders->where('payment_method', 'cash')->sum('total_amount'),
             'card_sales'          => $orders->where('payment_method', 'card')->sum('total_amount'),
@@ -394,7 +406,7 @@ class SalesController extends Controller
         ];
     }
 
-    private function getTopProducts($from, $to, $limit = 10)
+    private function getTopProducts($from, $to, $departmentId, $limit = 10)
     {
         return SalesOrderItem::select(
                 'item_name',
@@ -405,6 +417,7 @@ class SalesController extends Controller
                 $q->whereDate('created_at', '>=', $from)
                   ->whereDate('created_at', '<=', $to)
                   ->where('payment_status', 'paid')
+                  ->where('department_id', $departmentId)
             )
             ->groupBy('item_name')
             ->orderBy('total_revenue', 'desc')
@@ -412,7 +425,7 @@ class SalesController extends Controller
             ->get();
     }
 
-    private function getHourlySales($from, $to): array
+    private function getHourlySales($from, $to, $departmentId): array
     {
         $hourlyData = array_fill(0, 24, 0);
 
@@ -423,6 +436,7 @@ class SalesController extends Controller
             ->whereDate('created_at', '>=', $from)
             ->whereDate('created_at', '<=', $to)
             ->where('payment_status', 'paid')
+            ->where('department_id', $departmentId)
             ->groupBy('hour')
             ->get()
             ->each(fn($row) => $hourlyData[$row->hour] = (float) $row->total);
@@ -430,7 +444,7 @@ class SalesController extends Controller
         return $hourlyData;
     }
 
-    private function getDailyTrend($from, $to)
+    private function getDailyTrend($from, $to, $departmentId)
     {
         return SalesOrder::select(
                 DB::raw('DATE(created_at) as date'),
@@ -440,12 +454,13 @@ class SalesController extends Controller
             ->whereDate('created_at', '>=', $from)
             ->whereDate('created_at', '<=', $to)
             ->where('payment_status', 'paid')
+            ->where('department_id', $departmentId)
             ->groupBy('date')
             ->orderBy('date', 'asc')
             ->get();
     }
 
-    private function getPaymentMethodStats($from, $to)
+    private function getPaymentMethodStats($from, $to, $departmentId)
     {
         return SalesOrder::select(
                 'payment_method',
@@ -456,6 +471,7 @@ class SalesController extends Controller
             ->whereDate('created_at', '<=', $to)
             ->where('payment_status', 'paid')
             ->whereNotNull('payment_method')
+            ->where('department_id', $departmentId)
             ->groupBy('payment_method')
             ->get();
     }

@@ -33,14 +33,6 @@ class InventoryController extends Controller
         return (float) (InventoryItem::find($inventoryItemId)?->current_stock ?? 0);
     }
 
-    // ─────────────────────────────────────────────────────────────────────────────
-    // ▶▶ NEW: BARCODE LOOKUP (AJAX)
-    // GET /store/inventory/barcode-lookup?barcode=xxxxx
-    //
-    // Returns:
-    //   { found: true,  item: { id, name, item_code, barcode, ... } }  — existing item
-    //   { found: false }                                                — no match
-    // ─────────────────────────────────────────────────────────────────────────────
 
     public function barcodeLookup(Request $request)
     {

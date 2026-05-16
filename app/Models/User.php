@@ -17,7 +17,7 @@ class User extends Authenticatable
         'email',
         'department_id',
         'role_id',       // ← use role_id as the FK
-        'role',          // ← keep for backward compat but stop writing to it
+        'role',          
         'password',
         'is_active',
         'can_create_users',

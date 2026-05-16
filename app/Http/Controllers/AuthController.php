@@ -113,6 +113,32 @@ class AuthController extends Controller
                 return redirect()->route('restaurant.dashboard')
                     ->with('success', 'Welcome to Restaurant Dashboard, ' . $user->first_name);
             }
+
+
+                if ($departmentName === 'BAR') {
+                // ── Resolve role name ─────────────────────────────────────────
+                // Role may be stored as a string on the user directly,
+                // or via a role_id foreign key — handle both.
+                $roleName = null;
+
+                if ($user->role_id) {
+                    $role     = Role::find($user->role_id);
+                    $roleName = $role->name ?? null;
+                } elseif (!empty($user->role)) {
+                    $roleName = $user->role;
+                }
+
+                // ── CASHIER gets their own dashboard ──────────────────────────
+                // This check MUST come before the generic restaurant redirect.
+                if ($roleName === 'Cashier') {
+                    return redirect()->route('bar.cashier.dashboard')
+                        ->with('success', 'Welcome to Cashier Dashboard, ' . $user->first_name);
+                }
+
+                // ── All other restaurant staff ────────────────────────────────
+                return redirect()->route('bar.dashboard')
+                    ->with('success', 'Welcome to Bar Dashboard, ' . $user->first_name);
+            }
         }
 
         return redirect()->route('dashboard')

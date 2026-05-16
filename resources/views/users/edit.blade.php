@@ -1,3 +1,5 @@
+{{-- resources/views/users/edit.blade.php --}}
+
 @extends('layouts.app')
 
 @section('title', 'Edit User')
@@ -41,17 +43,17 @@
             </div>
 
             <div>
-                <label for="role" class="block text-gray-700 font-medium mb-2">Role <span class="text-red-500">*</span></label>
-                <select name="role" id="role" required
-                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 @error('role') border-red-500 @enderror">
+                <label for="role_id" class="block text-gray-700 font-medium mb-2">Role <span class="text-red-500">*</span></label>
+                <select name="role_id" id="role_id" required
+                    class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 @error('role_id') border-red-500 @enderror">
                     <option value="">Select Role</option>
                     @foreach($roles as $role)
-                        <option value="{{ $role->id }}" {{ old('role', $user->role) == $role->id ? 'selected' : '' }}>
+                        <option value="{{ $role->id }}" {{ old('role_id', $user->role_id) == $role->id ? 'selected' : '' }}>
                             {{ $role->name }}
                         </option>
                     @endforeach
                 </select>
-                @error('role')
+                @error('role_id')
                     <p class="text-red-500 text-sm mt-1">{{ $message }}</p>
                 @enderror
             </div>
@@ -59,7 +61,7 @@
             <div>
                 <label for="department_id" class="block text-gray-700 font-medium mb-2">Department</label>
                 <select name="department_id" id="department_id"
-                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 @error('department_id') border-red-500 @enderror">
+                    class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 @error('department_id') border-red-500 @enderror">
                     <option value="">Select Department</option>
                     @foreach($departments as $department)
                         <option value="{{ $department->id }}" {{ old('department_id', $user->department_id) == $department->id ? 'selected' : '' }}>
@@ -147,7 +149,7 @@
                     <p class="font-medium text-red-800">Delete this user</p>
                     <p class="text-sm text-red-600">Once deleted, this user can be restored by an administrator.</p>
                 </div>
-                <button type="button" onclick="deleteUser({{ $user->id }})" 
+                <button type="button" onclick="deleteUser({{ $user->id }})"
                         class="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition">
                     Delete User
                 </button>

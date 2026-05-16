@@ -34,71 +34,88 @@ class CashierController extends Controller
         }
     }
 
-
     /**
- * Cashier Dashboard
- */
-public function dashboard()
-{
-    try {
-        Log::info('Cashier dashboard accessed', ['user_id' => Auth::id()]);
+     * Cashier Dashboard
+     */
+    public function dashboard()
+    {
+        try {
+            Log::info('Cashier dashboard accessed', ['user_id' => Auth::id()]);
 
-        $user = Auth::user();
+            $user = Auth::user();
 
-        if (!$user->department || $user->department->name !== 'RESTAURANT') {
-            return redirect()->route('dashboard')->with('error', 'Unauthorized access.');
-        }
-
-        $roleName = $this->getRoleName($user);
-        if ($roleName !== 'Cashier') {
-            return redirect()->route('dashboard')->with('error', 'Cashier access only.');
-        }
-
-        $todaySales = SalesOrder::whereDate('created_at', today())->sum('total_amount');
-        $todayOrders = SalesOrder::whereDate('created_at', today())->count();
-        $unpaidOrders = SalesOrder::where('payment_status', 'unpaid')->count();
-
-        // Calculate low stock count
-        $departmentId = $user->department_id;
-        $lowStockCount = 0;
-
-        $stockItems = DepartmentRequisitionItem::with(['inventoryItem'])
-            ->whereHas('departmentRequisition', function($q) use ($departmentId) {
-                $q->where('department_id', $departmentId)
-                  ->whereIn('status', ['issued', 'partially_issued', 'partially_consumed', 'partially_returned']);
-            })
-            ->where('issued_total_pieces', '>', 0)
-            ->get();
-
-        foreach ($stockItems as $item) {
-            $issued = (float) ($item->issued_total_pieces ?? 0);
-            $consumed = (float) ($item->quantity_consumed ?? 0);
-            $returned = (float) ($item->returned_total_pieces ?? 0);
-            $sold = (float) ($item->quantity_sold ?? 0);
-            $remaining = $issued - ($consumed + $returned + $sold);
-            if ($remaining > 0 && $remaining < 10) {
-                $lowStockCount++;
+            if (!$user->department || $user->department->name !== 'RESTAURANT') {
+                return redirect()->route('dashboard')->with('error', 'Unauthorized access.');
             }
+
+            $roleName = $this->getRoleName($user);
+            if ($roleName !== 'Cashier') {
+                return redirect()->route('dashboard')->with('error', 'Cashier access only.');
+            }
+
+            $cashierId = Auth::id();
+            $departmentId = $user->department_id;
+
+            // Today's sales for THIS CASHIER ONLY
+            $todaySales = SalesOrder::whereDate('created_at', today())
+                ->where('payment_status', 'paid')
+                ->where('cashier_id', $cashierId)
+                ->sum('total_amount');
+
+            // Today's orders for THIS CASHIER ONLY
+            $todayOrders = SalesOrder::whereDate('created_at', today())
+                ->where('payment_status', 'paid')
+                ->where('cashier_id', $cashierId)
+                ->count();
+
+            // Unpaid orders for THIS CASHIER ONLY
+            $unpaidOrders = SalesOrder::where('payment_status', 'unpaid')
+                ->where('cashier_id', $cashierId)
+                ->count();
+
+            // Calculate low stock count for the department
+            $lowStockCount = 0;
+
+            $stockItems = DepartmentRequisitionItem::with(['inventoryItem'])
+                ->whereHas('departmentRequisition', function($q) use ($departmentId) {
+                    $q->where('department_id', $departmentId)
+                      ->whereIn('status', ['issued', 'partially_issued', 'partially_consumed', 'partially_returned']);
+                })
+                ->where('issued_total_pieces', '>', 0)
+                ->get();
+
+            foreach ($stockItems as $item) {
+                $issued = (float) ($item->issued_total_pieces ?? 0);
+                $consumed = (float) ($item->quantity_consumed ?? 0);
+                $returned = (float) ($item->returned_total_pieces ?? 0);
+                $sold = (float) ($item->quantity_sold ?? 0);
+                $remaining = $issued - ($consumed + $returned + $sold);
+                if ($remaining > 0 && $remaining < 10) {
+                    $lowStockCount++;
+                }
+            }
+
+            // Recent orders for THIS CASHIER ONLY
+            $recentOrders = SalesOrder::with('items.menuItem')
+                ->where('cashier_id', $cashierId)
+                ->orderBy('created_at', 'desc')
+                ->limit(10)
+                ->get();
+
+            return view('restaurant.cashier.dashboard', compact(
+                'todaySales',
+                'todayOrders',
+                'unpaidOrders',
+                'lowStockCount',
+                'recentOrders'
+            ));
+
+        } catch (\Exception $e) {
+            Log::error('Cashier dashboard error', ['user_id' => Auth::id(), 'error' => $e->getMessage()]);
+            return redirect()->route('dashboard')->with('error', 'Failed to load dashboard.');
         }
-
-        $recentOrders = SalesOrder::with('items.menuItem')
-            ->orderBy('created_at', 'desc')
-            ->limit(10)
-            ->get();
-
-        return view('restaurant.cashier.dashboard', compact(
-            'todaySales',
-            'todayOrders',
-            'unpaidOrders',
-            'lowStockCount',
-            'recentOrders'
-        ));
-
-    } catch (\Exception $e) {
-        Log::error('Cashier dashboard error', ['user_id' => Auth::id(), 'error' => $e->getMessage()]);
-        return redirect()->route('dashboard')->with('error', 'Failed to load dashboard.');
     }
-}
+
     /**
      * Point of Sale (POS) Screen
      */
@@ -164,6 +181,7 @@ public function dashboard()
 
     /**
      * Orders List - Show all orders with unpaid/paid filter
+     * Cashier sees ONLY their own orders
      */
     public function orders(Request $request)
     {
@@ -181,8 +199,10 @@ public function dashboard()
 
             $status = $request->get('status', 'unpaid');
             $search = $request->get('search', '');
+            $cashierId = Auth::id();
 
             $orders = SalesOrder::with(['cashier', 'items'])
+                ->where('cashier_id', $cashierId)  // ← FILTER BY THIS CASHIER
                 ->when($status === 'unpaid', function($q) {
                     $q->where('payment_status', 'unpaid');
                 })
@@ -202,8 +222,8 @@ public function dashboard()
                 return response()->json([
                     'html' => $html,
                     'pagination' => $pagination,
-                    'unpaidCount' => SalesOrder::where('payment_status', 'unpaid')->count(),
-                    'paidCount' => SalesOrder::where('payment_status', 'paid')->count(),
+                    'unpaidCount' => SalesOrder::where('payment_status', 'unpaid')->where('cashier_id', $cashierId)->count(),
+                    'paidCount' => SalesOrder::where('payment_status', 'paid')->where('cashier_id', $cashierId)->count(),
                 ]);
             }
 
@@ -220,6 +240,7 @@ public function dashboard()
 
     /**
      * Show a single order (invoice if unpaid, receipt if paid)
+     * Cashier can ONLY see their own orders
      */
     public function showOrder($id)
     {
@@ -235,7 +256,11 @@ public function dashboard()
                 return redirect()->route('dashboard')->with('error', 'Cashier access only.');
             }
 
-            $order = SalesOrder::with('items')->findOrFail($id);
+            $cashierId = Auth::id();
+
+            $order = SalesOrder::with('items')
+                ->where('cashier_id', $cashierId)  // ← FILTER BY THIS CASHIER
+                ->findOrFail($id);
 
             if ($order->payment_status !== 'paid') {
                 return view('restaurant.cashier.invoice', compact('order'));
@@ -251,6 +276,7 @@ public function dashboard()
 
     /**
      * Mark invoice as paid
+     * Cashier can ONLY mark THEIR OWN orders as paid
      */
     public function markAsPaid($id, Request $request)
     {
@@ -272,7 +298,7 @@ public function dashboard()
 
             DB::beginTransaction();
 
-            $order = SalesOrder::findOrFail($id);
+            $order = SalesOrder::where('cashier_id', Auth::id())->findOrFail($id);  // ← FILTER BY THIS CASHIER
 
             if ($order->payment_status === 'paid') {
                 return response()->json(['success' => false, 'message' => 'Order already paid'], 400);
@@ -309,6 +335,7 @@ public function dashboard()
 
     /**
      * View Receipt for paid order
+     * Cashier can ONLY view THEIR OWN paid orders
      */
     public function getReceipt($id)
     {
@@ -319,7 +346,9 @@ public function dashboard()
                 return redirect()->route('dashboard')->with('error', 'Unauthorized access.');
             }
 
-            $order = SalesOrder::with('items')->findOrFail($id);
+            $order = SalesOrder::with('items')
+                ->where('cashier_id', Auth::id())  // ← FILTER BY THIS CASHIER
+                ->findOrFail($id);
 
             if ($order->payment_status !== 'paid') {
                 return redirect()->route('restaurant.cashier.orders')->with('error', 'Order not paid yet.');
@@ -342,7 +371,7 @@ public function dashboard()
     }
 
     /**
-     * Daily Report
+     * Daily Report - Cashier sees ONLY their own sales
      */
     public function dailyReport(Request $request)
     {
@@ -351,6 +380,7 @@ public function dashboard()
 
             $orders = SalesOrder::whereDate('created_at', $date)
                 ->where('payment_status', 'paid')
+                ->where('cashier_id', Auth::id())  // ← FILTER BY THIS CASHIER
                 ->with('items')
                 ->get();
 

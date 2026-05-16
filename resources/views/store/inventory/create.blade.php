@@ -293,6 +293,7 @@
                                 <option value="kg"          {{ old('metrics')=='kg'          ? 'selected':'' }}>Kilograms (kg)</option>
                                 <option value="litres"      {{ old('metrics')=='litres'      ? 'selected':'' }}>Litres (L)</option>
                                 <option value="pcs"         {{ old('metrics')=='pcs'         ? 'selected':'' }}>Pieces (pcs)</option>
+                                <option value="bottles"     {{ old('metrics')=='bottles'     ? 'selected':'' }}>Bottles</option>
                                 <option value="grams"       {{ old('metrics')=='grams'       ? 'selected':'' }}>Grams (g)</option>
                                 <option value="millilitres" {{ old('metrics')=='millilitres' ? 'selected':'' }}>Millilitres (ml)</option>
                             </optgroup>
