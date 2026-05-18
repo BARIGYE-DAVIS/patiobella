@@ -1,15 +1,15 @@
-{{-- resources/views/restaurant/cashier/receipt.blade.php --}}
+{{-- resources/views/bar/cashier/invoice.blade.php --}}
 
-@extends('layouts.cashier')
+@extends('layouts.bar-cashier')
 
-@section('title', 'Receipt')
+@section('title', 'Bar Invoice')
 
-@section('page-title', 'Payment Receipt')
+@section('page-title', 'Invoice')
 
 @section('content')
 <style>
     /* Screen styles */
-    .receipt-wrap {
+    .invoice-wrap {
         max-width: 320px;
         margin: 0 auto;
         background: white;
@@ -21,7 +21,7 @@
 
     /* Hide layout header on print */
     @media print {
-        header, nav, .sidebar, .main-header, .page-header, .navbar, .cashier-navbar {
+        header, nav, .sidebar, .main-header, .page-header, .navbar, .bar-cashier-navbar {
             display: none !important;
         }
         body {
@@ -30,17 +30,17 @@
         }
     }
 
-    /* Print styles - exact match to sales receipt */
+    /* Print styles */
     @media print {
         .no-print { display: none !important; }
-        #receipt-print { display: block !important; }
+        #invoice-print { display: block !important; }
 
         @page {
             size: 80mm auto;
             margin: 4mm 3mm;
         }
 
-        #receipt-print {
+        #invoice-print {
             width: 72mm;
             margin: 0 auto;
             font-family: 'Courier New', Courier, monospace;
@@ -126,31 +126,42 @@
             font-size: 7pt;
             letter-spacing: 3px;
         }
+
+        .status-unpaid {
+            color: #e67e22;
+            font-weight: bold;
+        }
     }
 </style>
 
 {{-- Screen: Action Buttons --}}
 <div class="no-print" style="max-width: 320px; margin: 0 auto 12px auto;">
     <div class="flex justify-between gap-2">
-        <a href="{{ route('restaurant.cashier.orders') }}" class="bg-gray-600 text-white px-4 py-2 rounded-lg text-sm">← Back to Orders</a>
+        <a href="{{ route('bar.cashier.orders') }}" class="bg-gray-600 text-white px-4 py-2 rounded-lg text-sm flex items-center gap-1">
+            <i class="fas fa-arrow-left"></i> Back
+        </a>
         <div class="flex gap-2">
-            <button onclick="window.print()" class="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm"> <i class="fas fa-print"></i> Print</button>
-            <a href="{{ route('restaurant.cashier.pos') }}" class="bg-orange-600 text-white px-4 py-2 rounded-lg text-sm"> <i class="fas fa-plus"></i> New Sale</a>
+            <button onclick="window.print()" class="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm flex items-center gap-1">
+                <i class="fas fa-print"></i> Print
+            </button>
+            <button onclick="openPaymentModal()" class="bg-green-600 text-white px-4 py-2 rounded-lg text-sm flex items-center gap-1">
+                <i class="fas fa-credit-card"></i> Pay Now
+            </button>
         </div>
     </div>
 </div>
 
-{{-- Screen: Receipt Preview --}}
-<div class="receipt-wrap no-print">
+{{-- Screen: Invoice Preview --}}
+<div class="invoice-wrap no-print">
     <div style="padding:12px; font-family:'Courier New',monospace; font-size:11px;">
         {{-- Header --}}
         <div style="text-align:center;">
-            <div style="font-size:15px; font-weight:bold;">PATIO BELLA</div>
-            <div style="font-size:9px;">Restaurant & Lounge</div>
+            <div style="font-size:15px; font-weight:bold;">PATIO BELLA - BAR</div>
+            <div style="font-size:9px;">Bar & Lounge</div>
             <div style="font-size:9px;">Kampala Road, Kampala</div>
             <div style="font-size:9px;">Tel: +256 XXX XXX XXX</div>
             <div class="border-t border-dashed border-gray-300 my-2"></div>
-            <div style="font-size:11px; font-weight:bold;">PAYMENT RECEIPT</div>
+            <div style="font-size:11px; font-weight:bold;">TAX INVOICE</div>
             <div style="font-size:10px; font-weight:bold;">{{ $order->order_number }}</div>
             <div class="border-t border-dashed border-gray-300 my-2"></div>
         </div>
@@ -166,12 +177,12 @@
                 <span>{{ Auth::user()->first_name ?? 'N/A' }}</span>
             </div>
             <div style="display:flex; justify-content:space-between; font-size:9px; margin-top:3px;">
-                <span>Payment:</span>
-                <span>{{ ucfirst(str_replace('_', ' ', $order->payment_method ?? 'cash')) }}</span>
+                <span>Order Type:</span>
+                <span>{{ ucfirst(str_replace('_', ' ', $order->customer_type ?? 'dine_in')) }}</span>
             </div>
             <div style="display:flex; justify-content:space-between; font-size:9px; margin-top:3px;">
                 <span>Status:</span>
-                <span style="color:#2ecc71; font-weight:bold;">PAID</span>
+                <span style="color:#e67e22; font-weight:bold;">UNPAID</span>
             </div>
         </div>
         <div class="border-t border-dashed border-gray-300 my-2"></div>
@@ -195,47 +206,28 @@
 
         <div class="border-t border-dashed border-gray-300 my-2"></div>
 
-        {{-- Payment Details --}}
-        <div style="margin: 8px 0;">
-            <div style="display:flex; justify-content:space-between; font-size:10px;">
-                <span>Total Amount:</span>
-                <span>UGX {{ number_format($order->total_amount, 0) }}</span>
-            </div>
-            <div style="display:flex; justify-content:space-between; font-size:10px; margin-top:4px;">
-                <span>Amount Paid:</span>
-                <span>UGX {{ number_format($order->amount_paid ?? $order->total_amount, 0) }}</span>
-            </div>
-            @if(($order->change_amount ?? 0) > 0)
-            <div style="display:flex; justify-content:space-between; font-size:10px; margin-top:4px; color:#e67e22;">
-                <span>Change Returned:</span>
-                <span>UGX {{ number_format($order->change_amount, 0) }}</span>
-            </div>
-            @endif
-        </div>
-        <div class="border-t border-dashed border-gray-300 my-2"></div>
-
-        {{-- Total Paid --}}
+        {{-- Total --}}
         <div style="display:flex; justify-content:space-between; font-size:12px; font-weight:bold; margin:4px 0;">
-            <span>TOTAL PAID:</span>
-            <span style="color:#2ecc71;">UGX {{ number_format($order->amount_paid ?? $order->total_amount, 0) }}</span>
+            <span>TOTAL:</span>
+            <span>UGX {{ number_format($order->total_amount, 0) }}</span>
         </div>
         <div class="border-t border-dashed border-gray-300 my-2"></div>
 
         {{-- Footer --}}
         <div style="text-align:center; font-size:9px;">
             <div>Thank you for your business!</div>
-            <div>** Paid & Confirmed **</div>
+            <div>** Original Invoice **</div>
         </div>
     </div>
 </div>
 
-{{-- PRINT ONLY: Exact same format as sales receipt --}}
-<div id="receipt-print" style="display: none;">
+{{-- PRINT ONLY --}}
+<div id="invoice-print" style="display: none;">
 
-    {{-- Restaurant header --}}
+    {{-- Header --}}
     <div class="rct-header">
-        <div class="rct-logo">PATIO BELLA</div>
-        <div class="rct-tagline">Restaurant & Lounge</div>
+        <div class="rct-logo">PATIO BELLA - BAR</div>
+        <div class="rct-tagline">Bar & Lounge</div>
         <div class="rct-address">
             Kampala, Uganda &bull; Tel: +256 XXX XXX XXX
         </div>
@@ -243,9 +235,9 @@
 
     <hr class="rct-divider-solid">
 
-    {{-- Receipt label --}}
+    {{-- Invoice label --}}
     <div style="text-align:center; font-weight:700; font-size:9pt; margin-bottom:2mm; letter-spacing:1px;">
-        *** PAYMENT RECEIPT ***
+        *** TAX INVOICE ***
     </div>
 
     {{-- Order meta --}}
@@ -273,6 +265,10 @@
             {{ ucfirst(str_replace('_', ' ', $order->customer_type ?? 'Dine In')) }}
         </span>
     </div>
+    <div class="rct-info-row">
+        <span class="rct-info-label">Status</span>
+        <span class="rct-info-val status-unpaid">UNPAID</span>
+    </div>
 
     <hr class="rct-divider">
 
@@ -297,7 +293,7 @@
                 <td class="item-desc" colspan="2">
                     {{ number_format($item->quantity, 0) }} x {{ number_format($item->unit_price, 0) }}
                 </td>
-                <td>\n                </td
+                <td></td
             </tr>
             @endif
             @endforeach
@@ -314,56 +310,18 @@
         </div>
 
         <div class="rct-total-row grand">
-            <span class="rct-tlabel">TOTAL</span>
+            <span class="rct-tlabel">TOTAL DUE</span>
             <span class="rct-tval">UGX {{ number_format($order->total_amount, 0) }}</span>
         </div>
     </div>
 
     <hr class="rct-divider">
 
-    {{-- Payment info --}}
-    <div class="rct-info-row">
-        <span class="rct-info-label">Payment</span>
-        <span class="rct-info-val">
-            @if($order->payment_method === 'cash')        Cash
-            @elseif($order->payment_method === 'card')    Card
-            @elseif($order->payment_method === 'mobile_money') Mobile Money
-            @else {{ ucfirst($order->payment_method ?? '') }}
-            @endif
-        </span>
-    </div>
-
-    @if($order->amount_paid)
-    <div class="rct-info-row">
-        <span class="rct-info-label">Amount Paid</span>
-        <span class="rct-info-val">UGX {{ number_format($order->amount_paid, 0) }}</span>
-    </div>
-    @endif
-
-    @if($order->change_amount && $order->change_amount > 0)
-    <div class="rct-info-row">
-        <span class="rct-info-label">Change</span>
-        <span class="rct-info-val">UGX {{ number_format($order->change_amount, 0) }}</span>
-    </div>
-    @endif
-
-    @if($order->notes)
-    <hr class="rct-divider">
-    <div style="font-size:7.5pt; margin-bottom:1mm;"><strong>Note:</strong> {{ $order->notes }}</div>
-    @endif
-
-    <hr class="rct-divider">
-
-    {{-- Barcode-style invoice reference --}}
-    <div class="rct-barcode">
-        {{ $order->order_number }}
-    </div>
-
     {{-- Footer --}}
     <div class="rct-footer">
         <div class="rct-thank-you">THANK YOU!</div>
-        <div style="margin-top:1.5mm;">Please come again &bull; Enjoy your meal</div>
-        <div style="margin-top:1mm;">This is your official receipt.</div>
+        <div style="margin-top:1.5mm;">Please present this invoice for payment</div>
+        <div style="margin-top:1mm;">** Original Invoice **</div>
         <div style="margin-top:0.5mm; font-size:7pt;">
             Powered by PatioBellaPOS &bull; {{ now()->format('Y') }}
         </div>
@@ -371,13 +329,130 @@
 
 </div>
 
+{{-- Payment Modal --}}
+<div id="paymentModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden no-print">
+    <div class="bg-white rounded-xl shadow-xl w-96 max-w-full p-5">
+        <div class="flex justify-between items-center mb-4">
+            <h3 class="text-lg font-bold">
+                <i class="fas fa-credit-card text-green-600"></i> Process Payment
+            </h3>
+            <button onclick="closePaymentModal()" class="text-gray-400 hover:text-gray-600 text-xl">&times;</button>
+        </div>
+
+        <div class="space-y-4">
+            <div class="bg-gray-100 p-3 rounded text-center">
+                <span class="text-sm text-gray-600">Total Amount</span>
+                <div class="text-2xl font-bold text-orange-600">UGX {{ number_format($order->total_amount, 0) }}</div>
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium mb-1">Payment Method</label>
+                <select id="paymentMethod" class="w-full border border-gray-300 rounded-lg px-3 py-2">
+                    <option value="cash">💵 Cash</option>
+                    <option value="card">💳 Card</option>
+                    <option value="mobile_money">📱 Mobile Money</option>
+                </select>
+            </div>
+
+            <div id="cashSection">
+                <label class="block text-sm font-medium mb-1">Amount Received</label>
+                <input type="number" id="amountReceived" class="w-full border border-gray-300 rounded-lg px-3 py-2" placeholder="Enter amount received">
+                <div id="changeDue" class="mt-2 text-sm text-right"></div>
+            </div>
+
+            <button onclick="processPayment()" class="w-full bg-green-600 text-white py-3 rounded-lg font-semibold hover:bg-green-700">
+                <i class="fas fa-check-circle"></i> Complete Payment
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>
+    const totalAmount = {{ $order->total_amount }};
+    const paymentMethodSelect = document.getElementById('paymentMethod');
+    const cashSection = document.getElementById('cashSection');
+    const amountReceived = document.getElementById('amountReceived');
+    const changeDue = document.getElementById('changeDue');
+
+    paymentMethodSelect.addEventListener('change', function () {
+        cashSection.style.display = this.value === 'cash' ? 'block' : 'none';
+    });
+
+    if (amountReceived) {
+        amountReceived.addEventListener('input', function () {
+            const received = parseFloat(this.value) || 0;
+            const diff = received - totalAmount;
+            if (received <= 0) {
+                changeDue.innerHTML = '';
+            } else if (diff >= 0) {
+                changeDue.innerHTML = `<span class="text-green-600 font-semibold">Change: UGX ${diff.toLocaleString()}</span>`;
+            } else {
+                changeDue.innerHTML = `<span class="text-red-600 font-semibold">Remaining: UGX ${Math.abs(diff).toLocaleString()}</span>`;
+            }
+        });
+    }
+
+    function openPaymentModal() {
+        document.getElementById('paymentModal').classList.remove('hidden');
+        if (amountReceived) amountReceived.value = '';
+        if (changeDue) changeDue.innerHTML = '';
+    }
+
+    function closePaymentModal() {
+        document.getElementById('paymentModal').classList.add('hidden');
+    }
+
+    function processPayment() {
+        const method = paymentMethodSelect.value;
+        if (method === 'cash') {
+            const received = parseFloat(amountReceived.value) || 0;
+            if (received < totalAmount) {
+                alert('Insufficient amount received. Please enter the full amount.');
+                return;
+            }
+        }
+
+        const btn = event.target;
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
+
+        fetch('{{ route("bar.cashier.mark-as-paid", $order->id) }}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
+            },
+            body: JSON.stringify({
+                payment_method: method,
+                amount_paid: method === 'cash' ? parseFloat(amountReceived.value) : totalAmount,
+                change_amount: method === 'cash' ? (parseFloat(amountReceived.value) - totalAmount) : 0
+            })
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                window.location.href = '{{ route("bar.cashier.receipt", $order->id) }}';
+            } else {
+                alert('Error: ' + data.message);
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-check-circle"></i> Complete Payment';
+            }
+        })
+        .catch(err => {
+            alert('Error: ' + err.message);
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-check-circle"></i> Complete Payment';
+        });
+    }
+</script>
+
 <script>
 (function () {
     window.addEventListener('beforeprint', function () {
-        document.getElementById('receipt-print').style.removeProperty('display');
+        document.getElementById('invoice-print').style.removeProperty('display');
     });
     window.addEventListener('afterprint', function () {
-        document.getElementById('receipt-print').style.display = 'none';
+        document.getElementById('invoice-print').style.display = 'none';
     });
 })();
 </script>

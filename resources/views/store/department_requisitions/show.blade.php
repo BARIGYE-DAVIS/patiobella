@@ -192,7 +192,6 @@
             <table class="w-full text-sm">
                 <thead class="bg-gray-50 border-b border-gray-200">
                     <tr>
-                        {{-- ✅ FIXED: single header row, no hardcoded pack type from first item --}}
                         <th class="px-4 py-3 text-left text-[10px] font-semibold uppercase tracking-wider text-gray-500">Item</th>
                         <th class="px-4 py-3 text-left text-[10px] font-semibold uppercase tracking-wider text-gray-500">Metrics</th>
                         <th class="px-4 py-3 text-center text-[10px] font-semibold uppercase tracking-wider text-gray-500">Requested</th>
@@ -216,8 +215,14 @@
                             Returned (Total)
                         </th>
 
+                        {{-- CONSUMED --}}
                         <th class="px-4 py-3 text-center text-[10px] font-semibold uppercase tracking-wider text-orange-600 border-l border-gray-200 bg-orange-50">
                             Consumed
+                        </th>
+
+                        {{-- SOLD --}}
+                        <th class="px-4 py-3 text-center text-[10px] font-semibold uppercase tracking-wider text-blue-600 border-l border-gray-200 bg-blue-50">
+                            Sold
                         </th>
                     </tr>
                 </thead>
@@ -234,7 +239,7 @@
 
                         // ── ISSUED ─────────────────────────────────────────────────
                         $issuedPacks    = (float) ($item->quantity_issued     ?? 0);
-                        $issuedPackType = $item->issued_pack_type;               // null = direct issue
+                        $issuedPackType = $item->issued_pack_type;
                         $issuedPackSize = (float) ($item->issued_pack_size    ?? 0);
                         $issuedTotal    = (float) ($item->issued_total_pieces ?? 0);
                         $issuedHasPack  = $issuedPackType && $issuedPackSize > 0;
@@ -249,6 +254,9 @@
 
                         // ── CONSUMED ───────────────────────────────────────────────
                         $consumed = (float) ($item->quantity_consumed ?? 0);
+
+                        // ── SOLD ───────────────────────────────────────────────────
+                        $sold = (float) ($item->quantity_sold ?? 0);
                     @endphp
                     <tr class="hover:bg-gray-50 transition-colors">
 
@@ -271,7 +279,7 @@
                             @endif
                         </td>
 
-                        {{-- ✅ Issued Packs — shows actual pack type per item, or "—" for direct --}}
+                        {{-- Issued Packs --}}
                         <td class="px-4 py-3 text-center tabular-nums font-semibold border-l border-gray-100">
                             @if($issuedPacks > 0 && $issuedHasPack)
                                 <span class="{{ $fullyIssued ? 'text-green-600' : 'text-orange-500' }}">
@@ -279,7 +287,6 @@
                                     <div class="text-xs text-gray-400 font-normal">{{ ucfirst($issuedPackType) }}(s)</div>
                                 </span>
                             @elseif($issuedPacks > 0)
-                                {{-- Direct issue — no pack type, show dash in this column --}}
                                 <span class="text-gray-300">—</span>
                                 <div class="text-xs text-gray-400 font-normal">direct</div>
                             @else
@@ -287,7 +294,7 @@
                             @endif
                         </td>
 
-                        {{-- ✅ Pack Info — shows pack breakdown per item, or "direct" --}}
+                        {{-- Pack Info --}}
                         <td class="px-4 py-3 text-center text-gray-600">
                             @if($issuedHasPack)
                                 <span class="inline-block px-2 py-0.5 text-xs rounded bg-green-50 text-green-700 border border-green-100 font-mono">
@@ -302,7 +309,7 @@
                             @endif
                         </td>
 
-                        {{-- ✅ Issued Total — always in the item's own unit --}}
+                        {{-- Issued Total --}}
                         <td class="px-4 py-3 text-center tabular-nums font-semibold">
                             @if($issuedTotal > 0)
                                 <span class="{{ $fullyIssued ? 'text-green-600' : 'text-orange-500' }}">
@@ -314,13 +321,12 @@
                             @endif
                         </td>
 
-                        {{-- ✅ Returned Packs — shows actual returned pack type per item --}}
+                        {{-- Returned Packs --}}
                         <td class="px-4 py-3 text-center tabular-nums font-semibold text-purple-600 border-l border-gray-100">
                             @if($returnedPacks > 0 && $returnedHasPack)
                                 {{ number_format($returnedPacks, 2) }}
                                 <div class="text-xs text-gray-400 font-normal">{{ ucfirst($returnedPackType) }}(s)</div>
                             @elseif($returnedTotal > 0)
-                                {{-- returned as individual pieces, no pack --}}
                                 <span class="text-gray-300">—</span>
                                 <div class="text-xs text-gray-400 font-normal">direct</div>
                             @else
@@ -328,7 +334,7 @@
                             @endif
                         </td>
 
-                        {{-- ✅ Returned Total — always in the item's own unit --}}
+                        {{-- Returned Total --}}
                         <td class="px-4 py-3 text-center tabular-nums font-semibold text-purple-600">
                             @if($returnedTotal > 0)
                                 {{ number_format($returnedTotal, 2) }}
@@ -352,6 +358,20 @@
                             @endif
                         </td>
 
+                        {{-- Sold --}}
+                        <td class="px-4 py-3 text-center tabular-nums font-semibold border-l border-gray-100">
+                            @if($sold > 0)
+                                <span class="text-blue-600">
+                                    {{ number_format($sold, 2) }}
+                                    <span class="text-xs text-gray-400 font-normal">{{ $unit }}</span>
+                                </span>
+                            @elseif($issuedTotal > 0)
+                                <span class="text-gray-400">0.00 <span class="text-xs">{{ $unit }}</span></span>
+                            @else
+                                <span class="text-gray-300">—</span>
+                            @endif
+                        </td>
+
                     </tr>
                     @endforeach
                 </tbody>
@@ -363,13 +383,11 @@
                         <td class="px-4 py-3 text-center tabular-nums font-bold text-gray-800">
                             {{ number_format($requisition->items->sum('quantity_requested'), 2) }}
                         </td>
-                        {{-- Issued packs total only meaningful if all same pack type — show raw sum --}}
                         <td class="px-4 py-3 text-center tabular-nums font-bold text-green-600 border-l border-gray-200">
                             {{ number_format($requisition->items->sum('quantity_issued'), 2) }}
                             <div class="text-xs text-gray-400 font-normal">packs / units</div>
                         </td>
                         <td class="px-4 py-3">—</td>
-                        {{-- Issued total pieces — always comparable across items --}}
                         <td class="px-4 py-3 text-center tabular-nums font-bold text-green-600">
                             {{ number_format($requisition->items->sum('issued_total_pieces'), 2) }}
                             <div class="text-xs text-gray-400 font-normal">base units</div>
@@ -384,6 +402,10 @@
                         </td>
                         <td class="px-4 py-3 text-center tabular-nums font-bold text-orange-600 border-l border-gray-200">
                             {{ number_format($requisition->items->sum('quantity_consumed'), 2) }}
+                            <div class="text-xs text-gray-400 font-normal">base units</div>
+                        </td>
+                        <td class="px-4 py-3 text-center tabular-nums font-bold text-blue-600 border-l border-gray-200">
+                            {{ number_format($requisition->items->sum('quantity_sold'), 2) }}
                             <div class="text-xs text-gray-400 font-normal">base units</div>
                         </td>
                     </tr>

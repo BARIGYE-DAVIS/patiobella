@@ -33,10 +33,6 @@ class BarMiddleware
 
     /**
      * Handle an incoming request.
-     *
-     * @param  \Illuminate\Http\Request  $request
-     * @param  \Closure  $next
-     * @return mixed
      */
     public function handle(Request $request, Closure $next)
     {
@@ -65,7 +61,6 @@ class BarMiddleware
                 'required' => 'BAR'
             ]);
 
-            // Redirect based on their actual department
             if ($user->department->name === 'RESTAURANT') {
                 return redirect()->route('restaurant.dashboard')->with('error', 'This area is for Bar department only.');
             } elseif ($user->department->name === 'STORE') {
@@ -79,8 +74,6 @@ class BarMiddleware
 
         // Get user role
         $roleName = $this->getRoleName($user);
-
-        // Check access based on route path
         $path = $request->path();
 
         // Bar Manager can access everything
@@ -101,8 +94,18 @@ class BarMiddleware
                 'bar/cashier/dashboard',
                 'bar/cashier/orders',
                 'bar/cashier/invoice',
+                'bar/cashier/invoices',
                 'bar/cashier/receipt',
                 'bar/cashier/my-sales',
+                'bar/cashier/products',
+                'bar/cashier/pos',
+                'bar/cashier/create-invoice',
+                'bar/cashier/sale',
+                'bar/cashier/mark-as-paid',
+                'bar/cashier/create-and-pay',
+                'bar/cashier/export',
+                'bar/cashier/reports',
+                'bar/cashier/stock',
             ];
 
             $isAllowed = false;
@@ -113,7 +116,6 @@ class BarMiddleware
                 }
             }
 
-            // Also allow main dashboard for cashier
             if ($path === 'bar/dashboard') {
                 $isAllowed = true;
             }
@@ -124,6 +126,15 @@ class BarMiddleware
                     'role' => $roleName,
                     'path' => $path
                 ]);
+
+                // For AJAX requests, return JSON instead of redirect
+                if ($request->ajax() || $request->wantsJson()) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Unauthorized access to this resource.'
+                    ], 403);
+                }
+
                 return redirect()->route('bar.cashier.dashboard')->with('error', 'You do not have permission to access this page.');
             }
 
@@ -141,6 +152,14 @@ class BarMiddleware
             'role' => $roleName,
             'path' => $path
         ]);
+
+        if ($request->ajax() || $request->wantsJson()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Unauthorized access.'
+            ], 403);
+        }
+
         return redirect()->route('dashboard')->with('error', 'Unauthorized access. Invalid role for Bar department.');
     }
 }

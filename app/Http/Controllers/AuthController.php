@@ -90,9 +90,7 @@ class AuthController extends Controller
             }
 
             if ($departmentName === 'RESTAURANT') {
-                // ── Resolve role name ─────────────────────────────────────────
-                // Role may be stored as a string on the user directly,
-                // or via a role_id foreign key — handle both.
+                // Resolve role name
                 $roleName = null;
 
                 if ($user->role_id) {
@@ -102,23 +100,19 @@ class AuthController extends Controller
                     $roleName = $user->role;
                 }
 
-                // ── CASHIER gets their own dashboard ──────────────────────────
-                // This check MUST come before the generic restaurant redirect.
+                // Cashier gets their own dashboard
                 if ($roleName === 'Cashier') {
                     return redirect()->route('restaurant.cashier.dashboard')
                         ->with('success', 'Welcome to Cashier Dashboard, ' . $user->first_name);
                 }
 
-                // ── All other restaurant staff ────────────────────────────────
+                // All other restaurant staff
                 return redirect()->route('restaurant.dashboard')
                     ->with('success', 'Welcome to Restaurant Dashboard, ' . $user->first_name);
             }
 
-
-                if ($departmentName === 'BAR') {
-                // ── Resolve role name ─────────────────────────────────────────
-                // Role may be stored as a string on the user directly,
-                // or via a role_id foreign key — handle both.
+            if ($departmentName === 'BAR') {
+                // Resolve role name
                 $roleName = null;
 
                 if ($user->role_id) {
@@ -128,14 +122,13 @@ class AuthController extends Controller
                     $roleName = $user->role;
                 }
 
-                // ── CASHIER gets their own dashboard ──────────────────────────
-                // This check MUST come before the generic restaurant redirect.
-                if ($roleName === 'Cashier') {
+                // Bar Cashier gets their own dashboard
+                if ($roleName === 'Cashier' || $roleName === 'Bar Cashier') {
                     return redirect()->route('bar.cashier.dashboard')
-                        ->with('success', 'Welcome to Cashier Dashboard, ' . $user->first_name);
+                        ->with('success', 'Welcome to Bar Cashier Dashboard, ' . $user->first_name);
                 }
 
-                // ── All other restaurant staff ────────────────────────────────
+                // Bar Manager gets the bar dashboard
                 return redirect()->route('bar.dashboard')
                     ->with('success', 'Welcome to Bar Dashboard, ' . $user->first_name);
             }

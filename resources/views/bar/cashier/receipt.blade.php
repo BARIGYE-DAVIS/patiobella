@@ -1,8 +1,8 @@
-{{-- resources/views/restaurant/cashier/receipt.blade.php --}}
+{{-- resources/views/bar/cashier/receipt.blade.php --}}
 
-@extends('layouts.cashier')
+@extends('layouts.bar-cashier')
 
-@section('title', 'Receipt')
+@section('title', 'Bar Receipt')
 
 @section('page-title', 'Payment Receipt')
 
@@ -21,7 +21,7 @@
 
     /* Hide layout header on print */
     @media print {
-        header, nav, .sidebar, .main-header, .page-header, .navbar, .cashier-navbar {
+        header, nav, .sidebar, .main-header, .page-header, .navbar, .bar-cashier-navbar {
             display: none !important;
         }
         body {
@@ -30,7 +30,7 @@
         }
     }
 
-    /* Print styles - exact match to sales receipt */
+    /* Print styles */
     @media print {
         .no-print { display: none !important; }
         #receipt-print { display: block !important; }
@@ -132,10 +132,10 @@
 {{-- Screen: Action Buttons --}}
 <div class="no-print" style="max-width: 320px; margin: 0 auto 12px auto;">
     <div class="flex justify-between gap-2">
-        <a href="{{ route('restaurant.cashier.orders') }}" class="bg-gray-600 text-white px-4 py-2 rounded-lg text-sm">← Back to Orders</a>
+        <a href="{{ route('bar.cashier.orders') }}" class="bg-gray-600 text-white px-4 py-2 rounded-lg text-sm">← Back to Orders</a>
         <div class="flex gap-2">
-            <button onclick="window.print()" class="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm"> <i class="fas fa-print"></i> Print</button>
-            <a href="{{ route('restaurant.cashier.pos') }}" class="bg-orange-600 text-white px-4 py-2 rounded-lg text-sm"> <i class="fas fa-plus"></i> New Sale</a>
+            <button onclick="window.print()" class="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm"><i class="fas fa-print"></i> Print</button>
+            <a href="{{ route('bar.cashier.pos') }}" class="bg-orange-600 text-white px-4 py-2 rounded-lg text-sm"><i class="fas fa-plus"></i> New Sale</a>
         </div>
     </div>
 </div>
@@ -145,8 +145,8 @@
     <div style="padding:12px; font-family:'Courier New',monospace; font-size:11px;">
         {{-- Header --}}
         <div style="text-align:center;">
-            <div style="font-size:15px; font-weight:bold;">PATIO BELLA</div>
-            <div style="font-size:9px;">Restaurant & Lounge</div>
+            <div style="font-size:15px; font-weight:bold;">PATIO BELLA - BAR</div>
+            <div style="font-size:9px;">Bar & Lounge</div>
             <div style="font-size:9px;">Kampala Road, Kampala</div>
             <div style="font-size:9px;">Tel: +256 XXX XXX XXX</div>
             <div class="border-t border-dashed border-gray-300 my-2"></div>
@@ -229,13 +229,13 @@
     </div>
 </div>
 
-{{-- PRINT ONLY: Exact same format as sales receipt --}}
+{{-- PRINT ONLY --}}
 <div id="receipt-print" style="display: none;">
 
-    {{-- Restaurant header --}}
+    {{-- Header --}}
     <div class="rct-header">
-        <div class="rct-logo">PATIO BELLA</div>
-        <div class="rct-tagline">Restaurant & Lounge</div>
+        <div class="rct-logo">PATIO BELLA - BAR</div>
+        <div class="rct-tagline">Bar & Lounge</div>
         <div class="rct-address">
             Kampala, Uganda &bull; Tel: +256 XXX XXX XXX
         </div>
@@ -283,7 +283,7 @@
                 <th style="width:55%;">Item</th>
                 <th style="width:10%; text-align:center;">Qty</th>
                 <th class="right" style="width:35%;">Amount</th>
-            </tr>
+            <tr>
         </thead>
         <tbody>
             @foreach($order->items as $item)
@@ -297,7 +297,7 @@
                 <td class="item-desc" colspan="2">
                     {{ number_format($item->quantity, 0) }} x {{ number_format($item->unit_price, 0) }}
                 </td>
-                <td>\n                </td
+                <td></td>
             </tr>
             @endif
             @endforeach
@@ -362,7 +362,7 @@
     {{-- Footer --}}
     <div class="rct-footer">
         <div class="rct-thank-you">THANK YOU!</div>
-        <div style="margin-top:1.5mm;">Please come again &bull; Enjoy your meal</div>
+        <div style="margin-top:1.5mm;">Please come again &bull; Enjoy your drinks</div>
         <div style="margin-top:1mm;">This is your official receipt.</div>
         <div style="margin-top:0.5mm; font-size:7pt;">
             Powered by PatioBellaPOS &bull; {{ now()->format('Y') }}

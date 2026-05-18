@@ -273,9 +273,9 @@ public function index(Request $request)
                 // Refresh items from DB for accurate status calculation
                 $requisition->load('items');
 
-                $totalIssued    = $requisition->items->sum('issued_total_pieces');
-                $totalConsumed  = $requisition->items->sum('quantity_consumed');
-                $totalReturned  = $requisition->items->sum('returned_total_pieces');
+                $totalIssued    = (float) $requisition->items->sum('issued_total_pieces');
+                $totalConsumed  = (float) $requisition->items->sum('quantity_consumed');
+                $totalReturned  = (float) $requisition->items->sum('returned_total_pieces');
                 $totalProcessed = $totalConsumed + $totalReturned;
 
                 if ($totalIssued > 0 && $totalProcessed >= $totalIssued) {

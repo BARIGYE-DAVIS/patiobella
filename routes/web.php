@@ -601,45 +601,116 @@ Route::prefix('bar')->name('bar.')->middleware(['auth', 'bar'])->group(function 
     Route::get('/receipt/{id}', [App\Http\Controllers\Bar\BarPosController::class, 'getReceipt'])->name('receipt');
 
     // Stock Management
-    Route::get('/stock', [App\Http\Controllers\Bar\BarStockController::class, 'index'])->name('stock');
+    Route::get('/stock', [App\Http\Controllers\Bar\BarStockController::class, 'index'])->name('stock.index');
+    Route::get('/stock/{id}', [App\Http\Controllers\Bar\BarStockController::class, 'show'])->name('stock.show');
 
-    // Requisitions
+    // =====================================================
+    // REQUISITIONS (Complete)
+    // =====================================================
     Route::prefix('requisitions')->name('requisitions.')->group(function () {
         Route::get('/', [App\Http\Controllers\Bar\BarRequisitionController::class, 'index'])->name('index');
         Route::get('/create', [App\Http\Controllers\Bar\BarRequisitionController::class, 'create'])->name('create');
         Route::post('/', [App\Http\Controllers\Bar\BarRequisitionController::class, 'store'])->name('store');
         Route::get('/{id}', [App\Http\Controllers\Bar\BarRequisitionController::class, 'show'])->name('show');
+        Route::put('/{id}/cancel', [App\Http\Controllers\Bar\BarRequisitionController::class, 'cancel'])->name('cancel');
+        Route::get('/{id}/consume', [App\Http\Controllers\Bar\BarRequisitionController::class, 'consumeForm'])->name('consume');
+        Route::post('/{id}/consume', [App\Http\Controllers\Bar\BarRequisitionController::class, 'recordConsumption'])->name('consume.store');
     });
 
-    // Sales Reports
+    // =====================================================
+    // SALES REPORTS
+    // =====================================================
     Route::prefix('sales')->name('sales.')->group(function () {
         Route::get('/', [App\Http\Controllers\Bar\BarSalesController::class, 'index'])->name('index');
+        Route::get('/export/excel', [App\Http\Controllers\Bar\BarSalesController::class, 'exportExcel'])->name('export.excel');
+        Route::get('/export/pdf', [App\Http\Controllers\Bar\BarSalesController::class, 'exportPdf'])->name('export.pdf');
     });
 
-    // Invoices / Payslips
+    // =====================================================
+    // INVOICES / PAYSLIPS
+    // =====================================================
     Route::prefix('invoices')->name('invoices.')->group(function () {
         Route::get('/', [App\Http\Controllers\Bar\BarInvoiceController::class, 'index'])->name('index');
         Route::get('/{id}', [App\Http\Controllers\Bar\BarInvoiceController::class, 'show'])->name('show');
+        Route::get('/receipt/{id}', [App\Http\Controllers\Bar\BarInvoiceController::class, 'receipt'])->name('receipt');
     });
 
-    // Cashiers Management
+    // =====================================================
+    // CASHIERS MANAGEMENT (Manager only)
+    // =====================================================
     Route::prefix('cashiers')->name('cashiers.')->group(function () {
         Route::get('/', [App\Http\Controllers\Bar\BarCashierController::class, 'index'])->name('index');
+        Route::get('/{id}/sales', [App\Http\Controllers\Bar\BarCashierController::class, 'sales'])->name('sales');
     });
 
-    // Reports
+    // =====================================================
+    // REPORTS
+    // =====================================================
     Route::prefix('reports')->name('reports.')->group(function () {
         Route::get('/daily', [App\Http\Controllers\Bar\BarReportController::class, 'daily'])->name('daily');
         Route::get('/monthly', [App\Http\Controllers\Bar\BarReportController::class, 'monthly'])->name('monthly');
+        Route::get('/export/excel', [App\Http\Controllers\Bar\BarReportController::class, 'exportExcel'])->name('export.excel');
+        Route::get('/export/pdf', [App\Http\Controllers\Bar\BarReportController::class, 'exportPdf'])->name('export.pdf');
     });
 
-    // Notifications
-Route::prefix('notifications')->name('notifications.')->group(function () {
-    Route::get('/check', [App\Http\Controllers\Bar\BarNotificationController::class, 'check'])->name('check');
-    Route::get('/mark-read/{id}', [App\Http\Controllers\Bar\BarNotificationController::class, 'markAsRead'])->name('mark-read');
-    Route::get('/mark-all-read', [App\Http\Controllers\Bar\BarNotificationController::class, 'markAllAsRead'])->name('mark-all-read');
-});
+    // =====================================================
+    // NOTIFICATIONS
+    // =====================================================
+    Route::prefix('notifications')->name('notifications.')->group(function () {
+        Route::get('/check', [App\Http\Controllers\Bar\BarNotificationController::class, 'check'])->name('check');
+        Route::post('/mark-read/{id}', [App\Http\Controllers\Bar\BarNotificationController::class, 'markAsRead'])->name('mark-read');
+        Route::post('/mark-all-read', [App\Http\Controllers\Bar\BarNotificationController::class, 'markAllAsRead'])->name('mark-all-read');
+    });
 
+    // =====================================================
+    // MY SALES (Cashier personal sales)
+    // =====================================================
+    Route::get('/my-sales', [App\Http\Controllers\Bar\BarCashierController::class, 'mySales'])->name('my-sales');
+    Route::get('/my-sales/export/excel', [App\Http\Controllers\Bar\BarCashierController::class, 'exportExcel'])->name('my-sales.export.excel');
+    Route::get('/my-sales/export/pdf', [App\Http\Controllers\Bar\BarCashierController::class, 'exportPdf'])->name('my-sales.export.pdf');
+
+    // =====================================================
+    // BAR CASHIER Routes (Same as Restaurant Cashier)
+    // =====================================================
+    // =====================================================
+// BAR CASHIER Routes (Same as Restaurant Cashier)
+// =====================================================
+Route::prefix('cashier')->name('cashier.')->group(function () {
+
+    // Cashier Dashboard
+    Route::get('/dashboard', [App\Http\Controllers\Bar\BarCashierController::class, 'dashboard'])->name('dashboard');
+
+    // Point of Sale
+    Route::get('/pos', [App\Http\Controllers\Bar\BarPosController::class, 'index'])->name('pos');
+    Route::post('/create-invoice', [App\Http\Controllers\Bar\BarPosController::class, 'createInvoice'])->name('create-invoice');
+    Route::post('/sale/{id}/pay', [App\Http\Controllers\Bar\BarPosController::class, 'markAsPaid'])->name('mark-as-paid');
+
+    // Bar Menu (Read-only for cashier)
+    Route::get('/menu', [App\Http\Controllers\Bar\BarPosController::class, 'menu'])->name('menu');
+
+    // Orders
+    Route::get('/orders', [App\Http\Controllers\Bar\BarPosController::class, 'orders'])->name('orders');
+    Route::get('/orders/{id}', [App\Http\Controllers\Bar\BarPosController::class, 'showOrder'])->name('orders.show');
+    // Add this route to your bar/cashier group
+    Route::post('/create-and-pay', [App\Http\Controllers\Bar\BarPosController::class, 'createAndPayInvoice'])->name('create-and-pay');
+    // Invoice & Receipt
+    Route::get('/invoice/{id}', [App\Http\Controllers\Bar\BarPosController::class, 'getInvoice'])->name('invoice');
+    Route::get('/receipt/{id}', [App\Http\Controllers\Bar\BarPosController::class, 'getReceipt'])->name('receipt');
+    // Invoices list
+    Route::get('/invoices', [App\Http\Controllers\Bar\BarPosController::class, 'invoices'])->name('invoices');
     // My Sales (Cashier personal sales)
     Route::get('/my-sales', [App\Http\Controllers\Bar\BarCashierController::class, 'mySales'])->name('my-sales');
+    Route::get('/my-sales/export/excel', [App\Http\Controllers\Bar\BarCashierController::class, 'exportExcel'])->name('my-sales.export.excel');
+    Route::get('/my-sales/export/pdf', [App\Http\Controllers\Bar\BarCashierController::class, 'exportPdf'])->name('my-sales.export.pdf');
+    // Bar Products (Sellable inventory items for cashier)
+    Route::get('/products', [App\Http\Controllers\Bar\BarProductController::class, 'index'])->name('products');
+    // Reports
+
+    Route::get('/reports/monthly', [App\Http\Controllers\Bar\BarCashierController::class, 'monthlyReport'])->name('reports.monthly');
+Route::get('/reports/export/excel', [App\Http\Controllers\Bar\BarCashierController::class, 'exportReportExcel'])->name('reports.export.excel');
+Route::get('/reports/export/pdf', [App\Http\Controllers\Bar\BarCashierController::class, 'exportReportPdf'])->name('reports.export.pdf');
+    Route::get('/reports', [App\Http\Controllers\Bar\BarCashierController::class, 'reports'])->name('reports');
+    Route::get('/daily-summary', [App\Http\Controllers\Bar\BarPosController::class, 'dailySummary'])->name('daily-summary');
+});
+
 });

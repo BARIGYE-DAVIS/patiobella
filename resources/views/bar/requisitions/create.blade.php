@@ -57,7 +57,6 @@
         margin-bottom: 1.5rem;
     }
     .items-table-container {
-        overflow-x: auto;
         margin-bottom: 1rem;
     }
     .items-table {
@@ -145,6 +144,7 @@
         border-radius: 8px;
         font-size: 0.875rem;
         transition: all 0.2s;
+        cursor: pointer;
     }
     .item-search-input:focus {
         outline: none;
@@ -220,6 +220,20 @@
         cursor: not-allowed;
         opacity: 0.7;
     }
+
+    /* Dropdown arrow indicator */
+    .item-search-wrapper::after {
+        content: '▾';
+        position: absolute;
+        right: 0.75rem;
+        top: 0.55rem;
+        color: #9ca3af;
+        pointer-events: none;
+        font-size: 0.85rem;
+    }
+    .item-search-wrapper.has-selection::after {
+        display: none;
+    }
 </style>
 
 <div class="form-card">
@@ -261,7 +275,7 @@
                             <th style="width: 12%">Metrics</th>
                             <th style="width: 20%">Notes</th>
                             <th style="width: 6%">Action</th>
-                        </td>
+                        </tr>
                     </thead>
                     <tbody id="itemsBody">
                         <!-- Rows will be added dynamically -->
@@ -300,7 +314,7 @@
     let rowCounter = 0;
 
     // Render dropdown with items (filtered or all)
-    function renderDropdown(dropdownElement, items, searchInput) {
+    function renderDropdown(dropdownElement, items) {
         if (!dropdownElement) return;
 
         if (items.length === 0) {
@@ -340,6 +354,9 @@
                 selectedBadge.style.display = 'flex';
                 dropdownElement.classList.remove('show');
 
+                // Mark wrapper as having a selection (hides the arrow)
+                wrapper.classList.add('has-selection');
+
                 // Enable fields
                 toggleFieldsForRow(rowElement, true);
             });
@@ -357,7 +374,7 @@
         newRow.innerHTML = `
             <td class="item-cell">
                 <div class="item-search-wrapper" data-row-index="${index}">
-                    <input type="text" class="item-search-input" placeholder="Click here and start typing or browse items..." autocomplete="off">
+                    <input type="text" class="item-search-input" placeholder="Click to select an item..." autocomplete="off" readonly>
                     <div class="search-results-dropdown"></div>
                     <div class="selected-item-badge" style="display: none;">
                         <span class="item-info"></span>
@@ -450,25 +467,28 @@
         dropdown.classList.remove('show');
         dropdown.innerHTML = '';
 
+        // Remove has-selection class to restore arrow
+        wrapper.classList.remove('has-selection');
+
         // Disable and clear fields
         toggleFieldsForRow(rowElement, false);
     }
 
-    // Show all items in dropdown (for focus event)
+    // Show all items in dropdown
     function showAllItems(dropdownElement) {
-        renderDropdown(dropdownElement, itemsList, null);
+        renderDropdown(dropdownElement, itemsList);
     }
 
     // Filter items based on search term
     function filterAndShowItems(dropdownElement, searchTerm) {
         if (searchTerm.trim() === '') {
-            renderDropdown(dropdownElement, itemsList, null);
+            renderDropdown(dropdownElement, itemsList);
         } else {
             const filtered = itemsList.filter(item =>
                 item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                 item.code.toLowerCase().includes(searchTerm.toLowerCase())
             );
-            renderDropdown(dropdownElement, filtered, null);
+            renderDropdown(dropdownElement, filtered);
         }
     }
 
@@ -489,31 +509,49 @@
             clearSelectedItem(wrapper, rowElement);
         });
 
-        // When input is focused - show dropdown with ALL items
+        // Open dropdown immediately on mousedown (feels instant)
+        searchInput.addEventListener('mousedown', function(e) {
+            const hiddenId = wrapper.querySelector('.selected-item-id');
+            if (!hiddenId.value) {
+                e.preventDefault();
+                searchInput.focus();
+                showAllItems(dropdown);
+            }
+        });
+
+        // Also open on focus (keyboard navigation / tab)
         searchInput.addEventListener('focus', function() {
-            // Only show dropdown if no item is selected yet
             const hiddenId = wrapper.querySelector('.selected-item-id');
             if (!hiddenId.value) {
                 showAllItems(dropdown);
             }
         });
 
-        // Search input handler with debounce
+        // Once dropdown is open, allow typing to filter
+        searchInput.addEventListener('keydown', function() {
+            searchInput.removeAttribute('readonly');
+        });
+
+        // Search/filter input handler with debounce
         searchInput.addEventListener('input', function() {
             const hiddenId = wrapper.querySelector('.selected-item-id');
-            // If an item is selected, don't show dropdown
             if (hiddenId.value) return;
 
             clearTimeout(typingTimeout);
             typingTimeout = setTimeout(() => {
                 filterAndShowItems(dropdown, this.value);
-            }, 300);
+            }, 200);
         });
 
         // Close dropdown when clicking outside
         document.addEventListener('click', function(e) {
             if (!wrapper.contains(e.target)) {
                 dropdown.classList.remove('show');
+                searchInput.setAttribute('readonly', true);
+                const hiddenId = wrapper.querySelector('.selected-item-id');
+                if (!hiddenId.value) {
+                    searchInput.value = '';
+                }
             }
         });
 
@@ -550,7 +588,6 @@
             row.dataset.index = newIndex;
             row.id = `row-${newIndex}`;
 
-            // Update all input/select names
             const inputs = row.querySelectorAll('input, select');
             inputs.forEach(input => {
                 const name = input.getAttribute('name');
@@ -560,11 +597,9 @@
                 }
             });
 
-            // Update remove button data-index
             const removeBtn = row.querySelector('.remove-item');
             if (removeBtn) removeBtn.dataset.index = newIndex;
 
-            // Update wrapper data-row-index
             const wrapper = row.querySelector('.item-search-wrapper');
             if (wrapper) wrapper.dataset.rowIndex = newIndex;
         });
@@ -576,10 +611,8 @@
         const newRow = createNewRow();
         tbody.appendChild(newRow);
 
-        // Setup search for the new row
         setupRowSearch(newRow);
 
-        // Add remove event listener
         const removeBtn = newRow.querySelector('.remove-item');
         removeBtn.addEventListener('click', () => removeItemRow(removeBtn));
     });
@@ -594,21 +627,19 @@
                 removeBtn.addEventListener('click', () => removeItemRow(removeBtn));
             }
 
-            // Check if this row already has an item selected (e.g., from old input)
             const hiddenId = row.querySelector('.selected-item-id');
             if (hiddenId && hiddenId.value) {
-                // We need to reconstruct the selected display
                 const wrapper = row.querySelector('.item-search-wrapper');
                 const searchInput = wrapper.querySelector('.item-search-input');
                 const selectedBadge = wrapper.querySelector('.selected-item-badge');
                 const selectedInfoSpan = selectedBadge.querySelector('.item-info');
 
-                // Find the item name from itemsList
                 const selectedItem = itemsList.find(item => item.id == hiddenId.value);
                 if (selectedItem) {
                     searchInput.style.display = 'none';
                     selectedInfoSpan.innerHTML = `${escapeHtml(selectedItem.name)} <span style="font-size:0.7rem; color:#6b7280;">(${escapeHtml(selectedItem.code)})</span>`;
                     selectedBadge.style.display = 'flex';
+                    wrapper.classList.add('has-selection');
                     toggleFieldsForRow(row, true);
                 }
             }

@@ -123,7 +123,7 @@
             <span class="font-semibold text-gray-800">Point of Sale</span>
             <p class="text-xs text-gray-500 mt-1">Process customer orders</p>
         </a>
-        <a href="{{ route('bar.stock') }}" class="btn-quick">
+        <a href="{{ route('bar.stock.index') }}" class="btn-quick">
             <i class="fas fa-boxes text-2xl text-green-600 mb-2 block"></i>
             <span class="font-semibold text-gray-800">My Stock</span>
             <p class="text-xs text-gray-500 mt-1">View current inventory</p>

@@ -300,4 +300,11 @@ class InventoryItem extends Model
 
         return (float) $this->current_stock;
     }
+
+
+    // In app/Models/InventoryItem.php
+public function departmentRequisitionItems()
+{
+    return $this->hasMany(DepartmentRequisitionItem::class, 'inventory_item_id');
+}
 }
