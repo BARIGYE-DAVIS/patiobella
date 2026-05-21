@@ -7,15 +7,14 @@
 
 @section('content')
 
+{{-- ============================================
+     STYLES
+============================================ --}}
 <style>
-    /* =========================================
-       BASE & LAYOUT
-    ========================================= */
+    /* --- Base --- */
     .space-y-6 > * + * { margin-top: 1.5rem; }
 
-    /* =========================================
-       STAT CARDS
-    ========================================= */
+    /* --- Stat Cards --- */
     .stat-card {
         background: white;
         border-radius: 12px;
@@ -38,9 +37,7 @@
         line-height: 1.2;
     }
 
-    /* =========================================
-       FILTER BAR
-    ========================================= */
+    /* --- Filter Bar --- */
     .filter-bar {
         background: #f9fafb;
         border: 1px solid #e5e7eb;
@@ -48,9 +45,7 @@
         padding: 1rem;
     }
 
-    /* =========================================
-       TABS
-    ========================================= */
+    /* --- Tabs --- */
     .tabs { display: flex; gap: 0.5rem; border-bottom: 1px solid #e5e7eb; }
     .tab-btn {
         padding: 0.75rem 1.5rem;
@@ -63,14 +58,12 @@
         color: #6b7280;
         transition: color 0.2s, border-color 0.2s;
     }
-    .tab-btn.active          { color: #ea580c; border-bottom-color: #ea580c; }
+    .tab-btn.active             { color: #ea580c; border-bottom-color: #ea580c; }
     .tab-btn:hover:not(.active) { color: #374151; }
-    .tab-content             { display: none; }
-    .tab-content.active      { display: block; }
+    .tab-content                { display: none; }
+    .tab-content.active         { display: block; }
 
-    /* =========================================
-       CHART CONTAINERS
-    ========================================= */
+    /* --- Chart Containers --- */
     .chart-container {
         background: white;
         border: 1px solid #e5e7eb;
@@ -88,9 +81,7 @@
     }
     canvas { max-height: 350px; width: 100% !important; }
 
-    /* =========================================
-       PILL BUTTONS
-    ========================================= */
+    /* --- Pill Buttons --- */
     .pill-btn {
         padding: 0.4rem 1rem;
         border-radius: 20px;
@@ -102,12 +93,10 @@
         background: #f3f4f6;
         color: #374151;
     }
-    .pill-btn.active               { background: #ea580c; color: white; }
-    .pill-btn:not(.active):hover   { background: #e5e7eb; }
+    .pill-btn.active             { background: #ea580c; color: white; }
+    .pill-btn:not(.active):hover { background: #e5e7eb; }
 
-    /* =========================================
-       EXPORT BUTTONS
-    ========================================= */
+    /* --- Export Buttons --- */
     .export-btn {
         display: inline-flex;
         align-items: center;
@@ -121,15 +110,13 @@
         text-decoration: none;
         transition: background 0.2s, transform 0.1s;
     }
-    .export-btn:hover            { transform: translateY(-1px); text-decoration: none; }
-    .export-btn-excel            { background: #16a34a; color: white; }
-    .export-btn-excel:hover      { background: #15803d; color: white; }
-    .export-btn-pdf              { background: #dc2626; color: white; }
-    .export-btn-pdf:hover        { background: #b91c1c; color: white; }
+    .export-btn:hover           { transform: translateY(-1px); text-decoration: none; }
+    .export-btn-excel           { background: #16a34a; color: white; }
+    .export-btn-excel:hover     { background: #15803d; color: white; }
+    .export-btn-pdf             { background: #dc2626; color: white; }
+    .export-btn-pdf:hover       { background: #b91c1c; color: white; }
 
-    /* =========================================
-       LIST PANEL
-    ========================================= */
+    /* --- List Panel --- */
     .list-panel { background: white; border: 1px solid #e5e7eb; border-radius: 12px; overflow: hidden; }
     .list-panel-header {
         display: flex;
@@ -142,9 +129,7 @@
         border-bottom: 1px solid #e5e7eb;
     }
 
-    /* =========================================
-       SEARCH
-    ========================================= */
+    /* --- Search --- */
     .search-wrapper { position: relative; display: inline-flex; align-items: center; }
     .search-wrapper .search-icon {
         position: absolute;
@@ -164,9 +149,7 @@
     }
     .search-input:focus { border-color: #ea580c; }
 
-    /* =========================================
-       DATA TABLE
-    ========================================= */
+    /* --- Data Table --- */
     .data-table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
     .data-table thead tr th {
         position: sticky;
@@ -195,28 +178,24 @@
     .data-table tbody tr:hover td      { background: #fff7ed; }
     .data-table .col-amount  { text-align: right; font-weight: 600; white-space: nowrap; }
     .data-table .col-action  { text-align: center; }
-    .invoice-num  { font-family: 'Courier New', monospace; font-size: 0.75rem; font-weight: 700; color: #1e293b; }
+    .invoice-num   { font-family: 'Courier New', monospace; font-size: 0.75rem; font-weight: 700; color: #1e293b; }
     .cell-datetime { font-size: 0.75rem; color: #64748b; white-space: nowrap; }
 
-    /* =========================================
-       BADGES
-    ========================================= */
+    /* --- Badges --- */
     .badge {
         display: inline-block;
         padding: 0.15rem 0.5rem;
         border-radius: 10px;
         font-size: 0.65rem;
         font-weight: 600;
-        margin: 0.1rem 0.1rem 0.1rem 0;
+        margin: 0.1rem;
         white-space: nowrap;
     }
     .badge-menu  { background: #d1fae5; color: #065f46; }
     .badge-other { background: #fef3c7; color: #92400e; }
     .pay-method  { font-size: 0.78rem; white-space: nowrap; }
 
-    /* =========================================
-       VIEW BUTTON
-    ========================================= */
+    /* --- View Button --- */
     .view-btn {
         display: inline-block;
         background: #ea580c;
@@ -231,15 +210,11 @@
     }
     .view-btn:hover { background: #c2410c; }
 
-    /* =========================================
-       EMPTY STATE
-    ========================================= */
+    /* --- Empty State --- */
     .empty-state { padding: 3rem 1rem; text-align: center; color: #9ca3af; }
     .empty-state i { font-size: 2.5rem; display: block; margin-bottom: 0.5rem; }
 
-    /* =========================================
-       PERIOD BADGE
-    ========================================= */
+    /* --- Period Badge --- */
     .period-badge {
         display: inline-block;
         background: rgba(255,255,255,0.2);
@@ -251,14 +226,17 @@
     }
 </style>
 
+{{-- ============================================
+     PAGE BODY
+============================================ --}}
 <div class="space-y-6">
 
-    {{-- ===== HEADER ===== --}}
+    {{-- Header --}}
     <div class="bg-gradient-to-r from-orange-600 to-red-600 rounded-xl p-5 text-white">
         <div class="flex justify-between items-center flex-wrap gap-3">
             <div>
                 <h2 class="text-xl font-bold">
-                    <i class="fas fa-chart-line mr-2"></i>Sales Analytics Dashboard
+                    <i class="fas fa-chart-line mr-2"></i> Sales Analytics Dashboard
                 </h2>
                 <p class="text-orange-100 mt-1 text-sm">Comprehensive sales reports and trends</p>
                 <div class="mt-2">
@@ -267,52 +245,48 @@
                     @else
                         <span class="period-badge">
                             <i class="fas fa-calendar mr-1"></i>
-                            {{ \Carbon\Carbon::parse($from)->format('d M Y') }}
-                            &ndash;
+                            {{ \Carbon\Carbon::parse($from)->format('d M Y') }} &ndash;
                             {{ \Carbon\Carbon::parse($to)->format('d M Y') }}
                         </span>
                     @endif
                 </div>
             </div>
 
-            {{-- Export buttons --}}
             <div class="flex flex-col gap-2 items-end">
                 <div class="flex gap-2">
                     <a href="{{ route('restaurant.sales.export.excel', array_merge(request()->query(), ['period' => $period, 'start_date' => $from, 'end_date' => $to])) }}"
                        class="export-btn export-btn-excel">
                         <i class="fas fa-file-excel"></i> Export Excel
                     </a>
-                    <a href="{{ route('restaurant.sales.export.pdf', array_merge(request()->query(), ['period' => $period, 'start_date' => $from, 'end_date' => $to])) }}"
-                       class="export-btn export-btn-pdf">
-                        <i class="fas fa-file-pdf"></i> Export PDF
-                    </a>
+                    <button type="button" onclick="openExportModal()"
+                            class="export-btn export-btn-pdf">
+                        <i class="fas fa-download"></i> Export
+                    </button>
                 </div>
                 <p class="text-orange-200 text-xs">Exports reflect the current filter period</p>
             </div>
         </div>
     </div>
 
-    {{-- ===== DATE FILTER BAR ===== --}}
+    {{-- Filter Bar --}}
     <div class="filter-bar">
         <form method="GET" action="{{ route('restaurant.sales.index') }}" id="filterForm">
             <div class="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
 
-                {{-- Quick period --}}
                 <div class="md:col-span-2">
                     <label class="block text-xs font-medium text-gray-700 mb-1">Quick Period</label>
                     <select name="period" id="periodSelect"
                             class="w-full p-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-orange-500">
-                        <option value="all_time"    {{ $period === 'all_time'    ? 'selected' : '' }}>All Time</option>
-                        <option value="today"       {{ $period === 'today'       ? 'selected' : '' }}>Today</option>
-                        <option value="yesterday"   {{ $period === 'yesterday'   ? 'selected' : '' }}>Yesterday</option>
-                        <option value="this_week"   {{ $period === 'this_week'   ? 'selected' : '' }}>This Week</option>
-                        <option value="this_month"  {{ $period === 'this_month'  ? 'selected' : '' }}>This Month</option>
-                        <option value="last_month"  {{ $period === 'last_month'  ? 'selected' : '' }}>Last Month</option>
-                        <option value="custom"      {{ $period === 'custom'      ? 'selected' : '' }}>Custom Range</option>
+                        <option value="all_time"   {{ $period === 'all_time'   ? 'selected' : '' }}>All Time</option>
+                        <option value="today"      {{ $period === 'today'      ? 'selected' : '' }}>Today</option>
+                        <option value="yesterday"  {{ $period === 'yesterday'  ? 'selected' : '' }}>Yesterday</option>
+                        <option value="this_week"  {{ $period === 'this_week'  ? 'selected' : '' }}>This Week</option>
+                        <option value="this_month" {{ $period === 'this_month' ? 'selected' : '' }}>This Month</option>
+                        <option value="last_month" {{ $period === 'last_month' ? 'selected' : '' }}>Last Month</option>
+                        <option value="custom"     {{ $period === 'custom'     ? 'selected' : '' }}>Custom Range</option>
                     </select>
                 </div>
 
-                {{-- Custom date inputs (hidden unless custom selected) --}}
                 <div id="customDateRange"
                      class="md:col-span-4"
                      style="display: {{ $period === 'custom' ? 'flex' : 'none' }}; gap: 8px;">
@@ -330,7 +304,6 @@
                     </div>
                 </div>
 
-                {{-- Actions --}}
                 <div class="md:col-span-2 flex items-end gap-2">
                     <button type="submit"
                             class="bg-orange-600 hover:bg-orange-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors">
@@ -341,11 +314,12 @@
                         <i class="fas fa-times mr-1"></i> Reset
                     </a>
                 </div>
+
             </div>
         </form>
     </div>
 
-    {{-- ===== STAT CARDS ===== --}}
+    {{-- Stat Cards --}}
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <div class="stat-card" style="border-left-color: #10b981;">
             <div class="stat-label"><i class="fas fa-dollar-sign mr-1"></i> Total Revenue</div>
@@ -365,7 +339,7 @@
         </div>
     </div>
 
-    {{-- ===== TABS ===== --}}
+    {{-- Tabs --}}
     <div class="tabs">
         <button class="tab-btn active" data-tab="analytics">
             <i class="fas fa-chart-pie mr-2"></i> Analytics &amp; Charts
@@ -375,7 +349,7 @@
         </button>
     </div>
 
-    {{-- ===== TAB 1: ANALYTICS ===== --}}
+    {{-- Tab 1: Analytics --}}
     <div id="tab-analytics" class="tab-content active">
 
         <div class="filter-bar mb-6">
@@ -427,12 +401,11 @@
         </div>
     </div>
 
-    {{-- ===== TAB 2: SALES LIST ===== --}}
+    {{-- Tab 2: Sales List --}}
     <div id="tab-sales-list" class="tab-content">
         <div class="list-panel">
 
             <div class="list-panel-header">
-                {{-- Item type filter --}}
                 <div class="flex gap-2 flex-wrap">
                     <button type="button" class="pill-btn active" data-list-filter="all">
                         <i class="fas fa-list mr-1"></i> All Sales
@@ -445,7 +418,6 @@
                     </button>
                 </div>
 
-                {{-- Search + row count --}}
                 <div class="flex items-center gap-3">
                     <span id="rowCountBadge"
                           class="text-xs bg-orange-100 text-orange-700 font-semibold px-3 py-1 rounded-full">
@@ -461,9 +433,7 @@
                 </div>
             </div>
 
-            {{-- Table --}}
             <div style="max-height: 560px; overflow-y: auto;">
-
                 <table class="data-table">
                     <thead>
                         <tr>
@@ -491,7 +461,7 @@
                                 <span class="text-gray-400">{{ $sale->created_at->format('h:i A') }}</span>
                             </td>
 
-                            <td style="font-size:0.8rem;">{{ $sale->cashier->first_name ?? '—' }}</td>
+                            <td style="font-size: 0.8rem;">{{ $sale->cashier->first_name ?? '—' }}</td>
 
                             <td>
                                 @foreach($sale->items as $item)
@@ -533,7 +503,6 @@
                 </table>
             </div>
 
-            {{-- List footer: totals --}}
             @if($salesList->count() > 0)
             <div style="padding: 0.75rem 1.5rem; background: #f9fafb; border-top: 1px solid #e5e7eb; display: flex; justify-content: space-between; align-items: center;">
                 <span id="visibleSummary" class="text-xs text-gray-500">
@@ -546,46 +515,152 @@
                 </span>
             </div>
             @endif
+
         </div>
     </div>
 
 </div>{{-- end .space-y-6 --}}
 
-{{-- ===== SCRIPTS ===== --}}
+{{-- ============================================
+     EXPORT MODAL
+============================================ --}}
+<div id="exportModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+    <div class="bg-white rounded-xl shadow-xl w-96 max-w-full p-6">
+        <div class="flex justify-between items-center mb-4">
+            <h3 class="text-lg font-bold">
+                <i class="fas fa-download text-green-600 mr-2"></i> Export Sales Report
+            </h3>
+            <button onclick="closeExportModal()" class="text-gray-400 hover:text-gray-600 text-2xl">&times;</button>
+        </div>
+
+        <div class="space-y-4">
+
+            <div>
+                <label class="block text-sm font-medium mb-1">Export Type</label>
+                <select id="exportType" class="w-full border border-gray-300 rounded-lg px-3 py-2">
+                    <option value="all">All Sales (No Date Filter)</option>
+                    <option value="current">Current Filtered Period</option>
+                    <option value="custom">Custom Date Range</option>
+                </select>
+            </div>
+
+            <div id="customDateDiv" style="display: none;">
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-sm font-medium mb-1">Start Date</label>
+                        <input type="date" id="exportStartDate"
+                               class="w-full border border-gray-300 rounded-lg px-3 py-2"
+                               value="{{ $from }}">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-1">End Date</label>
+                        <input type="date" id="exportEndDate"
+                               class="w-full border border-gray-300 rounded-lg px-3 py-2"
+                               value="{{ $to }}">
+                    </div>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-3">
+                <button onclick="exportExcel()"
+                        class="bg-green-600 text-white py-2 rounded-lg font-semibold hover:bg-green-700">
+                    <i class="fas fa-file-excel mr-2"></i> Export to Excel
+                </button>
+                <button onclick="exportPdf()"
+                        class="bg-red-600 text-white py-2 rounded-lg font-semibold hover:bg-red-700">
+                    <i class="fas fa-file-pdf mr-2"></i> Export to PDF
+                </button>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+{{-- ============================================
+     SCRIPTS
+============================================ --}}
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
 (function () {
     'use strict';
 
-    /* ─────────────────────────────────────────────────────
-       SERVER DATA
-    ───────────────────────────────────────────────────── */
+    // ----------------------------------------
+    // Export Modal
+    // ----------------------------------------
+    function openExportModal()  { document.getElementById('exportModal').classList.remove('hidden'); }
+    function closeExportModal() { document.getElementById('exportModal').classList.add('hidden'); }
+
+    // Expose to inline onclick handlers
+    window.openExportModal  = openExportModal;
+    window.closeExportModal = closeExportModal;
+
+    document.getElementById('exportType').addEventListener('change', function () {
+        document.getElementById('customDateDiv').style.display =
+            this.value === 'custom' ? 'block' : 'none';
+    });
+
+    window.exportExcel = function () {
+        const exportType = document.getElementById('exportType').value;
+        let url = '{{ route("restaurant.sales.export.excel") }}?export_type=' + exportType;
+
+        if (exportType === 'custom') {
+            url += '&start_date=' + document.getElementById('exportStartDate').value;
+            url += '&end_date='   + document.getElementById('exportEndDate').value;
+        } else if (exportType === 'current') {
+            url += '&start_date={{ $from }}&end_date={{ $to }}';
+            @if($cashierId ?? false) url += '&cashier_id={{ $cashierId }}'; @endif
+            @if($itemId ?? false)    url += '&item_id={{ $itemId }}';       @endif
+        }
+
+        window.location.href = url;
+        closeExportModal();
+    };
+
+    window.exportPdf = function () {
+        const exportType = document.getElementById('exportType').value;
+        let url = '{{ route("restaurant.sales.export.pdf") }}?export_type=' + exportType;
+
+        if (exportType === 'custom') {
+            url += '&start_date=' + document.getElementById('exportStartDate').value;
+            url += '&end_date='   + document.getElementById('exportEndDate').value;
+        } else if (exportType === 'current') {
+            url += '&start_date={{ $from }}&end_date={{ $to }}';
+            @if($cashierId ?? false) url += '&cashier_id={{ $cashierId }}'; @endif
+            @if($itemId ?? false)    url += '&item_id={{ $itemId }}';       @endif
+        }
+
+        window.location.href = url;
+        closeExportModal();
+    };
+
+    // ----------------------------------------
+    // Server Data
+    // ----------------------------------------
     const menuItemNames  = @json($menuItemNames ?? []);
     const allProducts    = @json($topProducts);
     const dailyTrendData = @json($dailyTrend);
     const hourlyData     = @json($hourlySales);
     const paymentData    = @json($paymentMethods);
 
-    /* ─────────────────────────────────────────────────────
-       CATEGORISE PRODUCTS
-    ───────────────────────────────────────────────────── */
+    // ----------------------------------------
+    // Categorise Products
+    // ----------------------------------------
     const menuProducts      = allProducts.filter(p =>  menuItemNames.includes(p.item_name));
     const inventoryProducts = allProducts.filter(p => !menuItemNames.includes(p.item_name));
 
-    /* ─────────────────────────────────────────────────────
-       SHARED OPTIONS
-    ───────────────────────────────────────────────────── */
+    // ----------------------------------------
+    // Shared Helpers
+    // ----------------------------------------
     const ugxLabel = ctx => 'UGX ' + ctx.raw.toLocaleString();
-
     const baseOpts = {
         responsive: true,
         maintainAspectRatio: true,
         plugins: { legend: { position: 'top' } },
     };
 
-    /* ─────────────────────────────────────────────────────
-       DAILY TREND
-    ───────────────────────────────────────────────────── */
+    // ----------------------------------------
+    // Daily Trend Chart
+    // ----------------------------------------
     const dailyTrendChart = new Chart(document.getElementById('dailyTrendChart'), {
         type: 'line',
         data: {
@@ -601,12 +676,15 @@
                 pointHoverRadius: 6,
             }],
         },
-        options: { ...baseOpts, plugins: { ...baseOpts.plugins, tooltip: { callbacks: { label: ugxLabel } } } },
+        options: {
+            ...baseOpts,
+            plugins: { ...baseOpts.plugins, tooltip: { callbacks: { label: ugxLabel } } },
+        },
     });
 
-    /* ─────────────────────────────────────────────────────
-       HOURLY
-    ───────────────────────────────────────────────────── */
+    // ----------------------------------------
+    // Hourly Sales Chart
+    // ----------------------------------------
     const hourLabels = Array.from({ length: 24 }, (_, i) => {
         const h = i % 12 || 12;
         return `${h}:00 ${i >= 12 ? 'PM' : 'AM'}`;
@@ -626,12 +704,15 @@
                 pointRadius:     3,
             }],
         },
-        options: { ...baseOpts, plugins: { ...baseOpts.plugins, tooltip: { callbacks: { label: ugxLabel } } } },
+        options: {
+            ...baseOpts,
+            plugins: { ...baseOpts.plugins, tooltip: { callbacks: { label: ugxLabel } } },
+        },
     });
 
-    /* ─────────────────────────────────────────────────────
-       PAYMENT PIE
-    ───────────────────────────────────────────────────── */
+    // ----------------------------------------
+    // Payment Methods Pie Chart
+    // ----------------------------------------
     const payLabelMap = { cash: '💵 Cash', card: '💳 Card', mobile_money: '📱 Mobile Money' };
 
     const paymentMethodsChart = new Chart(document.getElementById('paymentMethodsChart'), {
@@ -651,8 +732,8 @@
                 tooltip: {
                     callbacks: {
                         label(ctx) {
-                            const sum  = ctx.dataset.data.reduce((a, b) => a + b, 0);
-                            const pct  = ((ctx.raw / sum) * 100).toFixed(1);
+                            const sum = ctx.dataset.data.reduce((a, b) => a + b, 0);
+                            const pct = ((ctx.raw / sum) * 100).toFixed(1);
                             return `${ctx.label}: UGX ${ctx.raw.toLocaleString()} (${pct}%)`;
                         },
                     },
@@ -661,9 +742,9 @@
         },
     });
 
-    /* ─────────────────────────────────────────────────────
-       TOP PRODUCTS BAR (dynamic)
-    ───────────────────────────────────────────────────── */
+    // ----------------------------------------
+    // Top Products Bar Chart (dynamic filter)
+    // ----------------------------------------
     let topProductsChart = null;
 
     function buildTopProducts(filter) {
@@ -672,7 +753,7 @@
             menu:      { data: menuProducts,      color: '#10b981', label: '(Menu Items)' },
             inventory: { data: inventoryProducts, color: '#3b82f6', label: '(Other Items)' },
         };
-        const { data, color, label } = cfg[filter] || cfg.all;
+        const { data, color, label } = cfg[filter] ?? cfg.all;
 
         document.getElementById('productFilterLabel').textContent = label;
 
@@ -689,15 +770,18 @@
                     borderRadius:    8,
                 }],
             },
-            options: { ...baseOpts, plugins: { ...baseOpts.plugins, tooltip: { callbacks: { label: ugxLabel } } } },
+            options: {
+                ...baseOpts,
+                plugins: { ...baseOpts.plugins, tooltip: { callbacks: { label: ugxLabel } } },
+            },
         });
     }
 
     buildTopProducts('all');
 
-    /* ─────────────────────────────────────────────────────
-       CHART FILTER BUTTONS
-    ───────────────────────────────────────────────────── */
+    // ----------------------------------------
+    // Chart Filter Pills
+    // ----------------------------------------
     document.querySelectorAll('[data-filter]').forEach(btn => {
         btn.addEventListener('click', () => {
             document.querySelectorAll('[data-filter]').forEach(b => b.classList.remove('active'));
@@ -706,9 +790,9 @@
         });
     });
 
-    /* ─────────────────────────────────────────────────────
-       TABS
-    ───────────────────────────────────────────────────── */
+    // ----------------------------------------
+    // Tab Switching
+    // ----------------------------------------
     document.querySelectorAll('.tab-btn').forEach(btn => {
         btn.addEventListener('click', () => {
             const tabId = btn.dataset.tab;
@@ -726,37 +810,35 @@
         });
     });
 
-    /* ─────────────────────────────────────────────────────
-       CUSTOM DATE TOGGLE
-    ───────────────────────────────────────────────────── */
+    // ----------------------------------------
+    // Period Select → Custom Date Range Toggle
+    // ----------------------------------------
     document.getElementById('periodSelect').addEventListener('change', function () {
         document.getElementById('customDateRange').style.display =
             this.value === 'custom' ? 'flex' : 'none';
     });
 
-    /* ─────────────────────────────────────────────────────
-       SALES LIST — SEARCH + FILTER
-    ───────────────────────────────────────────────────── */
+    // ----------------------------------------
+    // Sales List — Search + Filter
+    // ----------------------------------------
     let listFilter = 'all';
     let searchTerm = '';
 
     function applyListFilters() {
-        const rows    = document.querySelectorAll('#salesListBody .sale-row');
-        let   visible = 0;
-        let   visibleTotal = 0;
+        const rows = document.querySelectorAll('#salesListBody .sale-row');
+        let visible = 0;
+        let visibleTotal = 0;
 
         rows.forEach(row => {
             const orderNum = row.dataset.orderNumber ?? '';
             const items    = row.dataset.items ?? '';
-            const hasMenu  = row.dataset.hasMenu === '1';
+            const hasMenu  = row.dataset.hasMenu  === '1';
             const hasOther = row.dataset.hasOther === '1';
 
-            // Search match
             const matchSearch = !searchTerm
                 || orderNum.includes(searchTerm)
                 || items.includes(searchTerm);
 
-            // Filter match
             let matchFilter = true;
             if (listFilter === 'menu')      matchFilter = hasMenu;
             if (listFilter === 'inventory') matchFilter = hasOther;
@@ -766,7 +848,6 @@
 
             if (show) {
                 visible++;
-                // Sum from the amount cell (strip non-numeric)
                 const amountCell = row.querySelector('.col-amount');
                 if (amountCell) {
                     const num = parseFloat(amountCell.textContent.replace(/[^0-9.]/g, ''));
@@ -775,12 +856,12 @@
             }
         });
 
-        // No-results message
+        // No-results row
         const existing = document.getElementById('noResultsMessage');
         if (visible === 0 && rows.length > 0) {
             if (!existing) {
-                const tr    = document.createElement('tr');
-                tr.id       = 'noResultsMessage';
+                const tr = document.createElement('tr');
+                tr.id = 'noResultsMessage';
                 tr.innerHTML = `<td colspan="7">
                     <div class="empty-state">
                         <i class="fas fa-search"></i>
@@ -793,24 +874,18 @@
             existing?.remove();
         }
 
-        // Update count badge
-        const badge = document.getElementById('rowCountBadge');
-        if (badge) badge.textContent = `${visible} order${visible !== 1 ? 's' : ''}`;
-
-        // Update visible total
-        const totalEl = document.getElementById('visibleTotal');
-        if (totalEl) totalEl.textContent = 'UGX ' + visibleTotal.toLocaleString();
-
-        // Update summary text
+        // Update UI counters
+        const badge     = document.getElementById('rowCountBadge');
+        const totalEl   = document.getElementById('visibleTotal');
         const summaryEl = document.getElementById('visibleSummary');
-        if (summaryEl) {
-            summaryEl.textContent = visible === rows.length
-                ? `Showing all ${visible} orders`
-                : `Showing ${visible} of ${rows.length} orders`;
-        }
+
+        if (badge)     badge.textContent     = `${visible} order${visible !== 1 ? 's' : ''}`;
+        if (totalEl)   totalEl.textContent   = 'UGX ' + visibleTotal.toLocaleString();
+        if (summaryEl) summaryEl.textContent = visible === rows.length
+            ? `Showing all ${visible} orders`
+            : `Showing ${visible} of ${rows.length} orders`;
     }
 
-    // List filter pills
     document.querySelectorAll('[data-list-filter]').forEach(btn => {
         btn.addEventListener('click', () => {
             document.querySelectorAll('[data-list-filter]').forEach(b => b.classList.remove('active'));
@@ -820,7 +895,6 @@
         });
     });
 
-    // Search input
     document.getElementById('salesSearchInput')?.addEventListener('input', function () {
         searchTerm = this.value.toLowerCase().trim();
         applyListFilters();

@@ -1,10 +1,10 @@
-{{-- resources/views/bar/sales/export-pdf.blade.php --}}
+{{-- resources/views/restaurant/sales/export-pdf.blade.php --}}
 
 <!DOCTYPE html>
 <html>
 <head>
     <meta charset="utf-8">
-    <title>Bar Sales Report</title>
+    <title>Restaurant Sales Report</title>
     <style>
         body {
             font-family: 'DejaVu Sans', 'Helvetica Neue', Arial, sans-serif;
@@ -14,12 +14,12 @@
         .header {
             text-align: center;
             margin-bottom: 20px;
-            border-bottom: 2px solid #3b82f6;
+            border-bottom: 2px solid #ea580c;
             padding-bottom: 10px;
         }
         .header h1 {
             margin: 0;
-            color: #3b82f6;
+            color: #ea580c;
             font-size: 18pt;
         }
         .header p {
@@ -90,7 +90,7 @@
 </head>
 <body>
     <div class="header">
-        <h1>PATIO BELLA - BAR</h1>
+        <h1>PATIO BELLA - RESTAURANT</h1>
         <p>Sales Report</p>
         @if(isset($exportType) && $exportType === 'all')
             <p>Period: ALL TIME (No Date Filter)</p>
@@ -122,7 +122,7 @@
     <div style="clear: both;"></div>
 
     @if($orders->count() > 0)
-    <table>
+    <tr>
         <thead>
             <tr>
                 <th>Invoice #</th>
@@ -148,27 +148,30 @@
                     $firstItem = true;
                     $itemCount = $order->items->count();
                     $invoiceTotal = 0;
+                    $rowIndex = 0;
                 @endphp
                 @foreach($order->items as $item)
                     @php
                         $invoiceTotal += $item->total_price;
                         $grandTotalItems += $item->quantity;
+                        $rowIndex++;
+                        $isLastItem = ($rowIndex == $itemCount);
                     @endphp
                     <tr>
                         @if($firstItem)
-                            <td class="invoice-number" rowspan="{{ $itemCount }}">{{ $order->order_number }}</td>
-                            <td rowspan="{{ $itemCount }}">{{ $order->created_at->format('d/m/Y h:i A') }}</td>
-                            <td rowspan="{{ $itemCount }}">{{ $order->cashier->first_name ?? 'N/A' }}</td>
-                            <td rowspan="{{ $itemCount }}">{{ ucfirst(str_replace('_', ' ', $order->customer_type ?? 'dine_in')) }}</td>
-                            <td rowspan="{{ $itemCount }}">{{ ucfirst($order->payment_method ?? 'N/A') }}</td>
+                            <td class="invoice-number" style="vertical-align: top;" rowspan="{{ $itemCount }}">{{ $order->order_number }}</td
+                            <td style="vertical-align: top;" rowspan="{{ $itemCount }}">{{ $order->created_at->format('d/m/Y h:i A') }}</td
+                            <td style="vertical-align: top;" rowspan="{{ $itemCount }}">{{ $order->cashier->first_name ?? 'N/A' }}</td
+                            <td style="vertical-align: top;" rowspan="{{ $itemCount }}">{{ ucfirst(str_replace('_', ' ', $order->customer_type ?? 'dine_in')) }}</td
+                            <td style="vertical-align: top;" rowspan="{{ $itemCount }}">{{ ucfirst($order->payment_method ?? 'N/A') }}</td
                         @endif
-                        <td>{{ $item->item_name }}</td>
-                        <td class="text-center">{{ number_format($item->quantity, 0) }}</td>
-                        <td class="text-right">UGX {{ number_format($item->unit_price, 0) }}</td>
-                        <td class="text-right">UGX {{ number_format($item->total_price, 0) }}</td>
+                        <td>{{ $item->item_name }}</td
+                        <td class="text-center">{{ number_format($item->quantity, 0) }}</td
+                        <td class="text-right">UGX {{ number_format($item->unit_price, 0) }}</td
+                        <td class="text-right">UGX {{ number_format($item->total_price, 0) }}</td
                         @if($firstItem)
-                            <td rowspan="{{ $itemCount }}" class="text-right">UGX {{ number_format($order->amount_paid ?? $order->total_amount, 0) }}</td>
-                            <td rowspan="{{ $itemCount }}" class="text-right">UGX {{ number_format($order->change_amount ?? 0, 0) }}</td>
+                            <td style="vertical-align: top;" rowspan="{{ $itemCount }}" class="text-right">UGX {{ number_format($order->amount_paid ?? $order->total_amount, 0) }}</td
+                            <td style="vertical-align: top;" rowspan="{{ $itemCount }}" class="text-right">UGX {{ number_format($order->change_amount ?? 0, 0) }}</td
                         @endif
                     </tr>
                     @php $firstItem = false; @endphp
@@ -178,11 +181,11 @@
         </tbody>
         <tfoot>
             <tr>
-                <td colspan="6" class="text-right"><strong>GRAND TOTALS:</strong></td>
-                <td class="text-center"><strong>{{ number_format($grandTotalItems, 0) }}</strong></td>
-                <td colspan="2"></td>
-                <td class="text-right"><strong>UGX {{ number_format($grandTotalRevenue, 0) }}</strong></td>
-                <td></td>
+                <td colspan="6" class="text-right"><strong>GRAND TOTALS:</strong></td
+                <td class="text-center"><strong>{{ number_format($grandTotalItems, 0) }}</strong></td
+                <td colspan="2"></td
+                <td class="text-right"><strong>UGX {{ number_format($grandTotalRevenue, 0) }}</strong></td
+                <td></td
             </tr>
         </tfoot>
     </table>

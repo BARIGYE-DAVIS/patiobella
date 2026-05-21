@@ -1,5 +1,4 @@
 <?php
-// app/Models/MenuItem.php
 
 namespace App\Models;
 
@@ -17,6 +16,8 @@ class MenuItem extends Model
         'name',
         'description',
         'category',
+        'menu_id',
+        'menu_item_category_id',
         'selling_price',
         'preparation_time',
         'is_active',
@@ -25,42 +26,80 @@ class MenuItem extends Model
         'image_url',
         'sort_order',
         'notes',
+        'material_cost',
+        'labour_cost',
+        'overhead_cost',
+        'total_cost',
+        'target_margin_percentage',
+        'current_margin_percentage',
+        'last_costed_at',
+        'm_cost',
+        'vat',
+        'mark_up',
+        'age_margins',
+        'age_cost',
+        'discount',
+        'glovo_selling_price',
+        'glovo_commission',
+        'final_margin',
         'created_by',
         'updated_by',
+        'created_at',
+        'updated_at',
+        'deleted_at',
     ];
 
     protected $casts = [
         'selling_price' => 'decimal:2',
+        'material_cost' => 'decimal:2',
+        'labour_cost' => 'decimal:2',
+        'overhead_cost' => 'decimal:2',
+        'total_cost' => 'decimal:2',
+        'target_margin_percentage' => 'decimal:2',
+        'current_margin_percentage' => 'decimal:2',
+        'm_cost' => 'decimal:2',
+        'vat' => 'decimal:2',
+        'mark_up' => 'decimal:2',
+        'age_margins' => 'decimal:2',
+        'age_cost' => 'decimal:2',
+        'discount' => 'decimal:2',
+        'glovo_selling_price' => 'decimal:2',
+        'glovo_commission' => 'decimal:2',
+        'final_margin' => 'decimal:2',
         'is_active' => 'boolean',
         'preparation_time' => 'integer',
         'sort_order' => 'integer',
+        'last_costed_at' => 'datetime',
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
         'deleted_at' => 'datetime',
     ];
 
-    // Categories constants
-    const CATEGORY_APPETIZER = 'Appetizer';
-    const CATEGORY_MAIN = 'Main';
-    const CATEGORY_DESSERT = 'Dessert';
-    const CATEGORY_BEVERAGE = 'Beverage';
-    const CATEGORY_SIDE = 'Side';
+    // =====================================================
+    // Relationships
+    // =====================================================
 
-    public static function getCategories()
+    public function menu()
     {
-        return [
-            self::CATEGORY_APPETIZER,
-            self::CATEGORY_MAIN,
-            self::CATEGORY_DESSERT,
-            self::CATEGORY_BEVERAGE,
-            self::CATEGORY_SIDE,
-        ];
+        return $this->belongsTo(Menu::class, 'menu_id');
     }
 
-    // Relationships
+    public function category()
+    {
+        return $this->belongsTo(MenuItemCategory::class, 'menu_item_category_id');
+    }
+
     public function inventoryItem()
     {
         return $this->belongsTo(InventoryItem::class, 'inventory_item_id');
+    }
+
+    /**
+     * Get the recipe items (ingredients) for this menu item
+     */
+    public function recipeItems()
+    {
+        return $this->hasMany(RecipeItem::class, 'menu_item_id');
     }
 
     public function creator()
@@ -73,27 +112,53 @@ class MenuItem extends Model
         return $this->belongsTo(User::class, 'updated_by');
     }
 
+    // =====================================================
     // Scopes
+    // =====================================================
+
     public function scopeActive($query)
     {
         return $query->where('is_active', true);
     }
 
-    public function scopeByCategory($query, $category)
+    public function scopeByMenu($query, $menuId)
     {
-        return $query->where('category', $category);
+        return $query->where('menu_id', $menuId);
     }
 
+    public function scopeByCategory($query, $categoryId)
+    {
+        return $query->where('menu_item_category_id', $categoryId);
+    }
+
+    // =====================================================
     // Accessors
-    public function getFormattedPriceAttribute()
+    // =====================================================
+
+    public function getMaterialCostDisplayAttribute(): string
     {
-        return 'UGX ' . number_format($this->selling_price, 2);
+        return number_format($this->material_cost ?? 0, 2) . ' UGX';
     }
 
-    public function getStatusBadgeAttribute()
+    public function getSellingPriceDisplayAttribute(): string
     {
-        return $this->is_active
-            ? '<span class="badge-approved"><i class="fas fa-check-circle"></i> Active</span>'
-            : '<span class="badge-pending"><i class="fas fa-ban"></i> Inactive</span>';
+        return number_format($this->selling_price, 2) . ' UGX';
+    }
+
+    public function getProfitAttribute(): float
+    {
+        return ($this->selling_price - ($this->material_cost ?? 0));
+    }
+
+    public function getProfitDisplayAttribute(): string
+    {
+        return number_format($this->profit, 2) . ' UGX';
+    }
+
+    public function getMarginDisplayAttribute(): string
+    {
+        $margin = $this->current_margin_percentage ?? 0;
+        $color = $margin >= 50 ? 'success' : ($margin >= 30 ? 'warning' : 'danger');
+        return '<span class="badge bg-' . $color . '">' . number_format($margin, 2) . '%</span>';
     }
 }

@@ -14,7 +14,8 @@
 
     <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-
+    <!-- In <head> or before closing </body> -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
     <style>
         body {
             font-family: 'Inter', sans-serif;
@@ -196,6 +197,27 @@
                       d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
             </svg>
             Stock Movements
+        </a>
+
+          <a href="{{ route('management.menus.index') }}"
+           class="flex items-center px-4 py-3 text-sm hover:bg-blue-700 transition sidebar-nav-link
+                  {{ request()->routeIs('management.menus.*') ? 'sidebar-active' : '' }}">
+            <i class="fas fa-utensils w-5 h-5 mr-3"></i>
+            <span>Menu Management</span>
+        </a>
+
+        <a href="{{ route('management.menu-items.index') }}"
+           class="flex items-center px-4 py-3 text-sm hover:bg-blue-700 transition sidebar-nav-link
+                  {{ request()->routeIs('management.menu-items.*') ? 'sidebar-active' : '' }}">
+            <i class="fas fa-concierge-bell w-5 h-5 mr-3"></i>
+            <span>Menu Items</span>
+        </a>
+
+        <a href="{{ route('management.menu-item-categories.index') }}"
+           class="flex items-center px-4 py-3 text-sm hover:bg-blue-700 transition sidebar-nav-link
+                  {{ request()->routeIs('management.menu-item-categories.*') ? 'sidebar-active' : '' }}">
+            <i class="fas fa-th-list w-5 h-5 mr-3"></i>
+            <span>Menu Item Categories</span>
         </a>
 
         <a href="{{ route('management.purchase-orders.index') }}"

@@ -286,7 +286,7 @@ Route::prefix('approved-lpos')->name('approved-lpos.')->group(function () {
 
 });
 
-// =====================================================
+/// =====================================================
 // MANAGEMENT MODULE Routes
 // =====================================================
 Route::prefix('management')->name('management.')->middleware(['auth', 'management'])->group(function () {
@@ -309,97 +309,103 @@ Route::prefix('management')->name('management.')->middleware(['auth', 'managemen
         Route::post('/{id}/reject', [App\Http\Controllers\Management\ManagementRequisitionController::class, 'reject'])->name('reject');
     });
 
+    // =====================================================
+    // MENU MANAGEMENT ROUTES
+    // =====================================================
+    Route::prefix('menus')->name('menus.')->group(function () {
 
-     Route::prefix('prices')->name('prices.')->group(function () {
+        // Menu CRUD
+        Route::get('/', [App\Http\Controllers\Management\MenuController::class, 'index'])->name('index');
+        Route::get('/create', [App\Http\Controllers\Management\MenuController::class, 'create'])->name('create');
+        Route::post('/', [App\Http\Controllers\Management\MenuController::class, 'store'])->name('store');
+        Route::get('/{id}', [App\Http\Controllers\Management\MenuController::class, 'show'])->name('show');
+        Route::get('/{id}/edit', [App\Http\Controllers\Management\MenuController::class, 'edit'])->name('edit');
+        Route::put('/{id}', [App\Http\Controllers\Management\MenuController::class, 'update'])->name('update');
+        Route::delete('/{id}', [App\Http\Controllers\Management\MenuController::class, 'destroy'])->name('destroy');
+        Route::post('/{id}/toggle-status', [App\Http\Controllers\Management\MenuController::class, 'toggleStatus'])->name('toggle-status');
 
-        // Main price management page
-        Route::get('/', [App\Http\Controllers\Management\PriceManagementController::class, 'index'])
-            ->name('index');
+        // Menu Items Management (under specific menu)
+        Route::get('/{menuId}/items', [App\Http\Controllers\Management\MenuController::class, 'items'])->name('items');
+        Route::post('/{menuId}/items', [App\Http\Controllers\Management\MenuController::class, 'storeItem'])->name('items.store');
+        Route::put('/{menuId}/items/{itemId}', [App\Http\Controllers\Management\MenuController::class, 'updateItem'])->name('items.update');
+        Route::delete('/{menuId}/items/{itemId}', [App\Http\Controllers\Management\MenuController::class, 'deleteItem'])->name('items.delete');
+        Route::post('/{menuId}/items/{itemId}/toggle-status', [App\Http\Controllers\Management\MenuController::class, 'toggleItemStatus'])->name('items.toggle-status');
 
-        // Update menu item price
-        Route::put('/menu/{id}', [App\Http\Controllers\Management\PriceManagementController::class, 'updateMenuItemPrice'])
-            ->name('update.menu');
+        // Recipe Items (Ingredients) under menu item
+        Route::get('/{menuId}/items/{itemId}/recipe', [App\Http\Controllers\Management\MenuController::class, 'getRecipeItems'])->name('items.recipe.get');
+        Route::post('/{menuId}/items/{itemId}/recipe', [App\Http\Controllers\Management\MenuController::class, 'storeRecipeItem'])->name('items.recipe.store');
+        Route::put('/{menuId}/items/{itemId}/recipe/{recipeId}', [App\Http\Controllers\Management\MenuController::class, 'updateRecipeItem'])->name('items.recipe.update');
+        Route::delete('/{menuId}/items/{itemId}/recipe/{recipeId}', [App\Http\Controllers\Management\MenuController::class, 'deleteRecipeItem'])->name('items.recipe.delete');
 
-        // Update inventory item price (ready-to-sell)
-        Route::put('/inventory/{id}', [App\Http\Controllers\Management\PriceManagementController::class, 'updateInventoryPrice'])
-            ->name('update.inventory');
-
-        // Toggle sellable status (single item)
-        Route::patch('/toggle-sellable/{id}', [App\Http\Controllers\Management\PriceManagementController::class, 'toggleSellable'])
-            ->name('toggle-sellable');
-
-        // Bulk make sellable
-        Route::post('/bulk-make-sellable', [App\Http\Controllers\Management\PriceManagementController::class, 'bulkMakeSellable'])
-            ->name('bulk-make-sellable');
-
-        // Bulk remove from sellable
-        Route::post('/bulk-remove-sellable', [App\Http\Controllers\Management\PriceManagementController::class, 'bulkRemoveSellable'])
-            ->name('bulk-remove-sellable');
+        // Bulk Operations & AJAX
+        Route::get('/recalculate-costs', [App\Http\Controllers\Management\MenuController::class, 'recalculateAllCosts'])->name('recalculate');
+        Route::get('/inventory-items', [App\Http\Controllers\Management\MenuController::class, 'getInventoryItems'])->name('inventory-items');
     });
 
-    // ============================================================
+    // =====================================================
+    // STANDALONE MENU ITEMS (All items across all menus)
+    // =====================================================
+    Route::prefix('menu-items')->name('menu-items.')->group(function () {
+        Route::get('/', [App\Http\Controllers\Management\MenuController::class, 'allItems'])->name('index');
+        Route::get('/{id}', [App\Http\Controllers\Management\MenuController::class, 'getMenuItem'])->name('show');
+        Route::put('/{id}', [App\Http\Controllers\Management\MenuController::class, 'updateMenuItem'])->name('update');
+        Route::get('/{id}/recipe', [App\Http\Controllers\Management\MenuController::class, 'getMenuItemRecipe'])->name('recipe');
+    });
+
+    // =====================================================
+    // PRICE MANAGEMENT ROUTES
+    // =====================================================
+    Route::prefix('prices')->name('prices.')->group(function () {
+        Route::get('/', [App\Http\Controllers\Management\PriceManagementController::class, 'index'])->name('index');
+        Route::put('/menu/{id}', [App\Http\Controllers\Management\PriceManagementController::class, 'updateMenuItemPrice'])->name('update.menu');
+        Route::put('/inventory/{id}', [App\Http\Controllers\Management\PriceManagementController::class, 'updateInventoryPrice'])->name('update.inventory');
+        Route::patch('/toggle-sellable/{id}', [App\Http\Controllers\Management\PriceManagementController::class, 'toggleSellable'])->name('toggle-sellable');
+        Route::post('/bulk-make-sellable', [App\Http\Controllers\Management\PriceManagementController::class, 'bulkMakeSellable'])->name('bulk-make-sellable');
+        Route::post('/bulk-remove-sellable', [App\Http\Controllers\Management\PriceManagementController::class, 'bulkRemoveSellable'])->name('bulk-remove-sellable');
+    });
+
+    // =====================================================
     // STOCK MOVEMENTS & DISTRIBUTION (for Management/Manager)
-    // ============================================================
+    // =====================================================
     Route::prefix('stock-movements')->name('stock-movements.')->group(function () {
-
-        // Main index page with analytics
-        Route::get('/', [ManagerStockMovementController::class, 'index'])
-            ->name('index');
-
-        // Single movement details
-        Route::get('/{id}', [ManagerStockMovementController::class, 'show'])
-            ->name('show');
-
-        // AJAX endpoint for department distribution data
-        Route::get('/distribution/by-department', [ManagerStockMovementController::class, 'getDistributionByDepartment'])
-            ->name('distribution.by-department');
-
-        // Export routes
-        Route::get('/export/excel', [ManagerStockMovementController::class, 'exportExcel'])
-            ->name('export.excel');
-
-        Route::get('/export/pdf', [ManagerStockMovementController::class, 'exportPdf'])
-            ->name('export.pdf');
+        Route::get('/', [ManagerStockMovementController::class, 'index'])->name('index');
+        Route::get('/{id}', [ManagerStockMovementController::class, 'show'])->name('show');
+        Route::get('/distribution/by-department', [ManagerStockMovementController::class, 'getDistributionByDepartment'])->name('distribution.by-department');
+        Route::get('/export/excel', [ManagerStockMovementController::class, 'exportExcel'])->name('export.excel');
+        Route::get('/export/pdf', [ManagerStockMovementController::class, 'exportPdf'])->name('export.pdf');
     });
 
-        Route::prefix('purchase-orders')->name('purchase-orders.')->group(function () {
-
-        // Main index page with list and charts
-        Route::get('/', [App\Http\Controllers\Management\ManagerPurchaseOrderController::class, 'index'])
-            ->name('index');
-
-        // Single purchase order details
-        Route::get('/{id}', [App\Http\Controllers\Management\ManagerPurchaseOrderController::class, 'show'])
-            ->name('show');
-
-        // Export routes
-        Route::get('/export/excel', [App\Http\Controllers\Management\ManagerPurchaseOrderController::class, 'exportExcel'])
-            ->name('export.excel');
-
-        Route::get('/export/pdf', [App\Http\Controllers\Management\ManagerPurchaseOrderController::class, 'exportPdf'])
-            ->name('export.pdf');
+    // =====================================================
+    // PURCHASE ORDERS MANAGEMENT
+    // =====================================================
+    Route::prefix('purchase-orders')->name('purchase-orders.')->group(function () {
+        Route::get('/', [App\Http\Controllers\Management\ManagerPurchaseOrderController::class, 'index'])->name('index');
+        Route::get('/{id}', [App\Http\Controllers\Management\ManagerPurchaseOrderController::class, 'show'])->name('show');
+        Route::get('/export/excel', [App\Http\Controllers\Management\ManagerPurchaseOrderController::class, 'exportExcel'])->name('export.excel');
+        Route::get('/export/pdf', [App\Http\Controllers\Management\ManagerPurchaseOrderController::class, 'exportPdf'])->name('export.pdf');
     });
 
-
-        Route::prefix('grns')->name('grns.')->group(function () {
-
-        // Main index page with list and charts
-        Route::get('/', [App\Http\Controllers\Management\ManagerGrnController::class, 'index'])
-            ->name('index');
-
-        // Single GRN details
-        Route::get('/{id}', [App\Http\Controllers\Management\ManagerGrnController::class, 'show'])
-            ->name('show');
-
-        // Export routes
-        Route::get('/export/excel', [App\Http\Controllers\Management\ManagerGrnController::class, 'exportExcel'])
-            ->name('export.excel');
-
-        Route::get('/export/pdf', [App\Http\Controllers\Management\ManagerGrnController::class, 'exportPdf'])
-            ->name('export.pdf');
+    // =====================================================
+    // GOODS RECEIVED NOTES MANAGEMENT
+    // =====================================================
+    Route::prefix('grns')->name('grns.')->group(function () {
+        Route::get('/', [App\Http\Controllers\Management\ManagerGrnController::class, 'index'])->name('index');
+        Route::get('/{id}', [App\Http\Controllers\Management\ManagerGrnController::class, 'show'])->name('show');
+        Route::get('/export/excel', [App\Http\Controllers\Management\ManagerGrnController::class, 'exportExcel'])->name('export.excel');
+        Route::get('/export/pdf', [App\Http\Controllers\Management\ManagerGrnController::class, 'exportPdf'])->name('export.pdf');
     });
+
+// =====================================================
+// MENU ITEM CATEGORIES MANAGEMENT
+// =====================================================
+Route::prefix('menu-item-categories')->name('menu-item-categories.')->group(function () {
+    Route::get('/', [App\Http\Controllers\Management\MenuItemCategoryController::class, 'index'])->name('index');
+    Route::post('/', [App\Http\Controllers\Management\MenuItemCategoryController::class, 'store'])->name('store');
+    Route::put('/{id}', [App\Http\Controllers\Management\MenuItemCategoryController::class, 'update'])->name('update');
+    Route::delete('/{id}', [App\Http\Controllers\Management\MenuItemCategoryController::class, 'destroy'])->name('destroy');
 });
 
+});
 
 // Director Module Routes
 Route::prefix('director')->name('director.')->middleware(['auth', 'director'])->group(function () {
@@ -714,3 +720,4 @@ Route::get('/reports/export/pdf', [App\Http\Controllers\Bar\BarCashierController
 });
 
 });
+

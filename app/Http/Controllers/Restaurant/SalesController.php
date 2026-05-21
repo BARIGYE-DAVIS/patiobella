@@ -16,6 +16,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Maatwebsite\Excel\Facades\Excel;
 use Barryvdh\DomPDF\Facade\Pdf;
+use App\Exports\SalesReportExport;
 
 class SalesController extends Controller
 {
@@ -169,68 +170,171 @@ class SalesController extends Controller
     // EXPORT — EXCEL
     // =========================================================
 
-    public function exportExcel(Request $request)
-    {
-        try {
-            $user = Auth::user();
-            if ($this->authorize($user)) {
-                return redirect()->back()->with('error', 'Unauthorized');
+   /**
+ * Export to Excel
+ */
+public function exportExcel(Request $request)
+{
+    try {
+        $user = Auth::user();
+        if ($this->authorize($user)) {
+            return redirect()->back()->with('error', 'Unauthorized');
+        }
+
+        $departmentId = $user->department_id;
+        $exportType = $request->get('export_type', 'current');
+
+        if ($exportType === 'all') {
+            $startDate = 'All Time';
+            $endDate = 'All Time';
+
+            $orders = SalesOrder::with(['cashier', 'items'])
+                ->where('department_id', $departmentId)
+                ->where('payment_status', 'paid')
+                ->orderBy('created_at', 'desc')
+                ->get();
+
+        } elseif ($exportType === 'custom') {
+            $from = $request->get('start_date');
+            $to = $request->get('end_date');
+            $startDate = $from;
+            $endDate = $to;
+
+            $orders = SalesOrder::with(['cashier', 'items'])
+                ->where('department_id', $departmentId)
+                ->where('payment_status', 'paid')
+                ->whereDate('created_at', '>=', $from)
+                ->whereDate('created_at', '<=', $to)
+                ->orderBy('created_at', 'desc')
+                ->get();
+
+        } else {
+            // Current filtered period
+            $from = $request->get('start_date', now()->startOfMonth()->format('Y-m-d'));
+            $to = $request->get('end_date', now()->endOfMonth()->format('Y-m-d'));
+            $startDate = $from;
+            $endDate = $to;
+            $cashierId = $request->get('cashier_id');
+            $itemId = $request->get('item_id');
+
+            $query = SalesOrder::with(['cashier', 'items'])
+                ->where('department_id', $departmentId)
+                ->where('payment_status', 'paid')
+                ->whereDate('created_at', '>=', $from)
+                ->whereDate('created_at', '<=', $to);
+
+            if ($cashierId) {
+                $query->where('cashier_id', $cashierId);
+            }
+            if ($itemId) {
+                $query->whereHas('items', function($q) use ($itemId) {
+                    $q->where('inventory_item_id', $itemId);
+                });
             }
 
-            [$from, $to, $period] = $this->resolveDateRange($request);
-
-            $filename = 'sales_report_' . $from . '_to_' . $to . '.xlsx';
-
-            return Excel::download(
-                new \App\Exports\SalesReportExport($from, $to, $user->department_id),
-                $filename
-            );
-
-        } catch (\Exception $e) {
-            Log::error('Excel export error', ['error' => $e->getMessage()]);
-            return redirect()->back()->with('error', 'Excel export failed: ' . $e->getMessage());
+            $orders = $query->orderBy('created_at', 'desc')->get();
         }
-    }
 
+        // Generate filename
+        $filename = 'restaurant_sales_report_' . ($exportType === 'all' ? 'all_time' : $startDate . '_to_' . $endDate) . '.xlsx';
+
+        // Use the 4-sheet export class
+        return Excel::download(new SalesReportExport($from, $to), $filename);
+
+    } catch (\Exception $e) {
+        Log::error('Restaurant sales export excel error', ['error' => $e->getMessage()]);
+        return redirect()->back()->with('error', 'Export failed: ' . $e->getMessage());
+    }
+}
     // =========================================================
     // EXPORT — PDF
     // =========================================================
 
-    public function exportPdf(Request $request)
-    {
-        try {
-            $user = Auth::user();
-            if ($this->authorize($user)) {
-                return redirect()->back()->with('error', 'Unauthorized');
-            }
+    /**
+ * Export to PDF
+ */
+public function exportPdf(Request $request)
+{
+    try {
+        $user = Auth::user();
+        if ($this->authorize($user)) {
+            return redirect()->back()->with('error', 'Unauthorized');
+        }
 
-            [$from, $to, $period] = $this->resolveDateRange($request);
-            $departmentId = $user->department_id;
+        $departmentId = $user->department_id;
+        $exportType = $request->get('export_type', 'current');
 
-            $salesData   = $this->getSalesData($from, $to, $departmentId);
-            $topProducts = $this->getTopProducts($from, $to, $departmentId, 20);
-            $salesList   = SalesOrder::with('items')
-                ->whereDate('created_at', '>=', $from)
-                ->whereDate('created_at', '<=', $to)
-                ->where('payment_status', 'paid')
+        if ($exportType === 'all') {
+            $startDate = 'All Time';
+            $endDate = 'All Time';
+
+            $orders = SalesOrder::with(['cashier', 'items'])
                 ->where('department_id', $departmentId)
+                ->where('payment_status', 'paid')
                 ->orderBy('created_at', 'desc')
                 ->get();
 
-            $pdf = Pdf::loadView('restaurant.sales.export-pdf', compact(
-                'salesData', 'topProducts', 'salesList', 'from', 'to'
-            ))->setPaper('a4', 'landscape');
+        } elseif ($exportType === 'custom') {
+            $from = $request->get('start_date');
+            $to = $request->get('end_date');
+            $startDate = $from;
+            $endDate = $to;
 
-            $filename = 'sales_report_' . $from . '_to_' . $to . '.pdf';
+            $orders = SalesOrder::with(['cashier', 'items'])
+                ->where('department_id', $departmentId)
+                ->where('payment_status', 'paid')
+                ->whereDate('created_at', '>=', $from)
+                ->whereDate('created_at', '<=', $to)
+                ->orderBy('created_at', 'desc')
+                ->get();
 
-            return $pdf->download($filename);
+        } else {
+            // Current filtered period
+            $from = $request->get('start_date', now()->startOfMonth()->format('Y-m-d'));
+            $to = $request->get('end_date', now()->endOfMonth()->format('Y-m-d'));
+            $startDate = $from;
+            $endDate = $to;
+            $cashierId = $request->get('cashier_id');
+            $itemId = $request->get('item_id');
 
-        } catch (\Exception $e) {
-            Log::error('PDF export error', ['error' => $e->getMessage()]);
-            return redirect()->back()->with('error', 'PDF export failed: ' . $e->getMessage());
+            $query = SalesOrder::with(['cashier', 'items'])
+                ->where('department_id', $departmentId)
+                ->where('payment_status', 'paid')
+                ->whereDate('created_at', '>=', $from)
+                ->whereDate('created_at', '<=', $to);
+
+            if ($cashierId) {
+                $query->where('cashier_id', $cashierId);
+            }
+            if ($itemId) {
+                $query->whereHas('items', function($q) use ($itemId) {
+                    $q->where('inventory_item_id', $itemId);
+                });
+            }
+
+            $orders = $query->orderBy('created_at', 'desc')->get();
         }
-    }
 
+        $stats = [
+            'total_sales' => $orders->sum('total_amount'),
+            'total_orders' => $orders->count(),
+            'total_items' => $orders->sum(function($order) {
+                return $order->items->sum('quantity');
+            }),
+            'avg_order_value' => $orders->count() > 0 ? $orders->sum('total_amount') / $orders->count() : 0,
+        ];
+
+        $pdf = Pdf::loadView('restaurant.sales.export-pdf', compact('orders', 'stats', 'startDate', 'endDate', 'exportType'));
+        $pdf->setPaper('a4', 'landscape');
+
+        $filename = 'restaurant_sales_report_' . ($exportType === 'all' ? 'all_time' : $startDate . '_to_' . $endDate) . '.pdf';
+        return $pdf->download($filename);
+
+    } catch (\Exception $e) {
+        Log::error('Restaurant sales export pdf error', ['error' => $e->getMessage()]);
+        return redirect()->back()->with('error', 'Export failed: ' . $e->getMessage());
+    }
+}
     // =========================================================
     // POS
     // =========================================================
