@@ -101,4 +101,37 @@ class GoodsReceivedNote extends Model
     {
         return $this->status === 'completed';
     }
+
+/**
+     * Get the rating for this GRN.
+     */
+    public function rating()
+    {
+        return $this->hasOne(VendorRating::class, 'goods_received_note_id');
+    }
+
+    /**
+     * Check if this GRN has been rated.
+     */
+    public function isRated()
+    {
+        return $this->rating()->exists();
+    }
+
+    /**
+     * Get the rating value if exists.
+     */
+    public function getRatingValueAttribute()
+    {
+        return $this->rating ? $this->rating->rating : null;
+    }
+
+    /**
+     * Get the rating comment if exists.
+     */
+    public function getRatingCommentAttribute()
+    {
+        return $this->rating ? $this->rating->comment : null;
+    }
+
 }

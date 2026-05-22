@@ -33,6 +33,18 @@
         border-color: #22c55e;
         box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.1);
     }
+    .hidden-column {
+        display: none;
+    }
+    .exceed-warning {
+        color: #dc2626;
+        font-size: 0.7rem;
+        margin-top: 0.25rem;
+    }
+    .exceed-input {
+        border-color: #dc2626;
+        background-color: #fef2f2;
+    }
 </style>
 
 <div class="space-y-4">
@@ -62,7 +74,9 @@
     {{-- ── Info Note ── --}}
     <div class="bg-blue-50 border-l-4 border-blue-400 rounded-lg px-5 py-4">
         <p class="text-sm text-blue-800">
-            <strong>Note:</strong> For pack items (carton, box, etc.) — select the pack type and enter how many pieces are in each pack. The total pieces will be calculated automatically. For direct units (kg, litres, pcs) — just enter the quantity directly.
+            <strong>Note:</strong> You cannot issue more than the <strong>approved quantity</strong> for each item.
+            The <em>Requested</em> and <em>Approved</em> columns are shown for reference.
+            Only available stock limits what you can issue.
         </p>
     </div>
 
@@ -100,37 +114,44 @@
                     <thead class="bg-gray-50 border-b border-gray-200">
                         <tr>
                             <th class="px-4 py-3 text-left text-[10px] font-semibold uppercase tracking-wider text-gray-500">Item</th>
-                            <th class="px-4 py-3 text-left text-[10px] font-semibold uppercase tracking-wider text-gray-500">Unit</th>
-                            <th class="px-4 py-3 text-center text-[10px] font-semibold uppercase tracking-wider text-gray-500">Requested</th>
-                            <th class="px-4 py-3 text-center text-[10px] font-semibold uppercase tracking-wider text-gray-500">Prev. Issued</th>
-                            <th class="px-4 py-3 text-center text-[10px] font-semibold uppercase tracking-wider text-gray-500">Remaining</th>
-
-                            {{-- Issue group --}}
+                            <th class="px-4 py-3 text-left text-[10px] font-semibold uppercase tracking-wider text-gray-500">Base Unit</th>
+                            <th class="px-4 py-3 text-center text-[10px] font-semibold uppercase tracking-wider text-gray-500">
+                                Requested
+                            </th>
+                            <th class="px-4 py-3 text-center text-[10px] font-semibold uppercase tracking-wider text-blue-600 bg-blue-50">
+                                Approved
+                            </th>
+                            <th class="px-4 py-3 text-center text-[10px] font-semibold uppercase tracking-wider text-gray-500">Available Stock</th>
                             <th class="px-4 py-3 text-center text-[10px] font-semibold uppercase tracking-wider text-green-600 border-l border-gray-200 bg-green-50">
                                 Qty to Issue
+                                <div class="text-[9px] font-normal normal-case text-gray-500">(max = approved)</div>
                             </th>
-                            <th class="px-4 py-3 text-center text-[10px] font-semibold uppercase tracking-wider text-green-600 bg-green-50">
+                            <th class="px-4 py-3 text-center text-[10px] font-semibold uppercase tracking-wider text-green-600 bg-green-50 pack-type-col hidden-column">
                                 Pack Type
                             </th>
-                            <th class="px-4 py-3 text-center text-[10px] font-semibold uppercase tracking-wider text-green-600 bg-green-50">
+                            <th class="px-4 py-3 text-center text-[10px] font-semibold uppercase tracking-wider text-green-600 bg-green-50 pack-info-col hidden-column">
                                 Pack Info
                             </th>
                             <th class="px-4 py-3 text-center text-[10px] font-semibold uppercase tracking-wider text-green-600 bg-green-50">
                                 Total Pieces
                             </th>
-
                             <th class="px-4 py-3 text-left text-[10px] font-semibold uppercase tracking-wider text-gray-500">Notes</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-gray-100">
                         @foreach($requisition->items as $item)
                         @php
-                            $remaining    = $item->quantity_requested - $item->quantity_issued;
-                            $baseUnit     = $item->inventoryItem->base_unit ?? 'units';
-                            $reqPackType  = $item->requested_pack_type ?? null;
-                            $reqPackSize  = $item->requested_pack_size ?? null;
+                            $baseUnit      = $item->inventoryItem->base_unit ?? 'units';
+                            $requestedQty  = (float) $item->quantity_requested;
+                            $approvedQty   = (float) ($item->quantity_approved ?? $requestedQty);
+                            $alreadyIssued = (float) ($item->issued_total_pieces ?? 0);
+                            $remainingToIssue = max(0, $approvedQty - $alreadyIssued);
+                            $stockAvail    = $item->inventoryItem->current_stock ?? 0;
+                            $maxIssue      = min($remainingToIssue, $stockAvail);
+                            $lowStock      = $stockAvail <= 0;
+                            $fullyIssued   = $remainingToIssue <= 0;
                         @endphp
-                        <tr class="hover:bg-gray-50 transition-colors" id="row_{{ $loop->index }}">
+                        <tr class="hover:bg-gray-50 transition-colors {{ $lowStock ? 'bg-red-50' : '' }} {{ $fullyIssued ? 'bg-gray-50 opacity-60' : '' }}" id="row_{{ $loop->index }}">
 
                             {{-- Item --}}
                             <td class="px-4 py-3">
@@ -138,50 +159,80 @@
                                 <p class="text-xs text-gray-400 mt-0.5 font-mono">{{ $item->inventoryItem->item_code ?? '' }}</p>
                                 <input type="hidden" name="items[{{ $loop->index }}][item_id]" value="{{ $item->id }}">
                                 <input type="hidden" name="items[{{ $loop->index }}][inventory_item_id]" value="{{ $item->inventory_item_id }}">
-                            </td>
-
-                            {{-- Unit --}}
-                            <td class="px-4 py-3 text-gray-500 text-sm">{{ $baseUnit }}</td>
-
-                            {{-- Requested --}}
-                            <td class="px-4 py-3 text-center tabular-nums font-semibold text-gray-800">
-                                {{ number_format($item->quantity_requested, 2) }}
-                                @if($reqPackType)
-                                    <div class="text-xs text-gray-400 font-normal">{{ ucfirst($reqPackType) }}{{ $reqPackSize ? ' × '.$reqPackSize.' '.$baseUnit : '' }}</div>
-                                @else
-                                    <div class="text-xs text-gray-400 font-normal">{{ $baseUnit }}</div>
+                                @if($alreadyIssued > 0)
+                                    <div class="text-xs text-blue-500 mt-1">
+                                        Already issued: {{ number_format($alreadyIssued, 2) }} {{ $baseUnit }}
+                                    </div>
+                                @endif
+                                @if($fullyIssued)
+                                    <div class="text-xs text-green-600 mt-1 font-medium">
+                                        ✓ Fully issued
+                                    </div>
                                 @endif
                             </td>
 
-                            {{-- Previously Issued --}}
-                            <td class="px-4 py-3 text-center tabular-nums text-orange-600 font-semibold">
-                                {{ number_format($item->quantity_issued, 2) }}
+                            {{-- Base Unit --}}
+                            <td class="px-4 py-3 text-gray-500 text-sm">{{ $baseUnit }}</td>
+
+                            {{-- Requested --}}
+                            <td class="px-4 py-3 text-center tabular-nums">
+                                <span class="font-semibold text-gray-600">{{ number_format($requestedQty, 2) }}</span>
                             </td>
 
-                            {{-- Remaining --}}
-                            <td class="px-4 py-3 text-center tabular-nums font-semibold text-blue-600">
-                                {{ number_format($remaining, 2) }}
+                            {{-- Approved --}}
+                            <td class="px-4 py-3 text-center tabular-nums bg-blue-50">
+                                <span class="font-semibold text-blue-700">{{ number_format($approvedQty, 2) }}</span>
+                                <div class="text-xs text-gray-500">{{ $baseUnit }}</div>
+                                @if($remainingToIssue > 0 && $remainingToIssue < $approvedQty)
+                                    <div class="text-xs text-orange-500">Remaining: {{ number_format($remainingToIssue, 2) }}</div>
+                                @endif
                             </td>
 
-                            {{-- Qty to Issue --}}
+                            {{-- Available Stock --}}
+                            <td class="px-4 py-3 text-center tabular-nums">
+                                @if($lowStock)
+                                    <span class="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-semibold rounded-full bg-red-100 text-red-700">
+                                        Out of stock
+                                    </span>
+                                @else
+                                    <span class="font-semibold {{ $stockAvail < 10 ? 'text-orange-600' : 'text-emerald-600' }}">
+                                        {{ number_format($stockAvail, 2) }}
+                                    </span>
+                                    <div class="text-xs text-gray-400">{{ $baseUnit }}</div>
+                                @endif
+                            </td>
+
+                            {{-- Qty to Issue — max = remaining approved quantity --}}
                             <td class="px-4 py-3 text-center border-l border-gray-100">
-                                <input type="number"
-                                       name="items[{{ $loop->index }}][quantity_issued]"
-                                       id="qty_{{ $loop->index }}"
-                                       class="quantity-issued w-24 px-2 py-1.5 border border-gray-300 rounded-lg text-center text-sm focus:outline-none focus:ring-2 focus:ring-green-400 focus:border-transparent"
-                                       value="0" min="0" max="{{ $remaining }}" step="0.01"
-                                       data-max="{{ $remaining }}"
-                                       data-index="{{ $loop->index }}"
-                                       oninput="recalculate({{ $loop->index }})">
+                                @if($fullyIssued)
+                                    <span class="text-green-600 text-sm font-medium">Fully issued</span>
+                                    <input type="hidden" name="items[{{ $loop->index }}][quantity_issued]" value="0">
+                                @else
+                                    <input type="number"
+                                           name="items[{{ $loop->index }}][quantity_issued]"
+                                           id="qty_{{ $loop->index }}"
+                                           class="quantity-issued w-24 px-2 py-1.5 border border-gray-300 rounded-lg text-center text-sm focus:outline-none focus:ring-2 focus:ring-green-400 focus:border-transparent"
+                                           value="0"
+                                           min="0"
+                                           step="0.01"
+                                           max="{{ $maxIssue }}"
+                                           data-max="{{ $maxIssue }}"
+                                           data-approved="{{ $approvedQty }}"
+                                           data-already-issued="{{ $alreadyIssued }}"
+                                           data-stock="{{ $stockAvail }}"
+                                           data-baseunit="{{ $baseUnit }}"
+                                           data-index="{{ $loop->index }}"
+                                           oninput="updateTotal({{ $loop->index }})">
+                                    <div id="warning_{{ $loop->index }}" class="exceed-warning hidden"></div>
+                                @endif
                             </td>
 
-                            {{-- Pack Type --}}
-                            <td class="px-4 py-3 text-center">
+                            {{-- Pack Type (HIDDEN) --}}
+                            <td class="px-4 py-3 text-center pack-type-col hidden-column">
                                 <select name="items[{{ $loop->index }}][pack_type]"
                                         id="pack_type_{{ $loop->index }}"
                                         class="pack-type w-28 px-2 py-1.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-400"
-                                        data-index="{{ $loop->index }}"
-                                        onchange="recalculate({{ $loop->index }})">
+                                        disabled>
                                     <option value="">— Direct —</option>
                                     <option value="carton">Carton</option>
                                     <option value="box">Box</option>
@@ -193,35 +244,31 @@
                                 </select>
                             </td>
 
-                            {{-- Pack Info (pcs per pack input + live label like show view) --}}
-                            <td class="px-4 py-3 text-center" id="pack_info_cell_{{ $loop->index }}">
+                            {{-- Pack Info (HIDDEN) --}}
+                            <td class="px-4 py-3 text-center pack-info-col hidden-column">
                                 <input type="number"
                                        name="items[{{ $loop->index }}][pack_size]"
                                        id="pack_size_{{ $loop->index }}"
                                        class="pack-size w-20 px-2 py-1.5 border border-gray-300 rounded-lg text-center text-sm focus:outline-none focus:ring-2 focus:ring-green-400"
                                        placeholder="e.g. 24"
                                        step="1" min="1"
-                                       data-index="{{ $loop->index }}"
-                                       oninput="recalculate({{ $loop->index }})">
-                                {{-- Live pack info badge — shown when pack type + size are filled --}}
-                                <div id="pack_badge_{{ $loop->index }}" class="mt-1.5 hidden">
-                                    <span class="inline-block px-2 py-0.5 text-xs rounded bg-green-50 text-green-700 border border-green-100 font-mono" id="pack_badge_text_{{ $loop->index }}"></span>
-                                </div>
-                                {{-- Direct label shown when no pack type --}}
-                                <div id="direct_badge_{{ $loop->index }}" class="mt-1.5">
-                                    <span class="inline-block px-2 py-0.5 text-xs rounded bg-gray-50 text-gray-500 border border-gray-200">
-                                        Direct {{ $baseUnit }}
-                                    </span>
-                                </div>
+                                       disabled>
                             </td>
 
                             {{-- Total Pieces --}}
                             <td class="px-4 py-3 text-center tabular-nums font-semibold" id="total_cell_{{ $loop->index }}">
-                                <span id="total_display_{{ $loop->index }}" class="text-gray-300">—</span>
-                                <input type="hidden"
-                                       id="total_pieces_{{ $loop->index }}"
-                                       data-baseunit="{{ $baseUnit }}"
-                                       value="0">
+                                @if($fullyIssued)
+                                    <span class="text-green-600">0.00</span>
+                                    <input type="hidden" id="total_pieces_{{ $loop->index }}" name="items[{{ $loop->index }}][issued_total_pieces]" value="0">
+                                @else
+                                    <span id="total_display_{{ $loop->index }}" class="text-gray-300">—</span>
+                                    <input type="hidden"
+                                           id="total_pieces_{{ $loop->index }}"
+                                           name="items[{{ $loop->index }}][issued_total_pieces]"
+                                           data-baseunit="{{ $baseUnit }}"
+                                           data-max="{{ $maxIssue }}"
+                                           value="0">
+                                @endif
                             </td>
 
                             {{-- Notes --}}
@@ -237,19 +284,10 @@
                     {{-- Totals footer --}}
                     <tfoot class="bg-gray-50 border-t-2 border-gray-200">
                         <tr>
-                            <td colspan="2" class="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Totals</td>
-                            <td class="px-4 py-3 text-center tabular-nums font-bold text-gray-800">
-                                {{ number_format($requisition->items->sum('quantity_requested'), 2) }}
-                            </td>
-                            <td class="px-4 py-3 text-center tabular-nums font-bold text-orange-600">
-                                {{ number_format($requisition->items->sum('quantity_issued'), 2) }}
-                            </td>
-                            <td class="px-4 py-3 text-center tabular-nums font-bold text-blue-600">
-                                {{ number_format($requisition->items->sum(fn($i) => $i->quantity_requested - $i->quantity_issued), 2) }}
-                            </td>
+                            <td colspan="5" class="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Totals</td>
                             <td class="px-4 py-3 border-l border-gray-200"></td>
-                            <td class="px-4 py-3"></td>
-                            <td class="px-4 py-3"></td>
+                            <td class="px-4 py-3 pack-type-col hidden-column"></td>
+                            <td class="px-4 py-3 pack-info-col hidden-column"></td>
                             <td class="px-4 py-3 text-center tabular-nums font-bold text-green-600">
                                 <span id="grandTotal">0.00</span>
                                 <div class="text-xs text-gray-400 font-normal">base units</div>
@@ -285,61 +323,68 @@
 </div>
 
 <script>
-    function recalculate(index) {
-        const qtyInput  = document.getElementById(`qty_${index}`);
-        const qty       = parseFloat(qtyInput.value) || 0;
-        const packType  = document.getElementById(`pack_type_${index}`).value;
-        const packSize  = parseFloat(document.getElementById(`pack_size_${index}`).value) || 0;
-        const baseUnit  = document.getElementById(`total_pieces_${index}`).getAttribute('data-baseunit');
-        const maxQty    = parseFloat(qtyInput.getAttribute('data-max'));
+    function updateTotal(index) {
+        const qtyInput = document.getElementById(`qty_${index}`);
+        if (!qtyInput) return;
 
-        // Clamp qty to max
-        if (qty > maxQty) qtyInput.value = maxQty;
+        const qty = parseFloat(qtyInput.value) || 0;
+        const maxAllowed = parseFloat(qtyInput.getAttribute('data-max')) || 0;
+        const baseUnit = qtyInput.getAttribute('data-baseunit');
+        const stockAvail = parseFloat(qtyInput.getAttribute('data-stock')) || 0;
+        const approvedQty = parseFloat(qtyInput.getAttribute('data-approved')) || 0;
+        const alreadyIssued = parseFloat(qtyInput.getAttribute('data-already-issued')) || 0;
+        const remainingToIssue = maxAllowed;
 
-        const packBadge     = document.getElementById(`pack_badge_${index}`);
-        const packBadgeText = document.getElementById(`pack_badge_text_${index}`);
-        const directBadge   = document.getElementById(`direct_badge_${index}`);
-        const totalDisplay  = document.getElementById(`total_display_${index}`);
-        const totalInput    = document.getElementById(`total_pieces_${index}`);
-        const packSizeInput = document.getElementById(`pack_size_${index}`);
+        const totalDisplay = document.getElementById(`total_display_${index}`);
+        const totalInput = document.getElementById(`total_pieces_${index}`);
+        const warningSpan = document.getElementById(`warning_${index}`);
 
-        let totalPieces = 0;
+        let isValid = true;
+        let warningMessage = '';
 
-        if (packType) {
-            // Pack mode
-            packSizeInput.classList.remove('hidden');
-            directBadge.classList.add('hidden');
+        // Check against approved remaining quantity
+        if (qty > remainingToIssue) {
+            isValid = false;
+            warningMessage = `Cannot exceed remaining approved quantity (${remainingToIssue.toFixed(2)} ${baseUnit})`;
+            qtyInput.classList.add('exceed-input');
+        }
+        // Check against stock availability
+        else if (qty > stockAvail) {
+            isValid = false;
+            warningMessage = `Insufficient stock. Available: ${stockAvail.toFixed(2)} ${baseUnit}`;
+            qtyInput.classList.add('exceed-input');
+        }
+        else {
+            qtyInput.classList.remove('exceed-input');
+        }
 
-            if (packSize > 0) {
-                totalPieces = qty * packSize;
-
-                // Show badge like show view: "Carton × 12 bottles"
-                packBadgeText.textContent = `${ucfirst(packType)} × ${packSize} ${baseUnit}`;
-                packBadge.classList.remove('hidden');
-
-                // Total display — green like show view
-                totalDisplay.innerHTML = `<span class="text-green-600">${totalPieces.toFixed(2)} <span class="text-xs text-gray-400 font-normal">${baseUnit}</span></span>`;
+        // Show/hide warning
+        if (warningSpan) {
+            if (!isValid && qty > 0) {
+                warningSpan.textContent = warningMessage;
+                warningSpan.classList.remove('hidden');
             } else {
-                packBadge.classList.add('hidden');
-                totalDisplay.innerHTML = `<span class="text-red-400 text-xs">Enter pcs/${packType}</span>`;
-                totalPieces = 0;
-            }
-        } else {
-            // Direct mode
-            packSizeInput.value = '';
-            packBadge.classList.add('hidden');
-            directBadge.classList.remove('hidden');
-
-            totalPieces = qty;
-
-            if (qty > 0) {
-                totalDisplay.innerHTML = `<span class="text-green-600">${qty.toFixed(2)} <span class="text-xs text-gray-400 font-normal">${baseUnit}</span></span>`;
-            } else {
-                totalDisplay.innerHTML = `<span class="text-gray-300">—</span>`;
+                warningSpan.textContent = '';
+                warningSpan.classList.add('hidden');
             }
         }
 
-        totalInput.value = totalPieces;
+        // Calculate total pieces (direct issue = quantity)
+        let totalPieces = qty;
+
+        if (qty > 0 && isValid) {
+            totalDisplay.innerHTML = `<span class="text-green-600">${qty.toFixed(2)} <span class="text-xs text-gray-400 font-normal">${baseUnit}</span></span>`;
+        } else if (qty > 0 && !isValid) {
+            totalDisplay.innerHTML = `<span class="text-red-500">${qty.toFixed(2)} <span class="text-xs font-normal">${baseUnit}</span></span>
+                <div class="text-[10px] text-red-400 mt-0.5">${warningMessage}</div>`;
+        } else {
+            totalDisplay.innerHTML = `<span class="text-gray-300">—</span>`;
+        }
+
+        if (totalInput) {
+            totalInput.value = isValid ? totalPieces : 0;
+        }
+
         updateGrandTotal();
     }
 
@@ -349,10 +394,6 @@
             grand += parseFloat(input.value) || 0;
         });
         document.getElementById('grandTotal').textContent = grand.toFixed(2);
-    }
-
-    function ucfirst(str) {
-        return str.charAt(0).toUpperCase() + str.slice(1);
     }
 
     // Form validation
@@ -366,36 +407,52 @@
         }
 
         let hasQty = false;
+        let hasInvalid = false;
+        let invalidMessages = [];
+
         document.querySelectorAll('.quantity-issued').forEach(input => {
-            if (parseFloat(input.value) > 0) hasQty = true;
+            const qty = parseFloat(input.value) || 0;
+            const maxAllowed = parseFloat(input.getAttribute('data-max')) || 0;
+            const stockAvail = parseFloat(input.getAttribute('data-stock')) || 0;
+            const baseUnit = input.getAttribute('data-baseunit');
+
+            if (qty > 0) {
+                hasQty = true;
+                if (qty > maxAllowed) {
+                    hasInvalid = true;
+                    invalidMessages.push(`Cannot issue ${qty} ${baseUnit} - only ${maxAllowed.toFixed(2)} ${baseUnit} remaining from approved quantity`);
+                } else if (qty > stockAvail) {
+                    hasInvalid = true;
+                    invalidMessages.push(`Insufficient stock: ${qty} ${baseUnit} requested, only ${stockAvail.toFixed(2)} ${baseUnit} available`);
+                }
+            }
         });
+
         if (!hasQty) {
             e.preventDefault();
             alert('Please enter at least one item quantity to issue.');
             return false;
         }
 
-        let packError = false;
-        document.querySelectorAll('.pack-type').forEach(select => {
-            if (select.value) {
-                const index = select.getAttribute('data-index');
-                const packSize = parseFloat(document.getElementById(`pack_size_${index}`).value) || 0;
-                if (packSize < 1) packError = true;
-            }
-        });
-        if (packError) {
+        if (hasInvalid) {
             e.preventDefault();
-            alert('Please enter the number of pieces per pack for all selected pack types.');
+            alert('Invalid quantities:\n\n' + invalidMessages.join('\n'));
             return false;
         }
     });
 
-    // Init
-    document.addEventListener('DOMContentLoaded', function () {
+    // Initialize on page load
+    document.addEventListener('DOMContentLoaded', function() {
         @foreach($requisition->items as $item)
-        recalculate({{ $loop->index }});
+            @php
+                $approvedQty = (float) ($item->quantity_approved ?? $item->quantity_requested);
+                $alreadyIssued = (float) ($item->issued_total_pieces ?? 0);
+                $remainingToIssue = max(0, $approvedQty - $alreadyIssued);
+            @endphp
+            @if($remainingToIssue > 0)
+                updateTotal({{ $loop->index }});
+            @endif
         @endforeach
     });
 </script>
-
 @endsection

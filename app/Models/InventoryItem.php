@@ -19,6 +19,7 @@ class InventoryItem extends Model
         'description',
         'category_id',
         'sub_category_id',
+        'empty_bottle_weight',
         'default_unit_of_measure_id',  // The receiving/pack unit  e.g. carton, kg, pcs
         'base_unit',                   // The individual sell/consume unit e.g. bottle, piece, kg
         'minimum_stock',               // Always in base units
@@ -44,6 +45,7 @@ class InventoryItem extends Model
 
     protected $casts = [
         'minimum_stock'      => 'decimal:6',
+        'empty_bottle_weight' => 'decimal:6', 
         'maximum_stock'      => 'decimal:6',
         'reorder_quantity'   => 'decimal:6',
         'unit_cost'          => 'decimal:2',
@@ -307,4 +309,15 @@ public function departmentRequisitionItems()
 {
     return $this->hasMany(DepartmentRequisitionItem::class, 'inventory_item_id');
 }
+ // Helper method to get empty bottle weight in kg (standardized)
+    public function getEmptyBottleWeightInKgAttribute()
+    {
+        return (float) $this->empty_bottle_weight;
+    }
+
+ public function hasEmptyBottleWeight()
+    {
+        return $this->empty_bottle_weight > 0;
+    }
+
 }

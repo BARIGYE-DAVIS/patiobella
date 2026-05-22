@@ -42,6 +42,7 @@
     .pill-completed { background: #d1fae5; color: #065f46; }
     .pill-draft     { background: #fef3c7; color: #92400e; }
     .pill-cancelled { background: #fee2e2; color: #991b1b; }
+    .pill-inventory_updated { background: #dbeafe; color: #1e40af; }
     .pill-dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
 
     /* Info cards */
@@ -112,6 +113,8 @@
     .btn-primary:hover { background: #1e40af; transform: translateY(-1px); box-shadow: 0 4px 12px rgba(29,78,216,0.3); }
     .btn-success   { background: #059669; color: #fff; }
     .btn-success:hover { background: #047857; transform: translateY(-1px); box-shadow: 0 4px 12px rgba(5,150,105,0.3); }
+    .btn-warning   { background: #d97706; color: #fff; }
+    .btn-warning:hover { background: #b45309; transform: translateY(-1px); box-shadow: 0 4px 12px rgba(217,119,6,0.3); }
     .btn-ghost     { background: #f1f5f9; color: #475569; border: 1px solid #e2e8f0; }
     .btn-ghost:hover { background: #e2e8f0; }
 
@@ -140,16 +143,34 @@
 
     .amount-cell { font-family: 'IBM Plex Mono', monospace; font-weight: 600; font-size: 0.82rem; }
 
-    /* Share modal */
+    /* Star rating display */
+    .star-rating-display {
+        display: inline-flex;
+        align-items: center;
+        gap: 2px;
+    }
+    .rating-badge {
+        background: #fef3c7;
+        color: #d97706;
+        padding: 4px 10px;
+        border-radius: 20px;
+        font-size: 0.75rem;
+        font-weight: 600;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+    }
+
+    /* Modal styles */
     .modal-backdrop {
         position: fixed; inset: 0; background: rgba(15,23,42,0.55);
-        backdrop-filter: blur(3px); z-index: 200;
+        backdrop-filter: blur(3px); z-index: 1000;
         display: none; align-items: center; justify-content: center;
     }
     .modal-backdrop.open { display: flex; }
     .modal-box {
         background: #fff; border-radius: 18px;
-        padding: 28px 30px; width: 100%; max-width: 440px;
+        padding: 28px 30px; width: 100%; max-width: 500px;
         box-shadow: 0 25px 60px rgba(0,0,0,0.18);
         animation: modalIn 0.2s ease;
     }
@@ -157,13 +178,47 @@
         from { opacity: 0; transform: scale(0.95) translateY(10px); }
         to   { opacity: 1; transform: scale(1) translateY(0); }
     }
-    .modal-title { font-size: 1.05rem; font-weight: 800; color: #0f172a; margin-bottom: 18px; display: flex; align-items: center; gap: 9px; }
-    .modal-input {
+    .modal-title {
+        font-size: 1.05rem; font-weight: 800; color: #0f172a;
+        margin-bottom: 20px; display: flex; align-items: center; gap: 10px;
+    }
+    .rating-stars {
+        display: flex;
+        flex-direction: row-reverse;
+        justify-content: center;
+        gap: 8px;
+    }
+    .rating-stars label {
+        cursor: pointer;
+        transition: transform 0.2s;
+        font-size: 28px;
+    }
+    .rating-stars label:hover {
+        transform: scale(1.1);
+    }
+    .rating-stars label:hover ~ label {
+        transform: scale(1.1);
+    }
+
+    /* Email modal */
+    .email-modal-backdrop {
+        position: fixed; inset: 0; background: rgba(15,23,42,0.55);
+        backdrop-filter: blur(3px); z-index: 1000;
+        display: none; align-items: center; justify-content: center;
+    }
+    .email-modal-backdrop.open { display: flex; }
+    .email-modal-box {
+        background: #fff; border-radius: 18px;
+        padding: 28px 30px; width: 100%; max-width: 440px;
+        box-shadow: 0 25px 60px rgba(0,0,0,0.18);
+        animation: modalIn 0.2s ease;
+    }
+    .email-modal-input {
         width: 100%; border: 1.5px solid #e2e8f0; border-radius: 9px;
         padding: 10px 14px; font-size: 0.875rem; color: #1e293b;
         outline: none; transition: border-color 0.15s;
     }
-    .modal-input:focus { border-color: #3b82f6; }
+    .email-modal-input:focus { border-color: #3b82f6; }
 
     /* Totals footer */
     .totals-footer {
@@ -183,12 +238,11 @@
     <div class="grn-hero rounded-2xl shadow-xl">
         <div class="grn-hero-content px-6 py-6 sm:px-8 sm:py-7">
             <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                {{-- Left: GRN info --}}
                 <div>
                     <div class="flex items-center gap-3 mb-1">
                         <span class="text-blue-300 text-xs font-semibold tracking-widest uppercase">Goods Received Note</span>
                         <span class="pill pill-{{ $grn->status }}">
-                            <span class="pill-dot"></span>{{ ucfirst($grn->status) }}
+                            <span class="pill-dot"></span>{{ ucfirst(str_replace('_', ' ', $grn->status)) }}
                         </span>
                     </div>
                     <h1 class="mono text-2xl sm:text-3xl font-bold text-white tracking-tight">{{ $grn->grn_number }}</h1>
@@ -201,29 +255,33 @@
                     </p>
                 </div>
 
-                {{-- Right: Action buttons --}}
                 <div class="flex flex-wrap items-center gap-3">
-                    {{-- Share via Email --}}
+                    @if(in_array($grn->status, ['inventory_updated', 'completed']) && !$grn->isRated())
+                    <button type="button" onclick="openRatingModal({{ $grn->id }})"
+                            class="btn btn-warning">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"/>
+                        </svg>
+                        Rate This Delivery
+                    </button>
+                    @endif
+
                     <button type="button" onclick="openEmailModal()"
                             class="btn btn-success">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                  d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
                         </svg>
                         Share via Email
                     </button>
 
-                    {{-- Download PDF --}}
                     <a href="{{ route('procurement.goods-received.download-pdf', $grn->id) }}"
                        class="btn btn-primary">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                  d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
                         </svg>
                         Download PDF
                     </a>
 
-                    {{-- Back --}}
                     <a href="{{ route('procurement.goods-received.index') }}" class="btn btn-ghost">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
@@ -234,6 +292,44 @@
             </div>
         </div>
     </div>
+
+    {{-- ── RATING DISPLAY (if already rated) ── --}}
+    @if($grn->isRated())
+    <div class="bg-yellow-50 border border-yellow-200 rounded-xl p-4">
+        <div class="flex items-center justify-between flex-wrap gap-3">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 bg-yellow-100 rounded-full flex items-center justify-center">
+                    <i class="fas fa-star text-yellow-500 text-lg"></i>
+                </div>
+                <div>
+                    <p class="text-sm font-semibold text-yellow-800">Delivery Rated</p>
+                    <div class="flex items-center gap-2 mt-1">
+                        <div class="star-rating-display">
+                            @php
+                                $rating = $grn->rating->rating;
+                                for ($i = 1; $i <= 5; $i++) {
+                                    if ($i <= $rating) {
+                                        echo '<i class="fas fa-star text-yellow-400 text-sm"></i>';
+                                    } else {
+                                        echo '<i class="far fa-star text-yellow-400 text-sm"></i>';
+                                    }
+                                }
+                            @endphp
+                        </div>
+                        <span class="text-xs text-gray-500">by {{ $grn->rating->ratedBy->first_name ?? 'User' }}</span>
+                    </div>
+                    @if($grn->rating->comment)
+                        <p class="text-sm text-gray-600 mt-2 italic">"{{ $grn->rating->comment }}"</p>
+                    @endif
+                </div>
+            </div>
+            <div class="rating-badge">
+                <i class="fas fa-star text-yellow-500"></i>
+                <span>{{ number_format($grn->rating->rating, 1) }} / 5.0</span>
+            </div>
+        </div>
+    </div>
+    @endif
 
     {{-- ── SUCCESS / ERROR FLASH ── --}}
     @if(session('success'))
@@ -280,13 +376,11 @@
     {{-- ── INFO CARDS ROW ── --}}
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-5">
 
-        {{-- GRN Details --}}
         <div class="info-card lg:col-span-2">
             <div class="info-card-header">
                 <div class="header-icon" style="background:#eff6ff">
                     <svg class="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                              d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
                     </svg>
                 </div>
                 <span class="card-title">GRN Details</span>
@@ -327,7 +421,7 @@
                     <span class="detail-label">Status</span>
                     <span class="detail-value">
                         <span class="pill pill-{{ $grn->status }}">
-                            <span class="pill-dot"></span>{{ ucfirst($grn->status) }}
+                            <span class="pill-dot"></span>{{ ucfirst(str_replace('_', ' ', $grn->status)) }}
                         </span>
                     </span>
                 </div>
@@ -340,16 +434,12 @@
             </div>
         </div>
 
-        {{-- Created By + Financials --}}
         <div class="space-y-4">
-
-            {{-- Created By card --}}
             <div class="info-card">
                 <div class="info-card-header">
                     <div class="header-icon" style="background:#f0fdf4">
                         <svg class="w-4 h-4 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                  d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
                         </svg>
                     </div>
                     <span class="card-title">Created By</span>
@@ -373,13 +463,11 @@
                 </div>
             </div>
 
-            {{-- Financial Summary card --}}
             <div class="info-card">
                 <div class="info-card-header">
                     <div class="header-icon" style="background:#fef3c7">
                         <svg class="w-4 h-4 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                  d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
                         </svg>
                     </div>
                     <span class="card-title">Financial Summary</span>
@@ -399,7 +487,6 @@
                     </div>
                 </div>
             </div>
-
         </div>
     </div>
 
@@ -408,8 +495,7 @@
         <div class="info-card-header">
             <div class="header-icon" style="background:#eef2ff">
                 <svg class="w-4 h-4 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                          d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
                 </svg>
             </div>
             <span class="card-title">Received Items</span>
@@ -418,7 +504,6 @@
             </span>
         </div>
 
-        {{-- Desktop table --}}
         <div class="hidden md:block overflow-x-auto">
             <table class="items-table">
                 <thead>
@@ -468,7 +553,6 @@
                 </tbody>
             </table>
 
-            {{-- Totals footer --}}
             <div class="px-5 pb-5">
                 <div class="totals-footer">
                     <div class="flex items-center gap-2 text-sm text-slate-600">
@@ -491,7 +575,6 @@
             </div>
         </div>
 
-        {{-- Mobile cards --}}
         <div class="md:hidden p-4 space-y-3">
             @foreach($grn->items as $i => $item)
             <div class="border border-slate-200 rounded-xl p-4 bg-white">
@@ -535,16 +618,94 @@
         </div>
     </div>
 
-</div>{{-- end .grn-page --}}
+</div>
+
+{{-- ── RATING MODAL ── --}}
+<div id="ratingModal" class="modal-backdrop" onclick="closeRatingModal(event)">
+    <div class="modal-box" onclick="event.stopPropagation()">
+        <div class="modal-title">
+            <div class="w-9 h-9 rounded-lg bg-yellow-100 flex items-center justify-center">
+                <svg class="w-5 h-5 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"/>
+                </svg>
+            </div>
+            Rate Vendor Delivery
+        </div>
+
+        <form id="ratingForm" method="POST">
+            @csrf
+            <div class="space-y-5">
+                <div class="bg-gray-50 rounded-lg p-3 text-sm">
+                    <p class="font-medium text-gray-700">Vendor: <span id="ratingVendorName">{{ $grn->vendor->name ?? 'N/A' }}</span></p>
+                    <p class="text-gray-500 text-xs mt-1">GRN: {{ $grn->grn_number }}</p>
+                    <p class="text-gray-500 text-xs">Delivery Date: {{ $grn->received_date->format('F d, Y') }}</p>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-3 text-center">How would you rate this delivery?</label>
+                    <div class="flex justify-center gap-2 mb-3">
+                        <div class="rating-stars">
+                            <input type="radio" name="rating" value="5" id="modalStar5" class="hidden" required>
+                            <label for="modalStar5" class="cursor-pointer text-3xl text-gray-300 hover:text-yellow-400 transition-colors">
+                                <i class="far fa-star"></i>
+                            </label>
+
+                            <input type="radio" name="rating" value="4" id="modalStar4" class="hidden">
+                            <label for="modalStar4" class="cursor-pointer text-3xl text-gray-300 hover:text-yellow-400 transition-colors">
+                                <i class="far fa-star"></i>
+                            </label>
+
+                            <input type="radio" name="rating" value="3" id="modalStar3" class="hidden">
+                            <label for="modalStar3" class="cursor-pointer text-3xl text-gray-300 hover:text-yellow-400 transition-colors">
+                                <i class="far fa-star"></i>
+                            </label>
+
+                            <input type="radio" name="rating" value="2" id="modalStar2" class="hidden">
+                            <label for="modalStar2" class="cursor-pointer text-3xl text-gray-300 hover:text-yellow-400 transition-colors">
+                                <i class="far fa-star"></i>
+                            </label>
+
+                            <input type="radio" name="rating" value="1" id="modalStar1" class="hidden">
+                            <label for="modalStar1" class="cursor-pointer text-3xl text-gray-300 hover:text-yellow-400 transition-colors">
+                                <i class="far fa-star"></i>
+                            </label>
+                        </div>
+                    </div>
+                    <div class="flex justify-center gap-4 text-xs text-gray-500">
+                        <span>Poor</span>
+                        <span>Fair</span>
+                        <span>Good</span>
+                        <span>Very Good</span>
+                        <span>Excellent</span>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Comments (Optional)</label>
+                    <textarea name="comment" rows="3" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:border-yellow-500 focus:ring-yellow-500" placeholder="Share your experience with this vendor..."></textarea>
+                </div>
+
+                <div class="flex gap-3 pt-2">
+                    <button type="button" onclick="closeRatingModal()"
+                            class="flex-1 px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-lg text-sm font-medium transition">
+                        Cancel
+                    </button>
+                    <button type="submit" class="flex-1 px-4 py-2 bg-yellow-600 hover:bg-yellow-700 text-white rounded-lg text-sm font-medium transition">
+                        <i class="fas fa-paper-plane mr-1"></i> Submit Rating
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
 
 {{-- ── EMAIL MODAL ── --}}
-<div id="emailModal" class="modal-backdrop" onclick="closeEmailModal(event)">
-    <div class="modal-box" onclick="event.stopPropagation()">
+<div id="emailModal" class="email-modal-backdrop" onclick="closeEmailModal(event)">
+    <div class="email-modal-box" onclick="event.stopPropagation()">
         <div class="modal-title">
             <div class="w-9 h-9 rounded-lg bg-emerald-100 flex items-center justify-center">
                 <svg class="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                          d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
                 </svg>
             </div>
             Share GRN via Email
@@ -555,29 +716,20 @@
             <div class="space-y-4">
                 <div>
                     <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">Recipient Email</label>
-                    <input type="email" name="email"
-                           class="modal-input"
-                           value="{{ $grn->vendor->email ?? '' }}"
-                           placeholder="vendor@example.com"
-                           required>
+                    <input type="email" name="email" class="email-modal-input" value="{{ $grn->vendor->email ?? '' }}" placeholder="vendor@example.com" required>
                     @if($grn->vendor->email ?? false)
                         <p class="text-xs text-slate-400 mt-1">Pre-filled with vendor email</p>
                     @endif
                 </div>
                 <div>
                     <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">Subject</label>
-                    <input type="text" name="subject"
-                           class="modal-input"
-                           value="Goods Received Note {{ $grn->grn_number }}"
-                           required>
+                    <input type="text" name="subject" class="email-modal-input" value="Goods Received Note {{ $grn->grn_number }}" required>
                 </div>
                 <div>
                     <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">Message (optional)</label>
-                    <textarea name="message" rows="3" class="modal-input resize-none"
-                              placeholder="Add a personal message...">Please find attached the Goods Received Note {{ $grn->grn_number }} for PO {{ $grn->purchaseOrder->po_number ?? '' }}.</textarea>
+                    <textarea name="message" rows="3" class="email-modal-input resize-none" placeholder="Add a personal message...">Please find attached the Goods Received Note {{ $grn->grn_number }} for PO {{ $grn->purchaseOrder->po_number ?? '' }}.</textarea>
                 </div>
 
-                {{-- Sending state UI --}}
                 <div id="sendingIndicator" class="hidden flex items-center gap-3 bg-blue-50 border border-blue-200 rounded-lg px-4 py-3">
                     <svg class="animate-spin w-4 h-4 text-blue-600 flex-shrink-0" fill="none" viewBox="0 0 24 24">
                         <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
@@ -587,10 +739,8 @@
                 </div>
 
                 <div class="flex gap-3 pt-2">
-                    <button type="button" onclick="closeEmailModal()"
-                            class="btn btn-ghost flex-1 justify-center">Cancel</button>
-                    <button type="button" id="sendEmailBtn" onclick="sendEmailAndDownload()"
-                            class="btn btn-success flex-1 justify-center">
+                    <button type="button" onclick="closeEmailModal()" class="btn btn-ghost flex-1 justify-center">Cancel</button>
+                    <button type="button" id="sendEmailBtn" onclick="sendEmailAndDownload()" class="btn btn-success flex-1 justify-center">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/>
                         </svg>
@@ -603,7 +753,69 @@
 </div>
 
 <script>
-    function openEmailModal()  { document.getElementById('emailModal').classList.add('open'); }
+    // Star rating for modal
+    const modalRatingInputs = document.querySelectorAll('#ratingModal input[name="rating"]');
+    const modalStarLabels = document.querySelectorAll('#ratingModal .rating-stars label');
+
+    function updateModalStars(ratingValue) {
+        for (let i = 0; i < modalStarLabels.length; i++) {
+            const label = modalStarLabels[i];
+            const starValue = 5 - i;
+
+            if (starValue <= ratingValue) {
+                label.innerHTML = '<i class="fas fa-star text-yellow-400"></i>';
+            } else {
+                label.innerHTML = '<i class="far fa-star text-gray-300"></i>';
+            }
+        }
+    }
+
+    modalRatingInputs.forEach(input => {
+        input.addEventListener('change', function() {
+            updateModalStars(parseInt(this.value));
+        });
+    });
+
+    modalStarLabels.forEach((label, index) => {
+        label.addEventListener('mouseenter', function() {
+            const hoverValue = 5 - index;
+            for (let i = 0; i < modalStarLabels.length; i++) {
+                const starLabel = modalStarLabels[i];
+                const starValue = 5 - i;
+
+                if (starValue <= hoverValue) {
+                    starLabel.innerHTML = '<i class="fas fa-star text-yellow-400"></i>';
+                } else {
+                    starLabel.innerHTML = '<i class="far fa-star text-gray-300"></i>';
+                }
+            }
+        });
+
+        label.addEventListener('mouseleave', function() {
+            const checkedInput = document.querySelector('#ratingModal input[name="rating"]:checked');
+            if (checkedInput) {
+                updateModalStars(parseInt(checkedInput.value));
+            } else {
+                for (let i = 0; i < modalStarLabels.length; i++) {
+                    modalStarLabels[i].innerHTML = '<i class="far fa-star text-gray-300"></i>';
+                }
+            }
+        });
+    });
+
+    function openRatingModal(grnId) {
+        const form = document.getElementById('ratingForm');
+        form.action = '/procurement/vendor-ratings/store/' + grnId;
+        document.getElementById('ratingModal').classList.add('open');
+    }
+
+    function closeRatingModal() {
+        document.getElementById('ratingModal').classList.remove('open');
+    }
+
+    function openEmailModal() {
+        document.getElementById('emailModal').classList.add('open');
+    }
 
     function closeEmailModal(e) {
         if (!e || e.target === document.getElementById('emailModal')) {
@@ -611,26 +823,28 @@
         }
     }
 
-    document.addEventListener('keydown', e => { if (e.key === 'Escape') closeEmailModal(); });
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+            closeRatingModal();
+            closeEmailModal();
+        }
+    });
 
     function sendEmailAndDownload() {
         const form = document.getElementById('emailForm');
-
-        // Basic validation
         const email = form.querySelector('input[name="email"]').value.trim();
         const subject = form.querySelector('input[name="subject"]').value.trim();
+
         if (!email || !subject) {
             alert('Please fill in the recipient email and subject.');
             return;
         }
 
-        // Show sending indicator, disable button
         document.getElementById('sendingIndicator').classList.remove('hidden');
         const btn = document.getElementById('sendEmailBtn');
         btn.disabled = true;
         btn.classList.add('opacity-50', 'cursor-not-allowed');
 
-        // Step 1: Trigger PDF download immediately in a new tab
         const pdfUrl = "{{ route('procurement.goods-received.download-pdf', $grn->id) }}";
         const pdfLink = document.createElement('a');
         pdfLink.href = pdfUrl;
@@ -640,7 +854,6 @@
         pdfLink.click();
         document.body.removeChild(pdfLink);
 
-        // Step 2: Submit the email form after a short delay (so download starts first)
         setTimeout(() => {
             form.submit();
         }, 800);

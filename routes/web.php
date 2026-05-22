@@ -8,6 +8,8 @@ use App\Http\Controllers\DepartmentController;
 use App\Http\Middleware\AllowFirstUserRegistration;
 use Illuminate\Support\Facades\Auth;
 use App\Http\Controllers\RoleController;
+
+
 use App\Http\Controllers\Procurement\PurchaseOrderController;
 use App\Http\Controllers\Store\StoreDashboardController;
 use App\Http\Controllers\Management\ManagerStockMovementController;
@@ -199,6 +201,13 @@ Route::prefix('procurement')->name('procurement.')->middleware(['auth'])->group(
         Route::post('/{id}/reject', [App\Http\Controllers\Procurement\ProcurementRequisitionController::class, 'reject'])->name('reject');
     });
 
+     Route::prefix('vendor-ratings')->name('vendor-ratings.')->group(function () {
+        Route::get('/create/{grnId}', [App\Http\Controllers\Procurement\VendorRatingController::class, 'create'])->name('create');
+        Route::post('/store/{grnId}', [App\Http\Controllers\Procurement\VendorRatingController::class, 'store'])->name('store');
+        Route::get('/vendor/{vendorId}', [App\Http\Controllers\Procurement\VendorRatingController::class, 'vendorRatings'])->name('vendor');
+        Route::get('/', [App\Http\Controllers\Procurement\VendorRatingController::class, 'index'])->name('index');
+        Route::delete('/{id}', [App\Http\Controllers\Procurement\VendorRatingController::class, 'destroy'])->name('destroy');
+    });
 
     // Local Purchase Order (LPO) Routes
 Route::prefix('lpo')->name('lpo.')->group(function () {
@@ -297,7 +306,18 @@ Route::prefix('management')->name('management.')->middleware(['auth', 'managemen
     Route::get('/vendors', [App\Http\Controllers\Management\ManagementController::class, 'vendorsIndex'])->name('vendors.index');
     Route::get('/vendors/{id}', [App\Http\Controllers\Management\ManagementController::class, 'vendorsShow'])->name('vendors.show');
 
-    // Requisitions routes
+Route::get('/department-requisitions', [App\Http\Controllers\Management\DepartmentRequisitionController::class, 'index'])->name('department-requisitions.index');
+Route::get('/department-requisitions/json', [App\Http\Controllers\Management\DepartmentRequisitionController::class, 'getRequisitionsJson'])->name('department-requisitions.json');
+Route::get('/department-requisitions/summary', [App\Http\Controllers\Management\DepartmentRequisitionController::class, 'getSummary'])->name('department-requisitions.summary');
+Route::get('/department-requisitions/{id}', [App\Http\Controllers\Management\DepartmentRequisitionController::class, 'show'])->name('department-requisitions.show');
+Route::get('/department-requisitions/{id}/approve', [App\Http\Controllers\Management\DepartmentRequisitionController::class, 'approveForm'])->name('department-requisitions.approve-form');
+Route::post('/department-requisitions/{id}/approve', [App\Http\Controllers\Management\DepartmentRequisitionController::class, 'processApproval'])->name('department-requisitions.approve');
+Route::get('/department-requisitions/{id}/reject', [App\Http\Controllers\Management\DepartmentRequisitionController::class, 'rejectForm'])->name('department-requisitions.reject-form');
+Route::post('/department-requisitions/{id}/reject', [App\Http\Controllers\Management\DepartmentRequisitionController::class, 'processRejection'])->name('department-requisitions.reject');
+Route::put('/department-requisitions/{id}/quantities', [App\Http\Controllers\Management\DepartmentRequisitionController::class, 'updateApprovedQuantities'])->name('department-requisitions.update-quantities');
+Route::post('/department-requisitions/bulk-approve', [App\Http\Controllers\Management\DepartmentRequisitionController::class, 'bulkApprove'])->name('department-requisitions.bulk-approve');
+
+// Requisitions routes
     Route::prefix('requisitions')->name('requisitions.')->group(function () {
         Route::get('/', [App\Http\Controllers\Management\ManagementRequisitionController::class, 'index'])->name('index');
         Route::get('/all', [App\Http\Controllers\Management\ManagementRequisitionController::class, 'all'])->name('all');
@@ -307,6 +327,49 @@ Route::prefix('management')->name('management.')->middleware(['auth', 'managemen
         Route::get('/{id}/edit', [App\Http\Controllers\Management\ManagementRequisitionController::class, 'edit'])->name('edit');
         Route::put('/{id}', [App\Http\Controllers\Management\ManagementRequisitionController::class, 'update'])->name('update');
         Route::post('/{id}/reject', [App\Http\Controllers\Management\ManagementRequisitionController::class, 'reject'])->name('reject');
+    });
+
+
+
+    Route::prefix('stock-counts')->name('stock-counts.')->group(function () {
+        Route::get('/', [App\Http\Controllers\Management\StockCountController::class, 'index'])->name('index');
+        Route::get('/create', [App\Http\Controllers\Management\StockCountController::class, 'create'])->name('create');
+        Route::post('/', [App\Http\Controllers\Management\StockCountController::class, 'store'])->name('store');
+
+        // AJAX routes
+        Route::get('/get-item-stock/{id}', [App\Http\Controllers\Management\StockCountController::class, 'getItemStock'])->name('get-item-stock');
+        Route::get('/get-department-items/{departmentId}', [App\Http\Controllers\Management\StockCountController::class, 'getDepartmentItems'])->name('get-department-items');
+        Route::post('/calculate-net-quantity', [App\Http\Controllers\Management\StockCountController::class, 'calculateNetQuantity'])->name('calculate-net-quantity');
+
+        // Download PDF route
+        Route::get('/{id}/download-pdf', [App\Http\Controllers\Management\StockCountController::class, 'downloadPdf'])->name('download-pdf');
+
+        // Approve routes
+        Route::get('/{id}/approve-count', [App\Http\Controllers\Management\StockCountController::class, 'approveCountForm'])->name('approve-count');
+        Route::post('/{id}/approve-count-submit', [App\Http\Controllers\Management\StockCountController::class, 'approveCountSubmit'])->name('approve-count-submit');
+
+        // CRUD routes
+        Route::get('/{id}', [App\Http\Controllers\Management\StockCountController::class, 'show'])->name('show');
+        Route::put('/{id}/items', [App\Http\Controllers\Management\StockCountController::class, 'updateItems'])->name('update-items');
+        Route::post('/{id}/submit', [App\Http\Controllers\Management\StockCountController::class, 'submit'])->name('submit');
+        Route::post('/{id}/complete', [App\Http\Controllers\Management\StockCountController::class, 'complete'])->name('complete');
+        Route::delete('/{id}/cancel', [App\Http\Controllers\Management\StockCountController::class, 'cancel'])->name('cancel');
+        Route::post('/{id}/items/{itemId}/approve-variance', [App\Http\Controllers\Management\StockCountController::class, 'approveVariance'])->name('approve-variance');
+    });
+
+    // Stock Variance Reasons (Management)
+    Route::prefix('variance-reasons')->name('variance-reasons.')->group(function () {
+        Route::get('/', [App\Http\Controllers\Management\StockVarianceReasonController::class, 'index'])->name('index');
+        Route::get('/create', [App\Http\Controllers\Management\StockVarianceReasonController::class, 'create'])->name('create');
+        Route::post('/', [App\Http\Controllers\Management\StockVarianceReasonController::class, 'store'])->name('store');
+        Route::get('/{id}', [App\Http\Controllers\Management\StockVarianceReasonController::class, 'show'])->name('show');
+        Route::get('/{id}/edit', [App\Http\Controllers\Management\StockVarianceReasonController::class, 'edit'])->name('edit');
+        Route::put('/{id}', [App\Http\Controllers\Management\StockVarianceReasonController::class, 'update'])->name('update');
+        Route::delete('/{id}', [App\Http\Controllers\Management\StockVarianceReasonController::class, 'destroy'])->name('destroy');
+        Route::post('/{id}/toggle-active', [App\Http\Controllers\Management\StockVarianceReasonController::class, 'toggleActive'])->name('toggle-active');
+        Route::get('/{id}/approve-variances', [App\Http\Controllers\Management\StockCountController::class, 'approveVariancesForm'])->name('approve-variances');
+        // AJAX endpoints
+        Route::get('/api/active', [App\Http\Controllers\Management\StockVarianceReasonController::class, 'getActiveReasons'])->name('api.active');
     });
 
     // =====================================================
@@ -345,10 +408,14 @@ Route::prefix('management')->name('management.')->middleware(['auth', 'managemen
     // =====================================================
     // STANDALONE MENU ITEMS (All items across all menus)
     // =====================================================
-    Route::prefix('menu-items')->name('menu-items.')->group(function () {
+Route::prefix('menu-items')->name('menu-items.')->group(function () {
         Route::get('/', [App\Http\Controllers\Management\MenuController::class, 'allItems'])->name('index');
+        Route::get('/create', [App\Http\Controllers\Management\MenuController::class, 'createItem'])->name('create');
+        Route::post('/', [App\Http\Controllers\Management\MenuController::class, 'storeItemStandalone'])->name('store');
+        Route::get('/{id}/edit', [App\Http\Controllers\Management\MenuController::class, 'editItem'])->name('edit');
         Route::get('/{id}', [App\Http\Controllers\Management\MenuController::class, 'getMenuItem'])->name('show');
         Route::put('/{id}', [App\Http\Controllers\Management\MenuController::class, 'updateMenuItem'])->name('update');
+        Route::delete('/{id}', [App\Http\Controllers\Management\MenuController::class, 'deleteMenuItem'])->name('destroy');
         Route::get('/{id}/recipe', [App\Http\Controllers\Management\MenuController::class, 'getMenuItemRecipe'])->name('recipe');
     });
 
@@ -429,7 +496,10 @@ Route::prefix('kitchen')->name('kitchen.')->middleware(['auth', 'kitchen'])->gro
         Route::post('/', [App\Http\Controllers\Kitchen\RequisitionController::class, 'store'])->name('store');
         Route::get('/{id}', [App\Http\Controllers\Kitchen\RequisitionController::class, 'show'])->name('show');
         Route::delete('/{id}/cancel', [App\Http\Controllers\Kitchen\RequisitionController::class, 'cancel'])->name('cancel');
+
     });
+
+
 
         // Consumption Routes
     Route::prefix('consumption')->name('consumption.')->group(function () {
@@ -451,7 +521,6 @@ Route::prefix('kitchen')->name('kitchen.')->middleware(['auth', 'kitchen'])->gro
             ->name('history');
     });
 });
-
 
 
 // =====================================================
@@ -721,3 +790,14 @@ Route::get('/reports/export/pdf', [App\Http\Controllers\Bar\BarCashierController
 
 });
 
+// API route for getting item details (place inside your kitchen routes group)
+Route::get('/kitchen/requisitions/item-details/{id}', [App\Http\Controllers\Kitchen\RequisitionController::class, 'getItemDetails'])->name('kitchen.requisitions.item-details');
+Route::get('/restaurant/requisitions/item-details/{id}', [App\Http\Controllers\Restaurant\RestaurantRequisitionController::class, 'getItemDetails'])->name('restaurant.requisitions.item-details');
+
+
+// Notifications - Global for all users
+Route::middleware(['auth'])->group(function () {
+    Route::get('/notifications', [App\Http\Controllers\NotificationController::class, 'index'])->name('notifications.index');
+    Route::post('/notifications/mark-all-read', [App\Http\Controllers\NotificationController::class, 'markAllRead'])->name('notifications.mark-all-read');
+    Route::post('/notifications/{id}/mark-read', [App\Http\Controllers\NotificationController::class, 'markRead'])->name('notifications.mark-read');
+});

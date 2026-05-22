@@ -51,7 +51,7 @@
     }
     .text-center { text-align: center; }
 
-    .badge-consumed {
+    .badge-sold {
         background: #fef3c7;
         color: #92400e;
         padding: 0.2rem 0.6rem;
@@ -68,6 +68,14 @@
         display: inline-block;
     }
     .badge-remaining {
+        background: #dbeafe;
+        color: #1e40af;
+        padding: 0.2rem 0.6rem;
+        border-radius: 20px;
+        font-size: 0.7rem;
+        display: inline-block;
+    }
+    .badge-approved {
         background: #dbeafe;
         color: #1e40af;
         padding: 0.2rem 0.6rem;
@@ -167,21 +175,28 @@
 
         {{-- Summary Statistics --}}
         @php
+            $totalApproved = $requisition->items->sum(function($item) {
+                return $item->quantity_approved ?? $item->quantity_requested;
+            });
             $totalIssued    = $requisition->items->sum('issued_total_pieces');
-            $totalConsumed  = $requisition->items->sum('quantity_consumed');
+            $totalSold      = $requisition->items->sum('quantity_sold');
             $totalReturned  = $requisition->items->sum('returned_total_pieces');
-            $totalRemaining = $totalIssued - ($totalConsumed + $totalReturned);
+            $totalRemaining = $totalIssued - ($totalSold + $totalReturned);
         @endphp
 
         <div class="mb-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
-            <div class="grid grid-cols-4 gap-4 text-center">
+            <div class="grid grid-cols-5 gap-4 text-center">
                 <div>
-                    <p class="text-xs text-gray-500">Total Issued</p>
-                    <p class="text-xl font-bold text-blue-600">{{ number_format($totalIssued, 2) }}</p>
+                    <p class="text-xs text-gray-500">Total Approved</p>
+                    <p class="text-xl font-bold text-blue-600">{{ number_format($totalApproved, 2) }}</p>
                 </div>
                 <div>
-                    <p class="text-xs text-gray-500">Total Consumed</p>
-                    <p class="text-xl font-bold text-amber-600">{{ number_format($totalConsumed, 2) }}</p>
+                    <p class="text-xs text-gray-500">Total Issued</p>
+                    <p class="text-xl font-bold text-green-600">{{ number_format($totalIssued, 2) }}</p>
+                </div>
+                <div>
+                    <p class="text-xs text-gray-500">Total Sold</p>
+                    <p class="text-xl font-bold text-amber-600">{{ number_format($totalSold, 2) }}</p>
                 </div>
                 <div>
                     <p class="text-xs text-gray-500">Total Returned</p>
@@ -189,7 +204,7 @@
                 </div>
                 <div>
                     <p class="text-xs text-gray-500">Remaining</p>
-                    <p class="text-xl font-bold text-green-600">{{ number_format($totalRemaining, 2) }}</p>
+                    <p class="text-xl font-bold text-emerald-600">{{ number_format($totalRemaining, 2) }}</p>
                 </div>
             </div>
         </div>
@@ -254,7 +269,7 @@
         </div>
         @endif
 
-        {{-- Department Notes --}}
+        {{-- Restaurant Notes --}}
         @if($requisition->department_notes)
         <div class="mb-6">
             <h4 class="text-sm font-medium text-gray-500 mb-2">Restaurant Notes</h4>
@@ -274,31 +289,33 @@
         </div>
         @endif
 
-        {{-- Items Table with Consumed Column --}}
+        {{-- Items Table with Approved and Sold Columns --}}
         <div>
             <h4 class="text-sm font-medium text-gray-500 mb-3">Requested Items</h4>
             <div class="overflow-x-auto">
                 <table class="data-table">
                     <thead>
                         <tr>
-                            <th class="text-left" style="width: 20%">Item</th>
-                            <th class="text-left" style="width: 8%">Unit</th>
-                            <th class="text-center" style="width: 12%">Requested</th>
-                            <th class="text-center" style="width: 12%">Issued</th>
-                            <th class="text-center" style="width: 12%">Consumed</th>
-                            <th class="text-center" style="width: 12%">Returned</th>
-                            <th class="text-center" style="width: 12%">Remaining</th>
-                            <th class="text-left" style="width: 12%">Notes</th>
+                            <th class="text-left" style="width: 18%">Item</th>
+                            <th class="text-left" style="width: 7%">Unit</th>
+                            <th class="text-center" style="width: 10%">Requested</th>
+                            <th class="text-center" style="width: 10%">Approved</th>
+                            <th class="text-center" style="width: 10%">Issued</th>
+                            <th class="text-center" style="width: 10%">Sold</th>
+                            <th class="text-center" style="width: 10%">Returned</th>
+                            <th class="text-center" style="width: 10%">Remaining</th>
+                            <th class="text-left" style="width: 15%">Notes</th>
                         </tr>
                     </thead>
                     <tbody>
                         @foreach($requisition->items as $item)
                         @php
-                            $unit      = $item->metrics ?? ($item->inventoryItem->base_unit ?? 'units');
-                            $issued    = $item->issued_total_pieces   ?? $item->quantity_issued   ?? 0;
-                            $consumed  = $item->quantity_consumed     ?? 0;
-                            $returned  = $item->returned_total_pieces ?? $item->quantity_returned ?? 0;
-                            $remaining = $issued - ($consumed + $returned);
+                            $unit       = $item->metrics ?? ($item->inventoryItem->base_unit ?? 'units');
+                            $approved   = $item->quantity_approved ?? $item->quantity_requested;
+                            $issued     = $item->issued_total_pieces   ?? $item->quantity_issued   ?? 0;
+                            $sold       = $item->quantity_sold         ?? 0;
+                            $returned   = $item->returned_total_pieces ?? $item->quantity_returned ?? 0;
+                            $remaining  = $issued - ($sold + $returned);
                         @endphp
                         <tr class="hover:bg-gray-50">
                             <td class="px-4 py-3">
@@ -317,12 +334,21 @@
                                     <div class="text-xs text-gray-400">{{ $item->requested_pack_type }}</div>
                                 @endif
                             </td>
+                            <td class="px-4 py-3 text-center">
+                                <span class="badge-approved">{{ number_format($approved, 2) }}</span>
+                                @if($item->approved_pack_type && $item->approved_pack_size)
+                                    <div class="text-xs text-gray-400">{{ $item->approved_pack_type }} × {{ $item->approved_pack_size }}</div>
+                                @endif
+                                @if($item->approval_notes)
+                                    <div class="text-xs text-gray-400 italic mt-0.5">{{ Str::limit($item->approval_notes, 30) }}</div>
+                                @endif
+                            </td>
                             <td class="px-4 py-3 text-center text-green-600 font-semibold">
                                 {{ number_format($issued, 2) }}
                             </td>
                             <td class="px-4 py-3 text-center">
-                                @if($consumed > 0)
-                                    <span class="badge-consumed">{{ number_format($consumed, 2) }}</span>
+                                @if($sold > 0)
+                                    <span class="badge-sold">{{ number_format($sold, 2) }}</span>
                                 @else
                                     <span class="text-gray-400">—</span>
                                 @endif
@@ -346,28 +372,19 @@
                     </tbody>
                     <tfoot class="bg-gray-50">
                         <tr>
-                            <td colspan="2" class="px-4 py-3 font-bold">TOTALS</td
-                            <td class="px-4 py-3 text-center font-bold">{{ number_format($requisition->items->sum('quantity_requested'), 2) }}</td
-                            <td class="px-4 py-3 text-center font-bold">{{ number_format($totalIssued, 2) }}</td
-                            <td class="px-4 py-3 text-center font-bold text-amber-600">{{ number_format($totalConsumed, 2) }}</td
-                            <td class="px-4 py-3 text-center font-bold text-purple-600">{{ number_format($totalReturned, 2) }}</td
-                            <td class="px-4 py-3 text-center font-bold text-blue-600">{{ number_format($totalRemaining, 2) }}</td
-                            <td></td
+                            <td colspan="2" class="px-4 py-3 font-bold">TOTALS</td>
+                            <td class="px-4 py-3 text-center font-bold">{{ number_format($requisition->items->sum('quantity_requested'), 2) }}</td>
+                            <td class="px-4 py-3 text-center font-bold text-blue-600">{{ number_format($totalApproved, 2) }}</td>
+                            <td class="px-4 py-3 text-center font-bold text-green-600">{{ number_format($totalIssued, 2) }}</td>
+                            <td class="px-4 py-3 text-center font-bold text-amber-600">{{ number_format($totalSold, 2) }}</td>
+                            <td class="px-4 py-3 text-center font-bold text-purple-600">{{ number_format($totalReturned, 2) }}</td>
+                            <td class="px-4 py-3 text-center font-bold text-emerald-600">{{ number_format($totalRemaining, 2) }}</td>
+                            <td class="px-4 py-3"></td>
                         </tr>
                     </tfoot>
                 </table>
             </div>
         </div>
     </div>
-
-    {{-- Record Consumption Button --}}
-    @if(in_array($requisition->status, ['issued', 'partially_issued', 'partially_consumed', 'partially_returned']))
-    <div class="flex justify-end mt-6 p-6 pt-0">
-        <a href="{{ route('restaurant.requisitions.consume', $requisition->id) }}"
-           class="bg-orange-600 text-white px-6 py-2 rounded-lg text-sm font-semibold hover:bg-orange-700 transition">
-            Record Consumption
-        </a>
-    </div>
-    @endif
 </div>
 @endsection

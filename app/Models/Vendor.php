@@ -24,6 +24,8 @@ class Vendor extends Model
         'payment_method',
         'credit_limit',
         'status',
+        'average_rating',
+        'total_ratings',
         'notes',
         'created_by',
         'updated_by',
@@ -33,6 +35,8 @@ class Vendor extends Model
     {
         return [
             'credit_limit' => 'integer',
+            'average_rating' => 'decimal:1',
+            'total_ratings' => 'integer',
             'created_at' => 'datetime',
             'updated_at' => 'datetime',
             'deleted_at' => 'datetime',
@@ -74,5 +78,69 @@ class Vendor extends Model
     public function goodsReceivedNotes()
     {
         return $this->hasMany(GoodsReceivedNote::class, 'vendor_id');
+    }
+
+    // Alias for goodsReceivedNotes
+    public function grns()
+    {
+        return $this->hasMany(GoodsReceivedNote::class, 'vendor_id');
+    }
+
+    // Rating relationships
+    public function ratings()
+    {
+        return $this->hasMany(VendorRating::class, 'vendor_id');
+    }
+
+    public function updateAverageRating()
+    {
+        $avg = $this->ratings()->avg('rating');
+        $count = $this->ratings()->count();
+
+        $this->average_rating = $avg ? round($avg, 1) : 0;
+        $this->total_ratings = $count;
+        $this->save();
+
+        return $this;
+    }
+
+    public function hasRatings()
+    {
+        return $this->total_ratings > 0;
+    }
+
+    public function getStarDisplayAttribute()
+    {
+        $rating = $this->average_rating;
+
+        if ($rating == 0) {
+            return '<span class="text-xs text-gray-400">No ratings yet</span>';
+        }
+
+        $fullStars = floor($rating);
+        $halfStar = ($rating - $fullStars) >= 0.5;
+        $emptyStars = 5 - $fullStars - ($halfStar ? 1 : 0);
+
+        $html = '';
+        for ($i = 0; $i < $fullStars; $i++) {
+            $html .= '<i class="fas fa-star text-yellow-400"></i>';
+        }
+        if ($halfStar) {
+            $html .= '<i class="fas fa-star-half-alt text-yellow-400"></i>';
+        }
+        for ($i = 0; $i < $emptyStars; $i++) {
+            $html .= '<i class="far fa-star text-yellow-400"></i>';
+        }
+
+        if ($this->total_ratings > 0) {
+            $html .= '<span class="text-xs text-gray-500 ml-1">(' . $this->total_ratings . ')</span>';
+        }
+
+        return $html;
+    }
+
+    public function getAverageRatingAttribute($value)
+    {
+        return $value ? (float) $value : 0;
     }
 }

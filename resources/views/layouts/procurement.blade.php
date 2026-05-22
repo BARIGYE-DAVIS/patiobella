@@ -38,7 +38,7 @@
             height: 100%;
             transition: left 0.3s ease;
             z-index: 50;
-            background-color: #1e3a8a;
+            background-color: #0631a8;
             overflow-y: auto;
         }
         #sidebar.open {
@@ -179,6 +179,8 @@
             LPOs
         </a>
 
+        <a href="{}"></a>
+
   <a href="{{ route('procurement.approved-lpos.index') }}"
    class="flex items-center px-4 py-3 text-sm hover:bg-blue-700 transition sidebar-nav-link
           {{ request()->routeIs('procurement.approved-lpos.*') ? 'sidebar-active' : '' }}">
@@ -197,6 +199,7 @@
             </svg>
             Vendors
         </a>
+
 
 <a href="{{ route('procurement.goods-received.index') }}"
    class="flex items-center px-4 py-3 text-sm hover:bg-blue-700 transition sidebar-nav-link

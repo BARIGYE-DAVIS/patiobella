@@ -7,223 +7,8 @@
 @section('page-title', 'Create New Requisition')
 
 @section('content')
-<style>
-    .form-card {
-        background: white;
-        border-radius: 12px;
-        border: 1px solid #e5e7eb;
-        overflow: hidden;
-        margin-bottom: 1.5rem;
-    }
-    .form-header {
-        padding: 1rem 1.5rem;
-        border-bottom: 1px solid #e5e7eb;
-        background: #f8fafc;
-    }
-    .form-body {
-        padding: 1.5rem;
-    }
-    .form-label {
-        display: block;
-        font-size: 0.75rem;
-        font-weight: 600;
-        color: #374151;
-        margin-bottom: 0.5rem;
-    }
-    .form-label .required {
-        color: #ef4444;
-        margin-left: 0.25rem;
-    }
-    .form-input, .form-select, .form-textarea {
-        width: 100%;
-        padding: 0.5rem 0.75rem;
-        border: 1px solid #d1d5db;
-        border-radius: 8px;
-        font-size: 0.875rem;
-        transition: all 0.2s;
-    }
-    .form-input:focus, .form-select:focus, .form-textarea:focus {
-        outline: none;
-        border-color: #ea580c;
-        box-shadow: 0 0 0 3px rgba(234, 88, 12, 0.1);
-    }
-    .form-textarea {
-        min-height: 80px;
-    }
-    .form-row {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-        gap: 1.5rem;
-        margin-bottom: 1.5rem;
-    }
-    .items-table-container {
-        overflow-x: auto;
-        margin-bottom: 1rem;
-    }
-    .items-table {
-        width: 100%;
-        border-collapse: collapse;
-        font-size: 0.75rem;
-    }
-    .items-table th {
-        background: #f8fafc;
-        padding: 0.75rem;
-        text-align: left;
-        font-weight: 600;
-        color: #475569;
-        border-bottom: 2px solid #e2e8f0;
-    }
-    .items-table td {
-        padding: 0.75rem;
-        border-bottom: 1px solid #e2e8f0;
-        vertical-align: middle;
-    }
-    .btn-add {
-        background: #10b981;
-        color: white;
-        padding: 0.5rem 1rem;
-        border-radius: 8px;
-        font-size: 0.75rem;
-        transition: all 0.2s;
-        border: none;
-        cursor: pointer;
-        width: 100%;
-    }
-    .btn-add:hover {
-        background: #059669;
-    }
-    .btn-remove {
-        background: #ef4444;
-        color: white;
-        padding: 0.25rem 0.5rem;
-        border-radius: 6px;
-        font-size: 0.7rem;
-        border: none;
-        cursor: pointer;
-    }
-    .btn-remove:hover {
-        background: #dc2626;
-    }
-    .btn-submit {
-        background: #ea580c;
-        color: white;
-        padding: 0.5rem 1.5rem;
-        border-radius: 8px;
-        font-size: 0.875rem;
-        font-weight: 500;
-        transition: all 0.2s;
-        border: none;
-        cursor: pointer;
-    }
-    .btn-submit:hover {
-        background: #c2410c;
-    }
-    .btn-cancel {
-        background: #f3f4f6;
-        color: #374151;
-        padding: 0.5rem 1.5rem;
-        border-radius: 8px;
-        font-size: 0.875rem;
-        font-weight: 500;
-        transition: all 0.2s;
-        text-decoration: none;
-        display: inline-block;
-    }
-    .btn-cancel:hover {
-        background: #e5e7eb;
-    }
-
-    /* Enhanced Search Dropdown Styles */
-    .item-search-wrapper {
-        position: relative;
-        width: 100%;
-    }
-    .item-search-input {
-        width: 100%;
-        padding: 0.5rem 0.75rem;
-        border: 1px solid #d1d5db;
-        border-radius: 8px;
-        font-size: 0.875rem;
-        transition: all 0.2s;
-    }
-    .item-search-input:focus {
-        outline: none;
-        border-color: #ea580c;
-        box-shadow: 0 0 0 3px rgba(234, 88, 12, 0.1);
-    }
-    .search-results-dropdown {
-        position: absolute;
-        top: 100%;
-        left: 0;
-        right: 0;
-        background: white;
-        border: 1px solid #e5e7eb;
-        border-radius: 8px;
-        max-height: 280px;
-        overflow-y: auto;
-        z-index: 1000;
-        box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1);
-        display: none;
-    }
-    .search-results-dropdown.show {
-        display: block;
-    }
-    .search-result-item {
-        padding: 0.75rem;
-        cursor: pointer;
-        border-bottom: 1px solid #f3f4f6;
-        transition: background 0.15s;
-    }
-    .search-result-item:hover {
-        background: #fef3c7;
-    }
-    .search-result-item .item-name {
-        font-weight: 600;
-        font-size: 0.875rem;
-        color: #1f2937;
-    }
-    .search-result-item .item-code {
-        font-size: 0.7rem;
-        color: #6b7280;
-        margin-top: 0.125rem;
-    }
-    .selected-item-badge {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        background: #fef3c7;
-        padding: 0.5rem 0.75rem;
-        border-radius: 8px;
-        margin-bottom: 0.5rem;
-        border: 1px solid #fed7aa;
-    }
-    .selected-item-badge .item-info {
-        font-weight: 600;
-        font-size: 0.875rem;
-        color: #92400e;
-    }
-    .selected-item-badge .clear-item-btn {
-        background: none;
-        border: none;
-        color: #ef4444;
-        cursor: pointer;
-        font-size: 0.75rem;
-        padding: 0.25rem 0.5rem;
-        border-radius: 6px;
-        transition: background 0.2s;
-    }
-    .selected-item-badge .clear-item-btn:hover {
-        background: #fee2e2;
-    }
-    .field-disabled {
-        background-color: #f9fafb;
-        cursor: not-allowed;
-        opacity: 0.7;
-    }
-</style>
-
-<div class="form-card">
-    <div class="form-header">
+<div class="bg-white rounded-xl border border-gray-200 mb-6">
+    <div class="px-6 py-4 border-b border-gray-200 bg-gray-50">
         <h3 class="text-lg font-semibold text-gray-800">
             <i class="fas fa-clipboard-list mr-2 text-orange-600"></i>
             Create New Requisition
@@ -231,55 +16,63 @@
         <p class="text-xs text-gray-500 mt-1">Request items from the store for restaurant operations</p>
     </div>
 
-    <div class="form-body">
+    <div class="p-6">
         <form method="POST" action="{{ route('restaurant.requisitions.store') }}" id="requisitionForm">
             @csrf
 
-            <div class="form-row">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
                 <div>
-                    <label class="form-label">Date Needed</label>
-                    <input type="date" name="date_needed" class="form-input" value="{{ old('date_needed') }}">
+                    <label class="block text-xs font-semibold text-gray-700 mb-1">
+                        Requisition Type <span class="text-red-500">*</span>
+                    </label>
+                    <select name="requisition_type" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-orange-600 focus:ring-1 focus:ring-orange-600" required>
+                        <option value="">Select Type</option>
+                        @foreach($requisitionTypes as $value => $label)
+                            <option value="{{ $value }}" {{ old('requisition_type') == $value ? 'selected' : '' }}>
+                                {{ $label }}
+                            </option>
+                        @endforeach
+                    </select>
                 </div>
                 <div>
-                    <label class="form-label">Notes (for Store)</label>
-                    <textarea name="department_notes" class="form-textarea" placeholder="Any special instructions for the store...">{{ old('department_notes') }}</textarea>
+                    <label class="block text-xs font-semibold text-gray-700 mb-1">Date Needed</label>
+                    <input type="date" name="date_needed" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-orange-600 focus:ring-1 focus:ring-orange-600" value="{{ old('date_needed') }}">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-gray-700 mb-1">Notes (for Store)</label>
+                    <textarea name="department_notes" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-orange-600 focus:ring-1 focus:ring-orange-600" placeholder="Any special instructions for the store..." rows="1">{{ old('department_notes') }}</textarea>
                 </div>
             </div>
 
-            <div class="mt-4 mb-3">
+            <div class="mt-6 mb-3">
                 <h4 class="font-semibold text-gray-700">Items Requested</h4>
             </div>
 
-            <div class="items-table-container">
-                <table class="items-table">
+            <div class="overflow-x-auto mb-4">
+                <table class="w-full text-sm border-collapse">
                     <thead>
-                        <tr>
-                            <th style="width: 30%">Item</th>
-                            <th style="width: 10%">Quantity</th>
-                            <th style="width: 12%">Pack Type</th>
-                            <th style="width: 10%">Pcs/Pack</th>
-                            <th style="width: 12%">Metrics</th>
-                            <th style="width: 20%">Notes</th>
-                            <th style="width: 6%">Action</th>
+                        <tr class="bg-gray-50">
+                            <th class="w-[45%] px-3 py-3 text-left font-semibold text-gray-600 border-b-2 border-gray-200">Item <span class="text-red-500">*</span></th>
+                            <th class="w-[25%] px-3 py-3 text-left font-semibold text-gray-600 border-b-2 border-gray-200">Quantity <span class="text-red-500">*</span></th>
+                            <th class="w-[20%] px-3 py-3 text-left font-semibold text-gray-600 border-b-2 border-gray-200">Metrics</th>
+                            <th class="w-[10%] px-3 py-3 text-center font-semibold text-gray-600 border-b-2 border-gray-200">Action</th>
                         </tr>
                     </thead>
-                    <tbody id="itemsBody">
-                        <!-- Rows will be added dynamically -->
-                    </tbody>
+                    <tbody id="itemsBody"></tbody>
                 </table>
             </div>
 
             <div class="mt-3 mb-4">
-                <button type="button" id="addItemBtn" class="btn-add">
+                <button type="button" id="addItemBtn" class="w-full bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg text-sm transition-colors">
                     <i class="fas fa-plus mr-1"></i> Add Item
                 </button>
             </div>
 
             <div class="flex justify-end gap-3 mt-6 pt-4 border-t border-gray-200">
-                <a href="{{ route('restaurant.requisitions.index') }}" class="btn-cancel">
+                <a href="{{ route('restaurant.requisitions.index') }}" class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-5 py-2 rounded-lg text-sm font-medium transition-colors">
                     <i class="fas fa-times mr-1"></i> Cancel
                 </a>
-                <button type="submit" class="btn-submit">
+                <button type="submit" class="bg-orange-600 hover:bg-orange-700 text-white px-5 py-2 rounded-lg text-sm font-medium transition-colors">
                     <i class="fas fa-paper-plane mr-1"></i> Submit Requisition
                 </button>
             </div>
@@ -298,232 +91,177 @@
     }));
 
     let rowCounter = 0;
+    let searchTimeout = null;
 
-    // Render dropdown with items (filtered or all)
-    function renderDropdown(dropdownElement, items, searchInput) {
+    // Fetch item details from API
+    async function fetchItemDetails(itemId, rowElement) {
+        if (!itemId) return;
+
+        const loadingSpinner = rowElement.querySelector('.loading-spinner');
+        if (loadingSpinner) loadingSpinner.classList.remove('hidden');
+
+        try {
+            const response = await fetch(`/restaurant/requisitions/item-details/${itemId}`);
+            const result = await response.json();
+
+            if (result.success) {
+                updateRowWithItemData(rowElement, result.data);
+            }
+        } catch (error) {
+            console.error('Error fetching item details:', error);
+        } finally {
+            if (loadingSpinner) loadingSpinner.classList.add('hidden');
+        }
+    }
+
+    // Update row with fetched item data
+    function updateRowWithItemData(rowElement, data) {
+        const metricsInput = rowElement.querySelector('.item-metrics');
+
+        // Update metrics field (READ-ONLY)
+        if (metricsInput && data.metrics) {
+            metricsInput.value = data.metrics;
+        }
+    }
+
+    // Filter items based on search term (live search)
+    function filterItems(searchTerm) {
+        if (!searchTerm.trim()) {
+            return itemsList;
+        }
+        return itemsList.filter(item =>
+            item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            item.code.toLowerCase().includes(searchTerm.toLowerCase())
+        );
+    }
+
+    // Render search results dropdown
+    function renderDropdown(dropdownElement, items, searchInput, rowElement) {
         if (!dropdownElement) return;
 
         if (items.length === 0) {
-            dropdownElement.innerHTML = '<div class="search-result-item" style="color:#6b7280;">No items found</div>';
-            dropdownElement.classList.add('show');
+            dropdownElement.innerHTML = '<div class="px-3 py-2 text-gray-500 text-sm">No items found</div>';
+            dropdownElement.classList.remove('hidden');
             return;
         }
 
         dropdownElement.innerHTML = items.map(item => `
-            <div class="search-result-item" data-id="${item.id}" data-name="${escapeHtml(item.name)}" data-code="${escapeHtml(item.code)}">
-                <div class="item-name">${escapeHtml(item.name)}</div>
-                <div class="item-code">Code: ${escapeHtml(item.code)}</div>
+            <div class="search-result-item px-3 py-2 cursor-pointer hover:bg-orange-50 border-b border-gray-100 last:border-0 transition-colors" data-id="${item.id}" data-name="${escapeHtml(item.name)}" data-code="${escapeHtml(item.code)}">
+                <div class="font-semibold text-sm text-gray-800">${escapeHtml(item.name)}</div>
+                <div class="text-xs text-gray-500">Code: ${escapeHtml(item.code)}</div>
             </div>
         `).join('');
-        dropdownElement.classList.add('show');
+        dropdownElement.classList.remove('hidden');
 
-        // Add click handlers to each result
+        // Add click handlers
         dropdownElement.querySelectorAll('.search-result-item').forEach(el => {
-            el.addEventListener('click', (e) => {
+            el.addEventListener('click', async (e) => {
                 e.stopPropagation();
-                const wrapper = dropdownElement.closest('.item-search-wrapper');
-                const rowElement = wrapper.closest('.item-row');
-                const searchInputElem = wrapper.querySelector('.item-search-input');
+                const itemId = el.dataset.id;
+                const itemName = el.dataset.name;
+                const itemCode = el.dataset.code;
+                const wrapper = searchInput.closest('.item-search-wrapper');
                 const selectedBadge = wrapper.querySelector('.selected-item-badge');
                 const selectedInfoSpan = selectedBadge.querySelector('.item-info');
                 const hiddenId = wrapper.querySelector('.selected-item-id');
 
-                const itemId = el.dataset.id;
-                const itemName = el.dataset.name;
-                const itemCode = el.dataset.code;
-
-                // Update UI with selected item
+                // Update UI
                 hiddenId.value = itemId;
-                searchInputElem.value = itemName;
-                searchInputElem.style.display = 'none';
-                selectedInfoSpan.innerHTML = `${escapeHtml(itemName)} <span style="font-size:0.7rem; color:#6b7280;">(${escapeHtml(itemCode)})</span>`;
-                selectedBadge.style.display = 'flex';
-                dropdownElement.classList.remove('show');
+                searchInput.value = itemName;
+                searchInput.classList.add('hidden');
+                selectedInfoSpan.innerHTML = `${escapeHtml(itemName)} <span class="text-xs text-gray-500">(${escapeHtml(itemCode)})</span>`;
+                selectedBadge.classList.remove('hidden');
+                dropdownElement.classList.add('hidden');
 
-                // Enable fields
-                toggleFieldsForRow(rowElement, true);
+                // Fetch and update item details
+                await fetchItemDetails(itemId, rowElement);
+
+                // Enable quantity field
+                const quantityInput = rowElement.querySelector('.item-quantity');
+                quantityInput.disabled = false;
+                quantityInput.required = true;
             });
         });
     }
 
-    // Create a new row with enhanced search
-    function createNewRow() {
-        const index = rowCounter++;
-        const newRow = document.createElement('tr');
-        newRow.className = 'item-row';
-        newRow.dataset.index = index;
-        newRow.id = `row-${index}`;
-
-        newRow.innerHTML = `
-            <td class="item-cell">
-                <div class="item-search-wrapper" data-row-index="${index}">
-                    <input type="text" class="item-search-input" placeholder="Click here and start typing or browse items..." autocomplete="off">
-                    <div class="search-results-dropdown"></div>
-                    <div class="selected-item-badge" style="display: none;">
-                        <span class="item-info"></span>
-                        <button type="button" class="clear-item-btn">✕ Remove</button>
-                    </div>
-                    <input type="hidden" name="items[${index}][inventory_item_id]" class="selected-item-id" value="">
-                </div>
-              </td>
-              <td>
-                <input type="number" name="items[${index}][quantity]" step="0.01" class="form-input item-quantity" placeholder="0.00" disabled>
-              </td>
-              <td>
-                <select name="items[${index}][pack_type]" class="form-select item-pack-type" disabled>
-                    <option value="">-- None --</option>
-                    <option value="carton">Carton</option>
-                    <option value="box">Box</option>
-                    <option value="crate">Crate</option>
-                    <option value="dozen">Dozen</option>
-                    <option value="pack">Pack</option>
-                    <option value="bag">Bag</option>
-                    <option value="sack">Sack</option>
-                    <option value="bottle">Bottle</option>
-                </select>
-              </td>
-              <td>
-                <input type="number" name="items[${index}][pack_size]" step="1" class="form-input item-pack-size" placeholder="e.g., 12" disabled>
-              </td>
-              <td>
-                <select name="items[${index}][metrics]" class="form-select item-metrics" disabled>
-                    <option value="">-- Select --</option>
-                    <option value="kg">Kilograms (kg)</option>
-                    <option value="litres">Litres (L)</option>
-                    <option value="pcs">Pieces (pcs)</option>
-                    <option value="grams">Grams (g)</option>
-                    <option value="millilitres">Millilitres (ml)</option>
-                    <option value="bottles">Bottles</option>
-                </select>
-              </td>
-              <td>
-                <input type="text" name="items[${index}][notes]" class="form-input item-notes" placeholder="Optional notes" disabled>
-              </td>
-              <td class="text-center">
-                <button type="button" class="btn-remove remove-item" data-index="${index}">
-                    <i class="fas fa-trash"></i>
-                </button>
-              </td>
-        `;
-
-        return newRow;
+    // Perform live search
+    function performLiveSearch(searchInput, dropdownElement, rowElement) {
+        const searchTerm = searchInput.value;
+        const filteredItems = filterItems(searchTerm);
+        renderDropdown(dropdownElement, filteredItems, searchInput, rowElement);
     }
 
-    // Enable/disable fields based on selection state
-    function toggleFieldsForRow(rowElement, enabled) {
-        const quantity = rowElement.querySelector('.item-quantity');
-        const packType = rowElement.querySelector('.item-pack-type');
-        const packSize = rowElement.querySelector('.item-pack-size');
-        const metrics = rowElement.querySelector('.item-metrics');
-        const notes = rowElement.querySelector('.item-notes');
-
-        quantity.disabled = !enabled;
-        packType.disabled = !enabled;
-        packSize.disabled = !enabled;
-        metrics.disabled = !enabled;
-        notes.disabled = !enabled;
-
-        if (enabled) {
-            quantity.required = true;
-        } else {
-            quantity.required = false;
-            quantity.value = '';
-            packType.value = '';
-            packSize.value = '';
-            metrics.value = '';
-            notes.value = '';
-        }
-    }
-
-    // Clear selected item in a row
+    // Clear selected item
     function clearSelectedItem(wrapper, rowElement) {
         const searchInput = wrapper.querySelector('.item-search-input');
         const dropdown = wrapper.querySelector('.search-results-dropdown');
         const selectedBadge = wrapper.querySelector('.selected-item-badge');
         const hiddenId = wrapper.querySelector('.selected-item-id');
+        const quantityInput = rowElement.querySelector('.item-quantity');
+        const metricsInput = rowElement.querySelector('.item-metrics');
 
         // Reset UI
         searchInput.value = '';
-        searchInput.style.display = 'block';
-        selectedBadge.style.display = 'none';
+        searchInput.classList.remove('hidden');
+        selectedBadge.classList.add('hidden');
         hiddenId.value = '';
-        dropdown.classList.remove('show');
+        dropdown.classList.add('hidden');
         dropdown.innerHTML = '';
 
-        // Disable and clear fields
-        toggleFieldsForRow(rowElement, false);
+        // Reset and disable fields
+        quantityInput.disabled = true;
+        quantityInput.required = false;
+        quantityInput.value = '';
+        metricsInput.value = '';
     }
 
-    // Show all items in dropdown (for focus event)
-    function showAllItems(dropdownElement) {
-        renderDropdown(dropdownElement, itemsList, null);
-    }
-
-    // Filter items based on search term
-    function filterAndShowItems(dropdownElement, searchTerm) {
-        if (searchTerm.trim() === '') {
-            renderDropdown(dropdownElement, itemsList, null);
-        } else {
-            const filtered = itemsList.filter(item =>
-                item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                item.code.toLowerCase().includes(searchTerm.toLowerCase())
-            );
-            renderDropdown(dropdownElement, filtered, null);
-        }
-    }
-
-    // Setup search functionality for a specific row
+    // Setup search for a row
     function setupRowSearch(rowElement) {
         const wrapper = rowElement.querySelector('.item-search-wrapper');
         if (!wrapper) return;
 
         const searchInput = wrapper.querySelector('.item-search-input');
         const dropdown = wrapper.querySelector('.search-results-dropdown');
-        const selectedBadge = wrapper.querySelector('.selected-item-badge');
-        const clearBtn = selectedBadge.querySelector('.clear-item-btn');
+        const clearBtn = wrapper.querySelector('.clear-item-btn');
 
-        let typingTimeout;
+        // Live search on input with debounce
+        searchInput.addEventListener('input', function() {
+            const hiddenId = wrapper.querySelector('.selected-item-id');
+            if (hiddenId.value) return;
+
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(() => {
+                performLiveSearch(searchInput, dropdown, rowElement);
+            }, 300);
+        });
+
+        // Show dropdown on focus if no item selected
+        searchInput.addEventListener('focus', function() {
+            const hiddenId = wrapper.querySelector('.selected-item-id');
+            if (!hiddenId.value) {
+                performLiveSearch(searchInput, dropdown, rowElement);
+            }
+        });
 
         // Clear button handler
         clearBtn.addEventListener('click', () => {
             clearSelectedItem(wrapper, rowElement);
         });
 
-        // When input is focused - show dropdown with ALL items
-        searchInput.addEventListener('focus', function() {
-            // Only show dropdown if no item is selected yet
-            const hiddenId = wrapper.querySelector('.selected-item-id');
-            if (!hiddenId.value) {
-                showAllItems(dropdown);
-            }
-        });
-
-        // Search input handler with debounce
-        searchInput.addEventListener('input', function() {
-            const hiddenId = wrapper.querySelector('.selected-item-id');
-            // If an item is selected, don't show dropdown
-            if (hiddenId.value) return;
-
-            clearTimeout(typingTimeout);
-            typingTimeout = setTimeout(() => {
-                filterAndShowItems(dropdown, this.value);
-            }, 300);
-        });
-
         // Close dropdown when clicking outside
         document.addEventListener('click', function(e) {
             if (!wrapper.contains(e.target)) {
-                dropdown.classList.remove('show');
+                dropdown.classList.add('hidden');
             }
         });
 
-        // Prevent dropdown from closing when clicking inside it
+        // Prevent dropdown from closing when clicking inside
         dropdown.addEventListener('click', (e) => {
             e.stopPropagation();
         });
     }
 
-    // Helper to escape HTML
+    // Escape HTML
     function escapeHtml(str) {
         if (!str) return '';
         return str.replace(/[&<>]/g, function(m) {
@@ -534,7 +272,45 @@
         });
     }
 
-    // Remove item row
+    // Create new row
+    function createNewRow() {
+        const index = rowCounter++;
+        const newRow = document.createElement('tr');
+        newRow.className = 'item-row border-b border-gray-100';
+        newRow.dataset.index = index;
+
+        newRow.innerHTML = `
+            <td class="px-3 py-2">
+                <div class="relative item-search-wrapper">
+                    <input type="text" class="item-search-input w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-orange-600 focus:ring-1 focus:ring-orange-600" placeholder="Type to search items..." autocomplete="off">
+                    <div class="search-results-dropdown absolute z-10 left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-64 overflow-y-auto hidden"></div>
+                    <div class="selected-item-badge hidden flex justify-between items-center bg-orange-50 px-3 py-2 rounded-lg border border-orange-200">
+                        <span class="item-info font-semibold text-sm text-orange-800"></span>
+                        <button type="button" class="clear-item-btn text-red-500 hover:text-red-700 text-xs px-2 py-1 rounded hover:bg-red-50 transition-colors">✕ Remove</button>
+                    </div>
+                    <input type="hidden" name="items[${index}][inventory_item_id]" class="selected-item-id" value="">
+                    <div class="loading-spinner hidden absolute right-3 top-2">
+                        <div class="w-4 h-4 border-2 border-orange-600 border-t-transparent rounded-full animate-spin"></div>
+                    </div>
+                </div>
+            </td>
+            <td class="px-3 py-2">
+                <input type="number" name="items[${index}][quantity]" step="0.01" class="item-quantity w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-orange-600 focus:ring-1 focus:ring-orange-600 disabled:bg-gray-100 disabled:cursor-not-allowed" placeholder="0.00" disabled required>
+            </td>
+            <td class="px-3 py-2">
+                <input type="text" name="items[${index}][metrics]" class="item-metrics w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-gray-50 cursor-not-allowed" placeholder="Auto-filled" readonly disabled>
+            </td>
+            <td class="px-3 py-2 text-center">
+                <button type="button" class="remove-item bg-red-500 hover:bg-red-600 text-white px-2 py-1 rounded text-xs transition-colors">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </td>
+        `;
+
+        return newRow;
+    }
+
+    // Remove row
     function removeItemRow(button) {
         const row = button.closest('.item-row');
         if (row) {
@@ -543,14 +319,11 @@
         }
     }
 
-    // Reindex rows after removal
+    // Reindex rows
     function reindexRows() {
         const rows = document.querySelectorAll('.item-row');
         rows.forEach((row, newIndex) => {
             row.dataset.index = newIndex;
-            row.id = `row-${newIndex}`;
-
-            // Update all input/select names
             const inputs = row.querySelectorAll('input, select');
             inputs.forEach(input => {
                 const name = input.getAttribute('name');
@@ -559,66 +332,20 @@
                     input.setAttribute('name', newName);
                 }
             });
-
-            // Update remove button data-index
-            const removeBtn = row.querySelector('.remove-item');
-            if (removeBtn) removeBtn.dataset.index = newIndex;
-
-            // Update wrapper data-row-index
-            const wrapper = row.querySelector('.item-search-wrapper');
-            if (wrapper) wrapper.dataset.rowIndex = newIndex;
         });
     }
 
-    // Add new item button handler
-    document.getElementById('addItemBtn').addEventListener('click', function() {
-        const tbody = document.getElementById('itemsBody');
-        const newRow = createNewRow();
-        tbody.appendChild(newRow);
-
-        // Setup search for the new row
-        setupRowSearch(newRow);
-
-        // Add remove event listener
-        const removeBtn = newRow.querySelector('.remove-item');
-        removeBtn.addEventListener('click', () => removeItemRow(removeBtn));
-    });
-
-    // Initialize existing rows (if any from validation errors)
-    function initializeExistingRows() {
-        const rows = document.querySelectorAll('.item-row');
-        rows.forEach(row => {
-            setupRowSearch(row);
-            const removeBtn = row.querySelector('.remove-item');
-            if (removeBtn) {
-                removeBtn.addEventListener('click', () => removeItemRow(removeBtn));
-            }
-
-            // Check if this row already has an item selected (e.g., from old input)
-            const hiddenId = row.querySelector('.selected-item-id');
-            if (hiddenId && hiddenId.value) {
-                // We need to reconstruct the selected display
-                const wrapper = row.querySelector('.item-search-wrapper');
-                const searchInput = wrapper.querySelector('.item-search-input');
-                const selectedBadge = wrapper.querySelector('.selected-item-badge');
-                const selectedInfoSpan = selectedBadge.querySelector('.item-info');
-
-                // Find the item name from itemsList
-                const selectedItem = itemsList.find(item => item.id == hiddenId.value);
-                if (selectedItem) {
-                    searchInput.style.display = 'none';
-                    selectedInfoSpan.innerHTML = `${escapeHtml(selectedItem.name)} <span style="font-size:0.7rem; color:#6b7280;">(${escapeHtml(selectedItem.code)})</span>`;
-                    selectedBadge.style.display = 'flex';
-                    toggleFieldsForRow(row, true);
-                }
-            }
-        });
-    }
-
-    // Form validation before submit
+    // Form validation
     document.getElementById('requisitionForm').addEventListener('submit', function(e) {
         let hasValidItem = false;
         const rows = document.querySelectorAll('.item-row');
+        const requisitionType = document.querySelector('select[name="requisition_type"]').value;
+
+        if (!requisitionType) {
+            e.preventDefault();
+            alert('Please select a requisition type (Daily, Weekly, or Monthly).');
+            return false;
+        }
 
         for (let i = 0; i < rows.length; i++) {
             const row = rows[i];
@@ -637,11 +364,35 @@
         }
     });
 
-    // Add initial empty row if no rows exist
+    // Add item button
+    document.getElementById('addItemBtn').addEventListener('click', function() {
+        const tbody = document.getElementById('itemsBody');
+        const newRow = createNewRow();
+        tbody.appendChild(newRow);
+        setupRowSearch(newRow);
+        newRow.querySelector('.remove-item').addEventListener('click', () => removeItemRow(newRow.querySelector('.remove-item')));
+    });
+
+    // Initial row
     if (document.querySelectorAll('.item-row').length === 0) {
         document.getElementById('addItemBtn').click();
-    } else {
-        initializeExistingRows();
     }
 </script>
+
+<style>
+    .hidden {
+        display: none !important;
+    }
+    @keyframes spin {
+        from {
+            transform: rotate(0deg);
+        }
+        to {
+            transform: rotate(360deg);
+        }
+    }
+    .animate-spin {
+        animation: spin 1s linear infinite;
+    }
+</style>
 @endsection

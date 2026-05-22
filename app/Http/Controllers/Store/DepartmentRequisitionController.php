@@ -38,7 +38,6 @@ class DepartmentRequisitionController extends Controller
 
         $requisitions = $query->orderBy('created_at', 'desc')->paginate(20);
 
-        // ✅ FIX 1: Added RESTAURANT to the departments filter list
         $departments = \App\Models\Department::whereIn('name', ['KITCHEN', 'BAR', 'CAFE', 'RESTAURANT'])->get();
 
         return view('store.department_requisitions.index', compact('requisitions', 'departments'));
@@ -79,8 +78,8 @@ class DepartmentRequisitionController extends Controller
         try {
             $requisition = DepartmentRequisition::findOrFail($id);
 
-            if ($requisition->status !== 'pending') {
-                return redirect()->back()->with('error', 'Only pending requisitions can be approved.');
+            if ($requisition->status !== 'approved') {
+                return redirect()->back()->with('error', 'Only already approved requisitions.');
             }
 
             $requisition->status      = 'approved';
@@ -125,8 +124,8 @@ class DepartmentRequisitionController extends Controller
         try {
             $requisition = DepartmentRequisition::findOrFail($id);
 
-            if ($requisition->status !== 'pending') {
-                return redirect()->back()->with('error', 'Only pending requisitions can be rejected.');
+            if ($requisition->status !== 'approved') {
+                return redirect()->back()->with('error', 'you cannot reject non-approved requisitions.');
             }
 
             $requisition->status           = 'rejected';
@@ -223,7 +222,12 @@ class DepartmentRequisitionController extends Controller
                 $packSize       = isset($itemData['pack_size']) ? (float) $itemData['pack_size'] : null;
 
                 if ($quantityIssued <= 0) {
-                    if ($reqItem->quantity_issued < $reqItem->quantity_requested) {
+                    // Check whether this item has been fully covered in base-unit pieces
+                    $requestedPieces = ($reqItem->requested_pack_type && $reqItem->requested_pack_size)
+                        ? $reqItem->quantity_requested * $reqItem->requested_pack_size
+                        : $reqItem->quantity_requested;
+
+                    if (($reqItem->issued_total_pieces ?? 0) < $requestedPieces) {
                         $allFullyIssued = false;
                     }
                     continue;
@@ -234,20 +238,29 @@ class DepartmentRequisitionController extends Controller
                     ? $quantityIssued * $packSize
                     : $quantityIssued;
 
+                // Stock check — issuer cannot issue more than what is physically available
+                $inventoryItem = InventoryItem::find($reqItem->inventory_item_id);
+                $stockBefore   = (float) ($inventoryItem->current_stock ?? 0);
+
+                if ($totalPiecesIssued > $stockBefore) {
+                    throw new \Exception(
+                        'Insufficient stock for: ' . ($inventoryItem->name ?? 'item') .
+                        '. Available: ' . $stockBefore . ' ' . ($inventoryItem->base_unit ?? 'units') .
+                        ', Attempting to issue: ' . $totalPiecesIssued . ' ' . ($inventoryItem->base_unit ?? 'units')
+                    );
+                }
+
                 // Update requisition item
                 $reqItem->quantity_issued     = $quantityIssued;
                 $reqItem->issued_pack_type    = $packType;
                 $reqItem->issued_pack_size    = $packSize;
                 $reqItem->issued_total_pieces = $totalPiecesIssued;
-                // ✅ FIX 2: DO NOT auto-set quantity_consumed here.
+                // NOTE: Do NOT set quantity_consumed here.
                 // Consumption is recorded separately by the department.
-                // Setting it here would corrupt the restaurant stock view.
                 $reqItem->save();
 
-                // Stock movement
-                $inventoryItem = InventoryItem::find($reqItem->inventory_item_id);
-                $stockBefore   = (float) ($inventoryItem->current_stock ?? 0);
-                $stockAfter    = max(0, $stockBefore - $totalPiecesIssued);
+                // Deduct from inventory
+                $stockAfter = max(0, $stockBefore - $totalPiecesIssued);
 
                 $inventoryItem->current_stock = $stockAfter;
                 $inventoryItem->save();
@@ -283,6 +296,8 @@ class DepartmentRequisitionController extends Controller
                     'requisition_id'  => $requisition->id,
                     'item_id'         => $inventoryItem->id,
                     'quantity_issued' => $quantityIssued,
+                    'pack_type'       => $packType,
+                    'pack_size'       => $packSize,
                     'total_pieces'    => $totalPiecesIssued,
                     'stock_before'    => $stockBefore,
                     'stock_after'     => $stockAfter,
@@ -291,7 +306,14 @@ class DepartmentRequisitionController extends Controller
 
                 $anyIssued = true;
 
-                if ($reqItem->quantity_issued < $reqItem->quantity_requested) {
+                // Compare issued base-unit pieces against what was originally requested in base units.
+                // This correctly handles cases where the department requested in packs but the store
+                // issues in individual pieces (or a different pack size).
+                $requestedPieces = ($reqItem->requested_pack_type && $reqItem->requested_pack_size)
+                    ? $reqItem->quantity_requested * $reqItem->requested_pack_size
+                    : $reqItem->quantity_requested;
+
+                if (($reqItem->issued_total_pieces ?? 0) < $requestedPieces) {
                     $allFullyIssued = false;
                 }
             }
@@ -303,8 +325,6 @@ class DepartmentRequisitionController extends Controller
                 $requisition->status = 'partially_issued';
             }
 
-            // ✅ FIX 3: Save taken_by on the requisition itself so the show
-            // view can display it directly from $requisition->taken_by
             if ($anyIssued) {
                 $requisition->taken_by = $request->taken_by;
             }
@@ -443,12 +463,9 @@ class DepartmentRequisitionController extends Controller
                 $reqItem->return_reason = $itemData['return_reason'] ?? $globalReason;
                 $reqItem->returned_at   = now();
 
-                // ✅ FIX 2: DO NOT auto-calculate quantity_consumed here.
-                // quantity_consumed is recorded by the department when they
-                // actually use items. The store return process must NOT overwrite
-                // it — doing so corrupts the restaurant stock view by making
-                // "consumed = issued - returned" which is wrong when the department
-                // hasn't recorded consumption yet (it shows false consumption data).
+                // NOTE: Do NOT auto-calculate quantity_consumed here.
+                // quantity_consumed is recorded by the department when they actually
+                // use items. The store return process must NOT overwrite it.
                 // quantity_consumed is managed exclusively by the department's
                 // consumption recording feature.
 

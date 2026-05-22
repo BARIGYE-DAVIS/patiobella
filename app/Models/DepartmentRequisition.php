@@ -15,6 +15,7 @@ class DepartmentRequisition extends Model
 
     protected $fillable = [
         'requisition_number',
+        'requisition_type',  // ADDED
         'department_id',
         'requested_by',
         'approved_by',
@@ -34,6 +35,11 @@ class DepartmentRequisition extends Model
         'deleted_at' => 'datetime',
     ];
 
+    // Requisition Type constants
+    const TYPE_DAILY = 'daily';
+    const TYPE_WEEKLY = 'weekly';
+    const TYPE_MONTHLY = 'monthly';
+
     // Status constants
     const STATUS_PENDING = 'pending';
     const STATUS_APPROVED = 'approved';
@@ -41,7 +47,7 @@ class DepartmentRequisition extends Model
     const STATUS_ISSUED = 'issued';
     const STATUS_PARTIALLY_CONSUMED = 'partially_consumed';
     const STATUS_FULLY_CONSUMED = 'fully_consumed';
-    const STATUS_COMPLETED = 'completed';  // ADD THIS
+    const STATUS_COMPLETED = 'completed';
     const STATUS_PARTIALLY_RETURNED = 'partially_returned';
     const STATUS_RETURNED = 'returned';
     const STATUS_REJECTED = 'rejected';
@@ -71,6 +77,22 @@ class DepartmentRequisition extends Model
     public function stockMovements()
     {
         return $this->hasMany(StockMovement::class, 'department_requisition_id');
+    }
+
+    // Helper methods - Type checks
+    public function isDaily()
+    {
+        return $this->requisition_type === self::TYPE_DAILY;
+    }
+
+    public function isWeekly()
+    {
+        return $this->requisition_type === self::TYPE_WEEKLY;
+    }
+
+    public function isMonthly()
+    {
+        return $this->requisition_type === self::TYPE_MONTHLY;
     }
 
     // Helper methods - Status checks
@@ -221,5 +243,15 @@ class DepartmentRequisition extends Model
         $this->save();
 
         return $this;
+    }
+
+    // Get all available requisition types (for dropdowns)
+    public static function getRequisitionTypes()
+    {
+        return [
+            self::TYPE_DAILY => 'Daily',
+            self::TYPE_WEEKLY => 'Weekly',
+            self::TYPE_MONTHLY => 'Monthly',
+        ];
     }
 }

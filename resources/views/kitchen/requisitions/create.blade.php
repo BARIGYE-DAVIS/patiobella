@@ -1,3 +1,5 @@
+{{-- resources/views/kitchen/requisitions/create.blade.php --}}
+
 @extends('layouts.kitchen')
 
 @section('title', 'Create Requisition')
@@ -5,399 +7,392 @@
 @section('page-title', 'Create New Requisition')
 
 @section('content')
-<style>
-    .item-row {
-        transition: background-color 0.2s ease;
-    }
-    .item-row:hover {
-        background-color: #f9fafb;
-    }
-    .select2-container .select2-selection--single {
-        height: 36px;
-        border: 1px solid #d1d5db;
-        border-radius: 6px;
-    }
-    .select2-container--default .select2-selection--single .select2-selection__rendered {
-        line-height: 34px;
-        padding-left: 10px;
-        font-size: 0.75rem;
-    }
-    .select2-container--default .select2-selection--single .select2-selection__arrow {
-        height: 34px;
-    }
-    .select2-dropdown {
-        font-size: 0.75rem;
-    }
-    .help-text {
-        font-size: 0.65rem;
-        color: #6b7280;
-        margin-top: 2px;
-    }
-    .compact-input {
-        padding: 6px 8px;
-        font-size: 0.75rem;
-        border-radius: 6px;
-    }
-    .btn-sm {
-        padding: 4px 10px;
-        font-size: 0.7rem;
-    }
-</style>
-
-<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
-<script src="https://cdn.jsdelivr.net/npm/jquery@3.6.0/dist/jquery.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
-
-<div class="bg-white rounded-lg shadow-sm overflow-hidden">
-    <div class="px-5 py-3 border-b border-gray-200 bg-gray-50">
-        <h3 class="text-md font-semibold text-gray-800">Create New Requisition</h3>
-        <p class="text-xs text-gray-500">Request items from the store for kitchen operations</p>
+<div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+    <div class="px-6 py-4 border-b border-gray-200 bg-gray-50">
+        <h3 class="text-lg font-semibold text-gray-800">
+            <i class="fas fa-clipboard-list mr-2 text-orange-600"></i>
+            Create New Requisition
+        </h3>
+        <p class="text-xs text-gray-500 mt-1">Request items from the store for kitchen operations</p>
     </div>
 
-    <form method="POST" action="{{ route('kitchen.requisitions.store') }}" id="requisitionForm">
-        @csrf
+    <div class="p-6">
+        <form method="POST" action="{{ route('kitchen.requisitions.store') }}" id="requisitionForm">
+            @csrf
 
-        <div class="p-5 space-y-5">
-            {{-- Requisition Header --}}
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
                 <div>
-                    <label class="block text-xs font-semibold text-gray-600 mb-1">Date Needed</label>
-                    <input type="date" name="date_needed" value="{{ old('date_needed') }}"
-                           class="w-full px-2 py-1.5 text-xs border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" id="date_needed">
+                    <label class="block text-xs font-semibold text-gray-700 mb-1">
+                        Requisition Type <span class="text-red-500">*</span>
+                    </label>
+                    <select name="requisition_type" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500" required>
+                        <option value="">Select Type</option>
+                        @foreach($requisitionTypes as $value => $label)
+                            <option value="{{ $value }}" {{ old('requisition_type') == $value ? 'selected' : '' }}>
+                                {{ $label }}
+                            </option>
+                        @endforeach
+                    </select>
                 </div>
-
                 <div>
-                    <label class="block text-xs font-semibold text-gray-600 mb-1">Notes (for Store)</label>
-                    <textarea name="department_notes" rows="2" id="department_notes"
-                              placeholder="Any notes for the store manager..."
-                              class="w-full px-2 py-1.5 text-xs border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">{{ old('department_notes') }}</textarea>
+                    <label class="block text-xs font-semibold text-gray-700 mb-1">Date Needed</label>
+                    <input type="date" name="date_needed" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500" value="{{ old('date_needed') }}">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-gray-700 mb-1">Notes (for Store)</label>
+                    <textarea name="department_notes" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500" rows="1" placeholder="Any special instructions for the store...">{{ old('department_notes') }}</textarea>
                 </div>
             </div>
 
-            {{-- Items Section --}}
-            <div class="border-t border-gray-200 pt-4">
-                <div class="flex justify-between items-center mb-3">
-                    <h4 class="text-sm font-semibold text-gray-800">Items Requested</h4>
-                    <button type="button" id="addItemBtn"
-                            class="bg-green-600 text-white px-3 py-1 rounded-md hover:bg-green-700 transition flex items-center gap-1 text-xs">
-                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
-                        </svg>
-                        Add Item
-                    </button>
-                </div>
-
-                <div class="overflow-x-auto">
-                    <table class="w-full border border-gray-200 rounded-md text-xs">
-                        <thead class="bg-gray-50">
-                            <tr class="border-b border-gray-200">
-                                <th class="px-2 py-2 text-left font-semibold text-gray-600 w-32">Item</th>
-                                <th class="px-2 py-2 text-center font-semibold text-gray-600 w-20">Quantity</th>
-                                <th class="px-2 py-2 text-center font-semibold text-gray-600 w-24">Pack Type</th>
-                                <th class="px-2 py-2 text-center font-semibold text-gray-600 w-20">Pcs/Pack</th>
-                                <th class="px-2 py-2 text-center font-semibold text-gray-600 w-20">Metrics</th>
-                                <th class="px-2 py-2 text-left font-semibold text-gray-600">Notes</th>
-                                <th class="px-2 py-2 text-center w-8">Action</th>
-                            </td>
-                        </thead>
-                        <tbody id="itemsBody">
-                            <tr class="item-row border-b" id="row-0">
-                                <td class="px-2 py-2">
-                                    <select name="items[0][inventory_item_id]" class="item-select w-full text-xs" required>
-                                        <option value="">-- Search Item --</option>
-                                        @foreach($items as $item)
-                                            <option value="{{ $item->id }}" data-name="{{ $item->name }}">
-                                                {{ $item->name }}
-                                            </option>
-                                        @endforeach
-                                    </select>
-                                    <div class="text-red-500 text-xs item-error hidden">Please select an item</div>
-                                </td>
-                                <td class="px-2 py-2">
-                                    <input type="number" name="items[0][quantity]" step="0.01"
-                                           class="item-quantity w-full px-1 py-1 text-xs border border-gray-300 rounded text-center"
-                                           placeholder="0.00" required>
-                                    <div class="text-red-500 text-xs quantity-error hidden">Quantity must be > 0</div>
-                                </td>
-                                <td class="px-2 py-2">
-                                    <select name="items[0][pack_type]" class="item-pack-type w-full px-1 py-1 text-xs border border-gray-300 rounded">
-                                        <option value="">-- None --</option>
-                                        <option value="carton">Carton</option>
-                                        <option value="box">Box</option>
-                                        <option value="crate">Crate</option>
-                                        <option value="dozen">Dozen</option>
-                                        <option value="pack">Pack</option>
-                                        <option value="bag">Bag</option>
-                                        <option value="sack">Sack</option>
-                                        <option value="bottle">Bottle</option>
-                                        <option value="can">Can</option>
-                                        <option value="jar">Jar</option>
-                                        <option value="tray">Tray</option>
-                                        <option value="pallet">Pallet</option>
-                                        <option value="case">Case</option>
-                                        <option value="bundle">Bundle</option>
-                                        <option value="roll">Roll</option>
-                                        <option value="sheet">Sheet</option>
-                                        <option value="liter">Liter</option>
-                                        <option value="gallon">Gallon</option>
-                                    </select>
-                                </td>
-                                <td class="px-2 py-2">
-                                    <input type="number" name="items[0][pack_size]" step="1"
-                                           class="item-pack-size w-full px-1 py-1 text-xs border border-gray-300 rounded text-center"
-                                           placeholder="e.g., 12">
-                                </td>
-                                <td class="px-2 py-2">
-                                    <select name="items[0][metrics]" class="item-metrics w-full px-1 py-1 text-xs border border-gray-300 rounded">
-                                        <option value="">-- Select --</option>
-                                        <option value="kg">Kilograms (kg)</option>
-                                        <option value="grams">Grams (g)</option>
-                                        <option value="lbs">Pounds (lbs)</option>
-                                        <option value="oz">Ounces (oz)</option>
-                                        <option value="litres">Litres (L)</option>
-                                        <option value="millilitres">Millilitres (ml)</option>
-                                        <option value="gallons">Gallons (gal)</option>
-                                        <option value="quarts">Quarts (qt)</option>
-                                        <option value="pcs">Pieces (pcs)</option>
-                                        <option value="dozen">Dozen (doz)</option>
-                                        <option value="bottles">Bottles</option>
-                                        <option value="cans">Cans</option>
-                                        <option value="packets">Packets</option>
-                                        <option value="meters">Meters (m)</option>
-                                        <option value="centimeters">Centimeters (cm)</option>
-                                        <option value="inches">Inches (in)</option>
-                                        <option value="sq_meters">Square Meters (m²)</option>
-                                    </select>
-                                </td>
-                                <td class="px-2 py-2">
-                                    <input type="text" name="items[0][notes]"
-                                           class="item-notes w-full px-1 py-1 text-xs border border-gray-300 rounded"
-                                           placeholder="Notes...">
-                                </td>
-                                <td class="px-2 py-2 text-center">
-                                    <button type="button" class="remove-item text-red-500 hover:text-red-700">
-                                        <svg class="w-4 h-4 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
-                                        </svg>
-                                    </button>
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
+            <div class="mt-6 mb-3">
+                <h4 class="font-semibold text-gray-700">Items Requested</h4>
             </div>
 
-            @error('items')
-                <p class="text-red-500 text-xs mt-2">{{ $message }}</p>
-            @enderror
-        </div>
+            <div class="overflow-x-auto mb-4">
+                <table class="w-full text-sm">
+                    <thead>
+                        <tr class="bg-gray-50 border-b-2 border-gray-200">
+                            <th class="w-[45%] px-3 py-3 text-left font-semibold text-gray-600">Item <span class="text-red-500">*</span></th>
+                            <th class="w-[25%] px-3 py-3 text-left font-semibold text-gray-600">Quantity <span class="text-red-500">*</span></th>
+                            <th class="w-[20%] px-3 py-3 text-left font-semibold text-gray-600">Metrics</th>
+                            <th class="w-[10%] px-3 py-3 text-center font-semibold text-gray-600">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="itemsBody"></tbody>
+                </table>
+            </div>
 
-        {{-- Form Actions --}}
-        <div class="px-5 py-3 border-t border-gray-200 bg-gray-50 flex justify-end gap-2">
-            <a href="{{ route('kitchen.requisitions.index') }}" class="px-3 py-1.5 text-xs border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 transition">
-                Cancel
-            </a>
-            <button type="submit" class="px-3 py-1.5 text-xs bg-blue-600 text-white rounded-md hover:bg-blue-700 transition">
-                Submit Requisition
-            </button>
-        </div>
-    </form>
+            <div class="mb-4">
+                <button type="button" id="addItemBtn" class="w-full bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg text-sm transition-colors">
+                    <i class="fas fa-plus mr-1"></i> Add Item
+                </button>
+            </div>
+
+            <div class="flex justify-end gap-3 mt-6 pt-4 border-t border-gray-200">
+                <a href="{{ route('kitchen.requisitions.index') }}" class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-5 py-2 rounded-lg text-sm font-medium transition-colors">
+                    <i class="fas fa-times mr-1"></i> Cancel
+                </a>
+                <button type="submit" class="bg-orange-600 hover:bg-orange-700 text-white px-5 py-2 rounded-lg text-sm font-medium transition-colors">
+                    <i class="fas fa-paper-plane mr-1"></i> Submit Requisition
+                </button>
+            </div>
+        </form>
+    </div>
 </div>
 
 <script>
-    let itemCounter = 1;
+    // Items data from backend
+    let itemsList = @json($items->map(function($item) {
+        return [
+            'id' => $item->id,
+            'name' => $item->name,
+            'code' => $item->item_code ?? 'N/A'
+        ];
+    }));
 
-    function initSelect2(element) {
-        $(element).select2({
-            placeholder: "-- Search Item --",
-            allowClear: true,
-            width: '100%',
-            dropdownAutoWidth: true
+    let rowCounter = 0;
+    let searchTimeout = null;
+
+    // Fetch item details from API
+    async function fetchItemDetails(itemId, rowElement) {
+        if (!itemId) return;
+
+        const loadingSpinner = rowElement.querySelector('.loading-spinner');
+        if (loadingSpinner) loadingSpinner.classList.remove('hidden');
+
+        try {
+            const response = await fetch(`/kitchen/requisitions/item-details/${itemId}`);
+            const result = await response.json();
+
+            if (result.success) {
+                updateRowWithItemData(rowElement, result.data);
+            }
+        } catch (error) {
+            console.error('Error fetching item details:', error);
+        } finally {
+            if (loadingSpinner) loadingSpinner.classList.add('hidden');
+        }
+    }
+
+    // Update row with fetched item data
+    function updateRowWithItemData(rowElement, data) {
+        const metricsInput = rowElement.querySelector('.item-metrics');
+
+        // Update metrics field (READ-ONLY)
+        if (metricsInput && data.metrics) {
+            metricsInput.value = data.metrics;
+        }
+    }
+
+    // Filter items based on search term (live search)
+    function filterItems(searchTerm) {
+        if (!searchTerm.trim()) {
+            return itemsList;
+        }
+        return itemsList.filter(item =>
+            item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            item.code.toLowerCase().includes(searchTerm.toLowerCase())
+        );
+    }
+
+    // Render search results dropdown
+    function renderDropdown(dropdownElement, items, searchInput, rowElement) {
+        if (!dropdownElement) return;
+
+        if (items.length === 0) {
+            dropdownElement.innerHTML = '<div class="px-3 py-2 text-gray-500 text-sm">No items found</div>';
+            dropdownElement.classList.remove('hidden');
+            return;
+        }
+
+        dropdownElement.innerHTML = items.map(item => `
+            <div class="search-result-item px-3 py-2 cursor-pointer hover:bg-orange-50 border-b border-gray-100 last:border-0 transition-colors" data-id="${item.id}" data-name="${escapeHtml(item.name)}" data-code="${escapeHtml(item.code)}">
+                <div class="font-semibold text-sm text-gray-800">${escapeHtml(item.name)}</div>
+                <div class="text-xs text-gray-500">Code: ${escapeHtml(item.code)}</div>
+            </div>
+        `).join('');
+        dropdownElement.classList.remove('hidden');
+
+        // Add click handlers
+        dropdownElement.querySelectorAll('.search-result-item').forEach(el => {
+            el.addEventListener('click', async (e) => {
+                e.stopPropagation();
+                const itemId = el.dataset.id;
+                const itemName = el.dataset.name;
+                const itemCode = el.dataset.code;
+                const wrapper = searchInput.closest('.item-search-wrapper');
+                const selectedBadge = wrapper.querySelector('.selected-item-badge');
+                const selectedInfoSpan = selectedBadge.querySelector('.item-info');
+                const hiddenId = wrapper.querySelector('.selected-item-id');
+
+                // Update UI
+                hiddenId.value = itemId;
+                searchInput.value = itemName;
+                searchInput.classList.add('hidden');
+                selectedInfoSpan.innerHTML = `${escapeHtml(itemName)} <span class="text-xs text-gray-500">(${escapeHtml(itemCode)})</span>`;
+                selectedBadge.classList.remove('hidden');
+                dropdownElement.classList.add('hidden');
+
+                // Fetch and update item details
+                await fetchItemDetails(itemId, rowElement);
+
+                // Enable quantity field
+                const quantityInput = rowElement.querySelector('.item-quantity');
+                quantityInput.disabled = false;
+                quantityInput.required = true;
+            });
         });
     }
 
-    function createNewRow(index) {
+    // Perform live search
+    function performLiveSearch(searchInput, dropdownElement, rowElement) {
+        const searchTerm = searchInput.value;
+        const filteredItems = filterItems(searchTerm);
+        renderDropdown(dropdownElement, filteredItems, searchInput, rowElement);
+    }
+
+    // Clear selected item
+    function clearSelectedItem(wrapper, rowElement) {
+        const searchInput = wrapper.querySelector('.item-search-input');
+        const dropdown = wrapper.querySelector('.search-results-dropdown');
+        const selectedBadge = wrapper.querySelector('.selected-item-badge');
+        const hiddenId = wrapper.querySelector('.selected-item-id');
+        const quantityInput = rowElement.querySelector('.item-quantity');
+        const metricsInput = rowElement.querySelector('.item-metrics');
+
+        // Reset UI
+        searchInput.value = '';
+        searchInput.classList.remove('hidden');
+        selectedBadge.classList.add('hidden');
+        hiddenId.value = '';
+        dropdown.classList.add('hidden');
+        dropdown.innerHTML = '';
+
+        // Reset and disable fields
+        quantityInput.disabled = true;
+        quantityInput.required = false;
+        quantityInput.value = '';
+        metricsInput.value = '';
+    }
+
+    // Setup search for a row
+    function setupRowSearch(rowElement) {
+        const wrapper = rowElement.querySelector('.item-search-wrapper');
+        if (!wrapper) return;
+
+        const searchInput = wrapper.querySelector('.item-search-input');
+        const dropdown = wrapper.querySelector('.search-results-dropdown');
+        const clearBtn = wrapper.querySelector('.clear-item-btn');
+
+        // Live search on input with debounce
+        searchInput.addEventListener('input', function() {
+            const hiddenId = wrapper.querySelector('.selected-item-id');
+            if (hiddenId.value) return;
+
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(() => {
+                performLiveSearch(searchInput, dropdown, rowElement);
+            }, 300);
+        });
+
+        // Show dropdown on focus if no item selected
+        searchInput.addEventListener('focus', function() {
+            const hiddenId = wrapper.querySelector('.selected-item-id');
+            if (!hiddenId.value) {
+                performLiveSearch(searchInput, dropdown, rowElement);
+            }
+        });
+
+        // Clear button handler
+        clearBtn.addEventListener('click', () => {
+            clearSelectedItem(wrapper, rowElement);
+        });
+
+        // Close dropdown when clicking outside
+        document.addEventListener('click', function(e) {
+            if (!wrapper.contains(e.target)) {
+                dropdown.classList.add('hidden');
+            }
+        });
+
+        // Prevent dropdown from closing when clicking inside
+        dropdown.addEventListener('click', (e) => {
+            e.stopPropagation();
+        });
+    }
+
+    // Escape HTML
+    function escapeHtml(str) {
+        if (!str) return '';
+        return str.replace(/[&<>]/g, function(m) {
+            if (m === '&') return '&amp;';
+            if (m === '<') return '&lt;';
+            if (m === '>') return '&gt;';
+            return m;
+        });
+    }
+
+    // Create new row
+    function createNewRow() {
+        const index = rowCounter++;
         const newRow = document.createElement('tr');
-        newRow.className = 'item-row border-b';
-        newRow.id = `row-${index}`;
+        newRow.className = 'item-row border-b border-gray-100';
+        newRow.dataset.index = index;
+
         newRow.innerHTML = `
-            <td class="px-2 py-2">
-                <select name="items[${index}][inventory_item_id]" class="item-select w-full text-xs" required>
-                    <option value="">-- Search Item --</option>
-                    @foreach($items as $item)
-                        <option value="{{ $item->id }}" data-name="{{ $item->name }}">{{ $item->name }}</option>
-                    @endforeach
-                </select>
-                <div class="text-red-500 text-xs item-error hidden">Please select an item</div>
+            <td class="px-3 py-2">
+                <div class="relative item-search-wrapper">
+                    <input type="text" class="item-search-input w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500" placeholder="Type to search items..." autocomplete="off">
+                    <div class="search-results-dropdown absolute z-10 left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-64 overflow-y-auto hidden"></div>
+                    <div class="selected-item-badge hidden flex justify-between items-center bg-orange-50 px-3 py-2 rounded-lg border border-orange-200">
+                        <span class="item-info font-semibold text-sm text-orange-800"></span>
+                        <button type="button" class="clear-item-btn text-red-500 hover:text-red-700 text-xs px-2 py-1 rounded hover:bg-red-50 transition-colors">✕ Remove</button>
+                    </div>
+                    <input type="hidden" name="items[${index}][inventory_item_id]" class="selected-item-id" value="">
+                    <div class="loading-spinner hidden absolute right-3 top-2">
+                        <div class="w-4 h-4 border-2 border-orange-600 border-t-transparent rounded-full animate-spin"></div>
+                    </div>
+                </div>
             </td>
-            <td class="px-2 py-2">
-                <input type="number" name="items[${index}][quantity]" step="0.01"
-                       class="item-quantity w-full px-1 py-1 text-xs border border-gray-300 rounded text-center"
-                       placeholder="0.00" required>
-                <div class="text-red-500 text-xs quantity-error hidden">Quantity must be > 0</div>
+            <td class="px-3 py-2">
+                <input type="number" name="items[${index}][quantity]" step="0.01" class="item-quantity w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 disabled:bg-gray-100 disabled:cursor-not-allowed" placeholder="0.00" disabled required>
             </td>
-            <td class="px-2 py-2">
-                <select name="items[${index}][pack_type]" class="item-pack-type w-full px-1 py-1 text-xs border border-gray-300 rounded">
-                    <option value="">-- None --</option>
-                    <option value="carton">Carton</option>
-                    <option value="box">Box</option>
-                    <option value="crate">Crate</option>
-                    <option value="dozen">Dozen</option>
-                    <option value="pack">Pack</option>
-                    <option value="bag">Bag</option>
-                    <option value="sack">Sack</option>
-                    <option value="bottle">Bottle</option>
-                    <option value="can">Can</option>
-                    <option value="jar">Jar</option>
-                    <option value="tray">Tray</option>
-                    <option value="pallet">Pallet</option>
-                    <option value="case">Case</option>
-                    <option value="bundle">Bundle</option>
-                    <option value="roll">Roll</option>
-                    <option value="sheet">Sheet</option>
-                    <option value="liter">Liter</option>
-                    <option value="gallon">Gallon</option>
-                </select>
+            <td class="px-3 py-2">
+                <input type="text" name="items[${index}][metrics]" class="item-metrics w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-gray-50 cursor-not-allowed" placeholder="Auto-filled" readonly disabled>
             </td>
-            <td class="px-2 py-2">
-                <input type="number" name="items[${index}][pack_size]" step="1"
-                       class="item-pack-size w-full px-1 py-1 text-xs border border-gray-300 rounded text-center"
-                       placeholder="e.g., 12">
-            </td>
-            <td class="px-2 py-2">
-                <select name="items[${index}][metrics]" class="item-metrics w-full px-1 py-1 text-xs border border-gray-300 rounded">
-                    <option value="">-- Select --</option>
-                    <option value="kg">Kilograms (kg)</option>
-                    <option value="grams">Grams (g)</option>
-                    <option value="lbs">Pounds (lbs)</option>
-                    <option value="oz">Ounces (oz)</option>
-                    <option value="litres">Litres (L)</option>
-                    <option value="millilitres">Millilitres (ml)</option>
-                    <option value="gallons">Gallons (gal)</option>
-                    <option value="quarts">Quarts (qt)</option>
-                    <option value="pcs">Pieces (pcs)</option>
-                    <option value="dozen">Dozen (doz)</option>
-                    <option value="bottles">Bottles</option>
-                    <option value="cans">Cans</option>
-                    <option value="packets">Packets</option>
-                    <option value="meters">Meters (m)</option>
-                    <option value="centimeters">Centimeters (cm)</option>
-                    <option value="inches">Inches (in)</option>
-                    <option value="sq_meters">Square Meters (m²)</option>
-                </select>
-            </td>
-            <td class="px-2 py-2">
-                <input type="text" name="items[${index}][notes]"
-                       class="item-notes w-full px-1 py-1 text-xs border border-gray-300 rounded"
-                       placeholder="Notes...">
-            </td>
-            <td class="px-2 py-2 text-center">
-                <button type="button" class="remove-item text-red-500 hover:text-red-700">
-                    <svg class="w-4 h-4 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
-                    </svg>
+            <td class="px-3 py-2 text-center">
+                <button type="button" class="remove-item bg-red-500 hover:bg-red-600 text-white px-2 py-1 rounded text-xs transition-colors">
+                    <i class="fas fa-trash"></i>
                 </button>
             </td>
         `;
+
         return newRow;
     }
 
-    function validateForm() {
-        let isValid = true;
-        const rows = document.querySelectorAll('#itemsBody .item-row');
+    // Remove row
+    function removeItemRow(button) {
+        const row = button.closest('.item-row');
+        if (row) {
+            row.remove();
+            reindexRows();
+        }
+    }
 
-        for (let i = 0; i < rows.length; i++) {
-            const row = rows[i];
-            const itemSelect = row.querySelector('.item-select');
-            const quantity = row.querySelector('.item-quantity');
-            const itemError = row.querySelector('.item-error');
-            const quantityError = row.querySelector('.quantity-error');
+    // Reindex rows
+    function reindexRows() {
+        const rows = document.querySelectorAll('.item-row');
+        rows.forEach((row, newIndex) => {
+            row.dataset.index = newIndex;
+            const inputs = row.querySelectorAll('input, select');
+            inputs.forEach(input => {
+                const name = input.getAttribute('name');
+                if (name) {
+                    const newName = name.replace(/items\[\d+\]/, `items[${newIndex}]`);
+                    input.setAttribute('name', newName);
+                }
+            });
+        });
+    }
 
-            // Reset errors
-            itemError.classList.add('hidden');
-            quantityError.classList.add('hidden');
+    // Form validation
+    document.getElementById('requisitionForm').addEventListener('submit', function(e) {
+        let hasValidItem = false;
+        const rows = document.querySelectorAll('.item-row');
+        const requisitionType = document.querySelector('select[name="requisition_type"]').value;
 
-            let hasError = false;
-
-            // Check if item is selected
-            if (!itemSelect.value) {
-                itemError.classList.remove('hidden');
-                isValid = false;
-                hasError = true;
-            }
-
-            // Check if quantity is valid
-            if (!quantity.value || parseFloat(quantity.value) <= 0) {
-                quantityError.classList.remove('hidden');
-                isValid = false;
-                hasError = true;
-            }
+        if (!requisitionType) {
+            e.preventDefault();
+            alert('Please select a requisition type (Daily, Weekly, or Monthly).');
+            return false;
         }
 
-        // Check if at least one item has valid quantity
-        let hasValidItem = false;
         for (let i = 0; i < rows.length; i++) {
             const row = rows[i];
-            const itemSelect = row.querySelector('.item-select');
+            const itemId = row.querySelector('.selected-item-id').value;
             const quantity = row.querySelector('.item-quantity').value;
 
-            if (itemSelect.value && parseFloat(quantity) > 0) {
+            if (itemId && parseFloat(quantity) > 0) {
                 hasValidItem = true;
                 break;
             }
         }
 
         if (!hasValidItem) {
-            alert('Please add at least one item with a valid quantity.');
-            return false;
-        }
-
-        return isValid;
-    }
-
-    function attachRemoveEvents() {
-        document.querySelectorAll('.remove-item').forEach(function(btn) {
-            btn.removeEventListener('click', removeItem);
-            btn.addEventListener('click', removeItem);
-        });
-    }
-
-    function removeItem(e) {
-        const row = e.target.closest('.item-row');
-        const rows = document.querySelectorAll('.item-row');
-        if (rows.length > 1) {
-            row.remove();
-        } else {
-            alert('You must have at least one item.');
-        }
-    }
-
-    // Form submit validation
-    document.getElementById('requisitionForm').addEventListener('submit', function(e) {
-        if (!validateForm()) {
             e.preventDefault();
-            alert('Please fix the errors above before submitting.');
+            alert('Please add at least one item with a valid quantity.');
         }
     });
 
     // Add item button
     document.getElementById('addItemBtn').addEventListener('click', function() {
         const tbody = document.getElementById('itemsBody');
-        const newRow = createNewRow(itemCounter);
+        const newRow = createNewRow();
         tbody.appendChild(newRow);
-
-        const newSelect = newRow.querySelector('.item-select');
-        initSelect2(newSelect);
-
-        attachRemoveEvents();
-        itemCounter++;
+        setupRowSearch(newRow);
+        newRow.querySelector('.remove-item').addEventListener('click', () => removeItemRow(newRow.querySelector('.remove-item')));
     });
 
-    // Initialize first row
-    const firstSelect = document.querySelector('.item-select');
-    if (firstSelect) {
-        initSelect2(firstSelect);
+    // Initial row
+    if (document.querySelectorAll('.item-row').length === 0) {
+        document.getElementById('addItemBtn').click();
     }
-    attachRemoveEvents();
 </script>
+
+<style>
+    .hidden {
+        display: none !important;
+    }
+    @keyframes spin {
+        from {
+            transform: rotate(0deg);
+        }
+        to {
+            transform: rotate(360deg);
+        }
+    }
+    .animate-spin {
+        animation: spin 1s linear infinite;
+    }
+</style>
 @endsection

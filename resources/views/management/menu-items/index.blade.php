@@ -18,6 +18,20 @@
         box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.02);
         border-color: #f97316;
     }
+
+    /* List View Styles */
+    .menu-item-list {
+        transition: all 0.2s ease;
+        border: 1px solid #e5e7eb;
+        cursor: pointer;
+    }
+    .menu-item-list:hover {
+        background-color: #fefce8;
+        border-color: #f97316;
+        transform: translateX(4px);
+        box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    }
+
     .badge-margin-high {
         background-color: #d1fae5;
         color: #065f46;
@@ -86,6 +100,55 @@
     .info-value {
         color: #1f2937;
     }
+
+    /* View toggle buttons */
+    .view-toggle-btn {
+        transition: all 0.2s ease;
+    }
+    .view-toggle-btn.active {
+        background-color: #f97316;
+        color: white;
+        border-color: #f97316;
+    }
+    .view-toggle-btn.active i {
+        color: white;
+    }
+    .view-toggle-btn:not(.active):hover {
+        background-color: #fff7ed;
+        border-color: #fed7aa;
+    }
+
+    /* List view specific */
+    .list-view-container .menu-item-list {
+        animation: fadeInUp 0.3s ease;
+    }
+
+    @keyframes fadeInUp {
+        from {
+            opacity: 0;
+            transform: translateY(10px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    /* Status indicator */
+    .status-indicator {
+        display: inline-block;
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        margin-right: 6px;
+    }
+    .status-active {
+        background-color: #10b981;
+        box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.2);
+    }
+    .status-inactive {
+        background-color: #9ca3af;
+    }
 </style>
 @endpush
 
@@ -117,8 +180,19 @@
                     <option value="{{ $menu->id }}">{{ $menu->name }}</option>
                 @endforeach
             </select>
-            <a href="{{ route('management.menus.create') }}" class="inline-flex items-center gap-2 px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white text-sm font-semibold rounded-lg transition-colors shadow-sm">
-                <i class="fas fa-plus"></i> New Menu
+
+            {{-- View Toggle Buttons --}}
+            <div class="flex items-center gap-1 bg-gray-100 rounded-lg p-1">
+                <button type="button" id="gridViewBtn" class="view-toggle-btn px-3 py-2 rounded-lg text-sm font-medium transition-all active">
+                    <i class="fas fa-th-large mr-1"></i> Grid
+                </button>
+                <button type="button" id="listViewBtn" class="view-toggle-btn px-3 py-2 rounded-lg text-sm font-medium transition-all">
+                    <i class="fas fa-list mr-1"></i> List
+                </button>
+            </div>
+
+            <a href="{{ route('management.menu-items.create') }}" class="inline-flex items-center gap-2 px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white text-sm font-semibold rounded-lg transition-colors shadow-sm">
+                <i class="fas fa-plus"></i> New Item
             </a>
         </div>
     </div>
@@ -135,86 +209,166 @@
         </div>
     @endif
 
-    {{-- Items Grid --}}
-    <div id="itemsGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        @foreach($menuItems as $item)
-            <div class="menu-item-card bg-white rounded-xl overflow-hidden shadow-sm"
-                 data-item-id="{{ $item->id }}"
-                 data-item-name="{{ $item->name }}"
-                 data-category-id="{{ $item->menu_item_category_id }}"
-                 data-menu-id="{{ $item->menu_id }}">
+    {{-- Items Container --}}
+    <div id="itemsContainer">
+        {{-- Grid View (Default) --}}
+        <div id="gridView" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            @foreach($menuItems as $item)
+                <div class="menu-item-card bg-white rounded-xl overflow-hidden shadow-sm"
+                     data-item-id="{{ $item->id }}"
+                     data-item-name="{{ $item->name }}"
+                     data-category-id="{{ $item->menu_item_category_id }}"
+                     data-menu-id="{{ $item->menu_id }}">
 
-                {{-- Card Header with Gradient --}}
-                <div class="gradient-bg px-4 py-3 flex items-center justify-between">
-                    <div class="flex items-center gap-2">
-                        <div class="w-8 h-8 rounded-lg bg-white/80 flex items-center justify-center">
-                            <i class="fas fa-utensils text-orange-500 text-sm"></i>
+                    {{-- Card Header with Gradient --}}
+                    <div class="gradient-bg px-4 py-3 flex items-center justify-between">
+                        <div class="flex items-center gap-2">
+                            <div class="w-8 h-8 rounded-lg bg-white/80 flex items-center justify-center">
+                                <i class="fas fa-utensils text-orange-500 text-sm"></i>
+                            </div>
+                            <div>
+                                <h3 class="font-semibold text-gray-800 text-sm">{{ Str::limit($item->name, 30) }}</h3>
+                                <p class="text-xs text-gray-500">{{ $item->menu->name ?? 'No Menu' }}</p>
+                            </div>
                         </div>
                         <div>
-                            <h3 class="font-semibold text-gray-800 text-sm">{{ Str::limit($item->name, 30) }}</h3>
-                            <p class="text-xs text-gray-500">{{ $item->menu->name ?? 'No Menu' }}</p>
+                            @if($item->is_active)
+                                <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-700">
+                                    <i class="fas fa-circle text-[5px]"></i> Active
+                                </span>
+                            @else
+                                <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-500">
+                                    <i class="fas fa-circle text-[5px]"></i> Inactive
+                                </span>
+                            @endif
                         </div>
                     </div>
-                    <div>
-                        @if($item->is_active)
-                            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-700">
-                                <i class="fas fa-circle text-[5px]"></i> Active
+
+                    {{-- Card Body --}}
+                    <div class="p-4 space-y-3">
+                        <div class="flex items-center justify-between">
+                            <span class="text-xs text-gray-500">
+                                @php
+                                    $cat = \App\Models\MenuItemCategory::find($item->menu_item_category_id);
+                                    echo $cat ? $cat->name : 'Uncategorized';
+                                @endphp
                             </span>
-                        @else
-                            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-500">
-                                <i class="fas fa-circle text-[5px]"></i> Inactive
-                            </span>
-                        @endif
+                            <div class="text-right">
+                                <p class="text-lg font-bold text-gray-800">{{ number_format($item->selling_price, 0) }} UGX</p>
+                                <p class="text-xs text-gray-400">Selling Price</p>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-3 pt-2 border-t border-gray-100">
+                            <div>
+                                <p class="text-xs text-gray-400">Material Cost</p>
+                                <p class="text-sm font-semibold text-gray-700">{{ number_format($item->m_cost ?? 0, 0) }} UGX</p>
+                            </div>
+                            <div>
+                                <p class="text-xs text-gray-400">Margin</p>
+                                @php
+                                    $margin = $item->age_margins ?? 0;
+                                    $marginClass = $margin >= 50 ? 'badge-margin-high' : ($margin >= 30 ? 'badge-margin-medium' : 'badge-margin-low');
+                                @endphp
+                                <span class="inline-flex px-2 py-0.5 rounded-full text-xs font-semibold {{ $marginClass }}">
+                                    {{ number_format($margin, 1) }}%
+                                </span>
+                            </div>
+                        </div>
+
+                        <div class="flex items-center gap-2 pt-2">
+                            <button type="button"
+                                    class="view-item flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 bg-blue-50 hover:bg-blue-100 text-blue-600 text-xs font-medium rounded-lg transition-colors"
+                                    data-id="{{ $item->id }}"
+                                    data-name="{{ $item->name }}">
+                                <i class="fas fa-eye text-xs"></i> View Recipe
+                            </button>
+                            <a href="{{ route('management.menu-items.edit', $item->id) }}"
+                               class="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 bg-amber-50 hover:bg-amber-100 text-amber-600 text-xs font-medium rounded-lg transition-colors">
+                                <i class="fas fa-edit text-xs"></i> Edit Item
+                            </a>
+                        </div>
                     </div>
                 </div>
+            @endforeach
+        </div>
 
-                {{-- Card Body --}}
-                <div class="p-4 space-y-3">
-                    {{-- Category & Price --}}
-                    <div class="flex items-center justify-between">
-                        {{-- Instead of $item->category->name, try this --}}
-<span class="text-xs text-gray-500">
-    @php
-        $cat = \App\Models\MenuItemCategory::find($item->menu_item_category_id);
-        echo $cat ? $cat->name : 'Uncategorized';
-    @endphp
-</span>
-                        <div class="text-right">
-                            <p class="text-lg font-bold text-gray-800">{{ number_format($item->selling_price, 0) }} UGX</p>
-                            <p class="text-xs text-gray-400">Selling Price</p>
-                        </div>
-                    </div>
+        {{-- List View (Hidden by default) --}}
+        <div id="listView" class="list-view-container hidden space-y-3">
+            @foreach($menuItems as $item)
+                <div class="menu-item-list bg-white rounded-xl p-4 cursor-pointer"
+                     data-item-id="{{ $item->id }}"
+                     data-item-name="{{ $item->name }}"
+                     data-category-id="{{ $item->menu_item_category_id }}"
+                     data-menu-id="{{ $item->menu_id }}"
+                     onclick="viewItemDetails({{ $item->id }}, '{{ addslashes($item->name) }}')">
 
-                    {{-- Material Cost & Margin --}}
-                    <div class="grid grid-cols-2 gap-3 pt-2 border-t border-gray-100">
-                        <div>
-                            <p class="text-xs text-gray-400">Material Cost</p>
-                            <p class="text-sm font-semibold text-gray-700">{{ number_format($item->m_cost ?? 0, 0) }} UGX</p>
+                    <div class="flex items-center justify-between flex-wrap gap-3">
+                        <div class="flex items-center gap-3 flex-1 min-w-0">
+                            <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-orange-100 to-amber-100 flex items-center justify-center flex-shrink-0">
+                                <i class="fas fa-utensils text-orange-500 text-sm"></i>
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <div class="flex items-center gap-2 flex-wrap">
+                                    <h3 class="font-semibold text-gray-800 text-sm truncate">{{ $item->name }}</h3>
+                                    @if($item->is_active)
+                                        <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-700">
+                                            <span class="status-indicator status-active"></span> Active
+                                        </span>
+                                    @else
+                                        <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-500">
+                                            <span class="status-indicator status-inactive"></span> Inactive
+                                        </span>
+                                    @endif
+                                </div>
+                                <div class="flex items-center gap-3 text-xs text-gray-500 mt-1 flex-wrap">
+                                    <span><i class="fas fa-tag mr-1"></i>
+                                        @php
+                                            $cat = \App\Models\MenuItemCategory::find($item->menu_item_category_id);
+                                            echo $cat ? $cat->name : 'Uncategorized';
+                                        @endphp
+                                    </span>
+                                    <span><i class="fas fa-utensils mr-1"></i> {{ $item->menu->name ?? 'No Menu' }}</span>
+                                    <span><i class="fas fa-chart-line mr-1"></i> Margin:
+                                        @php $margin = $item->age_margins ?? 0; @endphp
+                                        <span class="font-semibold {{ $margin >= 50 ? 'text-emerald-600' : ($margin >= 30 ? 'text-amber-600' : 'text-red-600') }}">
+                                            {{ number_format($margin, 1) }}%
+                                        </span>
+                                    </span>
+                                </div>
+                            </div>
                         </div>
-                        <div>
-                            <p class="text-xs text-gray-400">Margin</p>
-                            @php
-                                $margin = $item->age_margins ?? 0;
-                                $marginClass = $margin >= 50 ? 'badge-margin-high' : ($margin >= 30 ? 'badge-margin-medium' : 'badge-margin-low');
-                            @endphp
-                            <span class="inline-flex px-2 py-0.5 rounded-full text-xs font-semibold {{ $marginClass }}">
-                                {{ number_format($margin, 1) }}%
-                            </span>
-                        </div>
-                    </div>
 
-                    {{-- Action Buttons (Only View Recipe - NO EDIT) --}}
-                    <div class="pt-2">
-                        <button type="button"
-                                class="view-item w-full inline-flex items-center justify-center gap-1.5 px-3 py-2 bg-blue-50 hover:bg-blue-100 text-blue-600 text-xs font-medium rounded-lg transition-colors"
-                                data-id="{{ $item->id }}"
-                                data-name="{{ $item->name }}">
-                            <i class="fas fa-eye text-xs"></i> View Complete Recipe Details
-                        </button>
+                        <div class="flex items-center gap-4">
+                            <div class="text-right">
+                                <p class="text-lg font-bold text-gray-800">{{ number_format($item->selling_price, 0) }} UGX</p>
+                                <p class="text-xs text-gray-400">Selling Price</p>
+                            </div>
+
+                            <div class="text-right min-w-[100px]">
+                                <p class="text-sm font-semibold text-gray-700">{{ number_format($item->m_cost ?? 0, 0) }} UGX</p>
+                                <p class="text-xs text-gray-400">Material Cost</p>
+                            </div>
+
+                            <div class="flex gap-2">
+                                <button type="button"
+                                        class="view-item-list inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-600 text-xs font-medium rounded-lg transition-colors"
+                                        data-id="{{ $item->id }}"
+                                        data-name="{{ $item->name }}"
+                                        onclick="event.stopPropagation(); viewItemDetails({{ $item->id }}, '{{ addslashes($item->name) }}')">
+                                    <i class="fas fa-eye text-xs"></i> View
+                                </button>
+                                <a href="{{ route('management.menu-items.edit', $item->id) }}"
+                                   class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-600 text-xs font-medium rounded-lg transition-colors"
+                                   onclick="event.stopPropagation()">
+                                    <i class="fas fa-edit text-xs"></i> Edit
+                                </a>
+                            </div>
+                        </div>
                     </div>
                 </div>
-            </div>
-        @endforeach
+            @endforeach
+        </div>
     </div>
 
     {{-- Empty State --}}
@@ -285,13 +439,43 @@ $(document).ready(function() {
                    .replace(/'/g, '&#39;');
     }
 
+    // ── View Toggle Functionality ─────────────────────────────────────
+    let currentView = 'grid';
+
+    $('#gridViewBtn').on('click', function() {
+        if (currentView === 'grid') return;
+        currentView = 'grid';
+        $('#gridView').removeClass('hidden');
+        $('#listView').addClass('hidden');
+        $(this).addClass('active');
+        $('#listViewBtn').removeClass('active');
+        localStorage.setItem('menuItemsView', 'grid');
+    });
+
+    $('#listViewBtn').on('click', function() {
+        if (currentView === 'list') return;
+        currentView = 'list';
+        $('#listView').removeClass('hidden');
+        $('#gridView').addClass('hidden');
+        $(this).addClass('active');
+        $('#gridViewBtn').removeClass('active');
+        localStorage.setItem('menuItemsView', 'list');
+    });
+
+    // Load saved view preference
+    const savedView = localStorage.getItem('menuItemsView');
+    if (savedView === 'list') {
+        $('#listViewBtn').trigger('click');
+    }
+
     // ── Filter Items (Search, Category, Menu) ────────────────────────
     function filterItems() {
         let search = $('#searchInput').val().toLowerCase();
         let categoryId = $('#categoryFilter').val();
         let menuId = $('#menuFilter').val();
 
-        $('.menu-item-card').each(function() {
+        // Filter Grid Items
+        $('#gridView .menu-item-card').each(function() {
             let card = $(this);
             let itemName = card.data('item-name').toLowerCase();
             let cardCategoryId = String(card.data('category-id') || '');
@@ -308,10 +492,28 @@ $(document).ready(function() {
             }
         });
 
-        let visibleCount = $('.menu-item-card:visible').length;
-        if (visibleCount === 0 && $('.menu-item-card').length > 0) {
+        // Filter List Items
+        $('#listView .menu-item-list').each(function() {
+            let item = $(this);
+            let itemName = item.data('item-name').toLowerCase();
+            let itemCategoryId = String(item.data('category-id') || '');
+            let itemMenuId = String(item.data('menu-id') || '');
+
+            let matchesSearch = search === '' || itemName.includes(search);
+            let matchesCategory = categoryId === '' || itemCategoryId === categoryId;
+            let matchesMenu = menuId === '' || itemMenuId === menuId;
+
+            if (matchesSearch && matchesCategory && matchesMenu) {
+                item.show();
+            } else {
+                item.hide();
+            }
+        });
+
+        let visibleCount = $('#gridView .menu-item-card:visible').length + $('#listView .menu-item-list:visible').length;
+        if (visibleCount === 0 && ($('.menu-item-card').length > 0 || $('.menu-item-list').length > 0)) {
             if ($('#noResultsMsg').length === 0) {
-                $('#itemsGrid').after('<div id="noResultsMsg" class="text-center py-12 text-gray-400"><i class="fas fa-search text-3xl mb-2 block"></i>No items match your filters</div>');
+                $('#itemsContainer').after('<div id="noResultsMsg" class="text-center py-12 text-gray-400"><i class="fas fa-search text-3xl mb-2 block"></i>No items match your filters</div>');
             }
         } else {
             $('#noResultsMsg').remove();
@@ -320,12 +522,8 @@ $(document).ready(function() {
 
     $('#searchInput, #categoryFilter, #menuFilter').on('change keyup', filterItems);
 
-    // ── View Complete Recipe Modal ─────────────────────────────────────
-    $('.view-item').on('click', function() {
-        let btn = $(this);
-        let itemId = btn.data('id');
-        let itemName = btn.data('name');
-
+    // ── View Complete Recipe Modal (Shared function) ─────────────────
+    window.viewItemDetails = function(itemId, itemName) {
         $('#modalItemName').text(itemName);
         $('#recipeContent').html('<div class="text-center text-gray-500 py-8"><div class="spinner mb-3"></div>Loading recipe details...</div>');
         $('#viewRecipeModal').removeClass('hidden').addClass('flex');
@@ -461,6 +659,23 @@ $(document).ready(function() {
                 $('#recipeContent').html('<div class="text-center text-red-500 py-8">' + errorMsg + '</div>');
             }
         });
+    };
+
+    // ── View Item Click Handlers ─────────────────────────────────────
+    // Grid view buttons
+    $('.view-item').on('click', function(e) {
+        e.stopPropagation();
+        let itemId = $(this).data('id');
+        let itemName = $(this).data('name');
+        viewItemDetails(itemId, itemName);
+    });
+
+    // List view buttons (already handled by onclick, but also bind for jQuery)
+    $(document).on('click', '.view-item-list', function(e) {
+        e.stopPropagation();
+        let itemId = $(this).data('id');
+        let itemName = $(this).data('name');
+        viewItemDetails(itemId, itemName);
     });
 
     // ── Close Modal ──────────────────────────────────────────────────

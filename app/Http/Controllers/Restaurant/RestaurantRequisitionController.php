@@ -17,33 +17,41 @@ class RestaurantRequisitionController extends Controller
     /**
      * Display a listing of requisitions.
      */
-public function index(Request $request)
-{
-    $user = Auth::user();
+    public function index(Request $request)
+    {
+        $user = Auth::user();
 
-    if (!$user->department || $user->department->name !== 'RESTAURANT') {
-        return redirect()->route('dashboard')->with('error', 'Unauthorized access');
+        if (!$user->department || $user->department->name !== 'RESTAURANT') {
+            return redirect()->route('dashboard')->with('error', 'Unauthorized access');
+        }
+
+        $query = DepartmentRequisition::with(['department', 'items.inventoryItem'])
+            ->where('department_id', $user->department_id);
+
+        // Handle multiple status values (comma-separated)
+        if ($request->filled('status')) {
+            $statuses = explode(',', $request->status);
+            $query->whereIn('status', $statuses);
+        }
+
+        // Filter by requisition type
+        if ($request->filled('requisition_type')) {
+            $query->where('requisition_type', $request->requisition_type);
+        }
+
+        if ($request->filled('search')) {
+            $query->where('requisition_number', 'like', '%' . $request->search . '%');
+        }
+
+        $requisitions = $query->orderBy('created_at', 'desc')->paginate(20);
+
+        $statuses = ['pending', 'approved', 'partially_issued', 'issued', 'partially_consumed', 'fully_consumed', 'partially_returned', 'returned', 'completed', 'rejected', 'cancelled'];
+
+        $requisitionTypes = DepartmentRequisition::getRequisitionTypes();
+
+        return view('restaurant.requisitions.index', compact('requisitions', 'statuses', 'requisitionTypes'));
     }
 
-    $query = DepartmentRequisition::with(['department', 'items.inventoryItem'])
-        ->where('department_id', $user->department_id);
-
-    // Handle multiple status values (comma-separated)
-    if ($request->filled('status')) {
-        $statuses = explode(',', $request->status);
-        $query->whereIn('status', $statuses);
-    }
-
-    if ($request->filled('search')) {
-        $query->where('requisition_number', 'like', '%' . $request->search . '%');
-    }
-
-    $requisitions = $query->orderBy('created_at', 'desc')->paginate(20);
-
-    $statuses = ['pending', 'approved', 'partially_issued', 'issued', 'partially_consumed', 'fully_consumed', 'partially_returned', 'returned', 'completed', 'rejected', 'cancelled'];
-
-    return view('restaurant.requisitions.index', compact('requisitions', 'statuses'));
-}
     /**
      * Show the form for creating a new requisition.
      */
@@ -59,7 +67,57 @@ public function index(Request $request)
             ->orderBy('name')
             ->get();
 
-        return view('restaurant.requisitions.create', compact('items'));
+        $requisitionTypes = DepartmentRequisition::getRequisitionTypes();
+
+        return view('restaurant.requisitions.create', compact('items', 'requisitionTypes'));
+    }
+
+    /**
+     * API endpoint to get item details for auto-fill
+     */
+    public function getItemDetails($id)
+    {
+        try {
+            $item = InventoryItem::findOrFail($id);
+
+            $packType = null;
+            $packSize = null;
+            $baseUnit = $item->base_unit ?? 'pcs';
+            $metrics = $item->base_unit ?? 'pcs';
+
+            // Check if item has a default pack type
+            if ($item->default_unit_of_measure_id) {
+                $packTypeValue = strtolower($item->default_unit_of_measure_id);
+                $packTypes = ['carton', 'box', 'crate', 'dozen', 'pack', 'bag', 'sack', 'bottle'];
+
+                if (in_array($packTypeValue, $packTypes)) {
+                    $packType = $packTypeValue;
+                    $packSize = $item->pack_size ?? null;
+                }
+            }
+
+            $isPackable = !is_null($packType) && $packSize > 0;
+
+            return response()->json([
+                'success' => true,
+                'data' => [
+                    'id' => $item->id,
+                    'name' => $item->name,
+                    'item_code' => $item->item_code,
+                    'base_unit' => $baseUnit,
+                    'metrics' => $metrics,
+                    'pack_type' => $packType,
+                    'pack_size' => $packSize,
+                    'is_packable' => $isPackable,
+                ]
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Item not found'
+            ], 404);
+        }
     }
 
     /**
@@ -74,6 +132,7 @@ public function index(Request $request)
         }
 
         $request->validate([
+            'requisition_type'             => 'required|in:daily,weekly,monthly',
             'date_needed'                  => 'nullable|date',
             'department_notes'             => 'nullable|string|max:500',
             'items'                        => 'required|array|min:1',
@@ -92,6 +151,7 @@ public function index(Request $request)
 
             $requisition = DepartmentRequisition::create([
                 'requisition_number' => $requisitionNumber,
+                'requisition_type'   => $request->requisition_type,
                 'department_id'      => $user->department_id,
                 'requested_by'       => Auth::id(),
                 'date_needed'        => $request->date_needed,
@@ -106,7 +166,6 @@ public function index(Request $request)
                     'quantity_requested'        => $itemData['quantity'],
                     'requested_pack_type'       => $itemData['pack_type'] ?? null,
                     'requested_pack_size'       => $itemData['pack_size'] ?? null,
-                    // issued_total_pieces intentionally omitted — set by Store at issuance
                     'metrics'                   => $itemData['metrics'] ?? null,
                     'notes'                     => $itemData['notes'] ?? null,
                 ]);
@@ -118,6 +177,7 @@ public function index(Request $request)
                 'user_id'              => Auth::id(),
                 'requisition_id'       => $requisition->id,
                 'requisition_number'   => $requisitionNumber,
+                'requisition_type'     => $request->requisition_type,
             ]);
 
             return redirect()->route('restaurant.requisitions.show', $requisition->id)

@@ -62,18 +62,7 @@
         </span>
     </div>
 
-    {{-- ── Rejection Banner ─────────────────────────────────────────────────── --}}
-    @if($requisition->status === 'rejected' && $requisition->rejection_reason)
-    <div class="bg-red-50 border border-red-200 rounded-xl px-5 py-4 flex gap-3 items-start">
-        <svg class="w-4 h-4 text-red-500 mt-0.5 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-            <path d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
-        </svg>
-        <div>
-            <p class="text-xs font-semibold text-red-800 uppercase tracking-wide mb-1">Rejection reason</p>
-            <p class="text-sm text-red-700">{{ $requisition->rejection_reason }}</p>
-        </div>
-    </div>
-    @endif
+
 
     {{-- ── Info Cards Row ───────────────────────────────────────────────────── --}}
     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -198,78 +187,44 @@
 
                         {{-- ISSUED group --}}
                         <th class="px-4 py-3 text-center text-[10px] font-semibold uppercase tracking-wider text-green-600 border-l border-gray-200 bg-green-50">
-                            Issued (Packs)
+                            Issued
                         </th>
-                        <th class="px-4 py-3 text-center text-[10px] font-semibold uppercase tracking-wider text-green-600 bg-green-50">
+                        <th class="px-4 py-3 text-center text-[10px] font-semibold uppercase tracking-wider text-green-600 bg-green-50 pack-info-col hidden-column">
                             Pack Info
-                        </th>
-                        <th class="px-4 py-3 text-center text-[10px] font-semibold uppercase tracking-wider text-green-600 bg-green-50">
-                            Issued (Total)
                         </th>
 
                         {{-- RETURNED group --}}
                         <th class="px-4 py-3 text-center text-[10px] font-semibold uppercase tracking-wider text-purple-600 border-l border-gray-200 bg-purple-50">
-                            Returned (Packs)
+                            Returned
                         </th>
-                        <th class="px-4 py-3 text-center text-[10px] font-semibold uppercase tracking-wider text-purple-600 bg-purple-50">
-                            Returned (Total)
-                        </th>
-
-                        {{-- CONSUMED --}}
-                        <th class="px-4 py-3 text-center text-[10px] font-semibold uppercase tracking-wider text-orange-600 border-l border-gray-200 bg-orange-50">
-                            Consumed
-                        </th>
-
-                        {{-- SOLD --}}
-                        <th class="px-4 py-3 text-center text-[10px] font-semibold uppercase tracking-wider text-blue-600 border-l border-gray-200 bg-blue-50">
-                            Sold
+                        <th class="px-4 py-3 text-center text-[10px] font-semibold uppercase tracking-wider text-purple-600 bg-purple-50 pack-info-returned-col hidden-column">
+                            Pack Info
                         </th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-100">
                     @foreach($requisition->items as $item)
                     @php
-                        // ── Base unit / metric ──────────────────────────────────────
                         $unit = $item->metrics ?? ($item->inventoryItem->base_unit ?? 'units');
 
-                        // ── REQUESTED ──────────────────────────────────────────────
                         $requested    = (float) $item->quantity_requested;
                         $reqPackType  = $item->requested_pack_type;
                         $reqPackSize  = $item->requested_pack_size;
 
-                        // ── ISSUED ─────────────────────────────────────────────────
-                        $issuedPacks    = (float) ($item->quantity_issued     ?? 0);
-                        $issuedPackType = $item->issued_pack_type;
-                        $issuedPackSize = (float) ($item->issued_pack_size    ?? 0);
                         $issuedTotal    = (float) ($item->issued_total_pieces ?? 0);
-                        $issuedHasPack  = $issuedPackType && $issuedPackSize > 0;
-                        $fullyIssued    = $issuedPacks >= $requested;
+                        $fullyIssued    = $issuedTotal >= $requested;
 
-                        // ── RETURNED ───────────────────────────────────────────────
-                        $returnedPacks    = (float) ($item->quantity_returned      ?? 0);
-                        $returnedPackType = $item->returned_pack_type;
-                        $returnedPackSize = (float) ($item->returned_pack_size     ?? 0);
-                        $returnedTotal    = (float) ($item->returned_total_pieces  ?? 0);
-                        $returnedHasPack  = $returnedPackType && $returnedPackSize > 0;
-
-                        // ── CONSUMED ───────────────────────────────────────────────
-                        $consumed = (float) ($item->quantity_consumed ?? 0);
-
-                        // ── SOLD ───────────────────────────────────────────────────
-                        $sold = (float) ($item->quantity_sold ?? 0);
+                        $returnedTotal    = (float) ($item->returned_total_pieces ?? 0);
                     @endphp
                     <tr class="hover:bg-gray-50 transition-colors">
 
-                        {{-- Item name --}}
                         <td class="px-4 py-3">
                             <p class="font-medium text-gray-800 text-sm">{{ $item->inventoryItem->name ?? 'N/A' }}</p>
                             <p class="text-xs text-gray-400 mt-0.5 font-mono">{{ $item->inventoryItem->item_code ?? '' }}</p>
                         </td>
 
-                        {{-- Metrics --}}
                         <td class="px-4 py-3 text-gray-500 text-sm">{{ $unit }}</td>
 
-                        {{-- Requested --}}
                         <td class="px-4 py-3 text-center tabular-nums font-semibold text-gray-800">
                             {{ number_format($requested, 2) }}
                             @if($reqPackType)
@@ -279,38 +234,8 @@
                             @endif
                         </td>
 
-                        {{-- Issued Packs --}}
-                        <td class="px-4 py-3 text-center tabular-nums font-semibold border-l border-gray-100">
-                            @if($issuedPacks > 0 && $issuedHasPack)
-                                <span class="{{ $fullyIssued ? 'text-green-600' : 'text-orange-500' }}">
-                                    {{ number_format($issuedPacks, 2) }}
-                                    <div class="text-xs text-gray-400 font-normal">{{ ucfirst($issuedPackType) }}(s)</div>
-                                </span>
-                            @elseif($issuedPacks > 0)
-                                <span class="text-gray-300">—</span>
-                                <div class="text-xs text-gray-400 font-normal">direct</div>
-                            @else
-                                <span class="text-gray-300">—</span>
-                            @endif
-                        </td>
-
-                        {{-- Pack Info --}}
-                        <td class="px-4 py-3 text-center text-gray-600">
-                            @if($issuedHasPack)
-                                <span class="inline-block px-2 py-0.5 text-xs rounded bg-green-50 text-green-700 border border-green-100 font-mono">
-                                    {{ ucfirst($issuedPackType) }} &times; {{ number_format($issuedPackSize) }} {{ $unit }}
-                                </span>
-                            @elseif($issuedPacks > 0)
-                                <span class="inline-block px-2 py-0.5 text-xs rounded bg-gray-50 text-gray-500 border border-gray-200">
-                                    Direct {{ $unit }}
-                                </span>
-                            @else
-                                <span class="text-gray-300">—</span>
-                            @endif
-                        </td>
-
                         {{-- Issued Total --}}
-                        <td class="px-4 py-3 text-center tabular-nums font-semibold">
+                        <td class="px-4 py-3 text-center tabular-nums font-semibold border-l border-gray-100">
                             @if($issuedTotal > 0)
                                 <span class="{{ $fullyIssued ? 'text-green-600' : 'text-orange-500' }}">
                                     {{ number_format($issuedTotal, 2) }}
@@ -321,57 +246,27 @@
                             @endif
                         </td>
 
-                        {{-- Returned Packs --}}
-                        <td class="px-4 py-3 text-center tabular-nums font-semibold text-purple-600 border-l border-gray-100">
-                            @if($returnedPacks > 0 && $returnedHasPack)
-                                {{ number_format($returnedPacks, 2) }}
-                                <div class="text-xs text-gray-400 font-normal">{{ ucfirst($returnedPackType) }}(s)</div>
-                            @elseif($returnedTotal > 0)
-                                <span class="text-gray-300">—</span>
-                                <div class="text-xs text-gray-400 font-normal">direct</div>
-                            @else
-                                <span class="text-gray-300">—</span>
-                            @endif
+                        {{-- Pack Info (HIDDEN) --}}
+                        <td class="px-4 py-3 text-center pack-info-col hidden-column">
+                            <span class="text-gray-300">—</span>
                         </td>
 
                         {{-- Returned Total --}}
-                        <td class="px-4 py-3 text-center tabular-nums font-semibold text-purple-600">
+                        <td class="px-4 py-3 text-center tabular-nums font-semibold border-l border-gray-100">
                             @if($returnedTotal > 0)
-                                {{ number_format($returnedTotal, 2) }}
-                                <span class="text-xs text-gray-400 font-normal">{{ $unit }}</span>
-                            @else
-                                <span class="text-gray-300">—</span>
-                            @endif
-                        </td>
-
-                        {{-- Consumed --}}
-                        <td class="px-4 py-3 text-center tabular-nums font-semibold border-l border-gray-100">
-                            @if($consumed > 0)
-                                <span class="text-orange-600">
-                                    {{ number_format($consumed, 2) }}
+                                <span class="text-purple-600">
+                                    {{ number_format($returnedTotal, 2) }}
                                     <span class="text-xs text-gray-400 font-normal">{{ $unit }}</span>
                                 </span>
-                            @elseif($issuedTotal > 0)
-                                <span class="text-gray-400">0.00 <span class="text-xs">{{ $unit }}</span></span>
                             @else
                                 <span class="text-gray-300">—</span>
                             @endif
                         </td>
 
-                        {{-- Sold --}}
-                        <td class="px-4 py-3 text-center tabular-nums font-semibold border-l border-gray-100">
-                            @if($sold > 0)
-                                <span class="text-blue-600">
-                                    {{ number_format($sold, 2) }}
-                                    <span class="text-xs text-gray-400 font-normal">{{ $unit }}</span>
-                                </span>
-                            @elseif($issuedTotal > 0)
-                                <span class="text-gray-400">0.00 <span class="text-xs">{{ $unit }}</span></span>
-                            @else
-                                <span class="text-gray-300">—</span>
-                            @endif
+                        {{-- Returned Pack Info (HIDDEN) --}}
+                        <td class="px-4 py-3 text-center pack-info-returned-col hidden-column">
+                            <span class="text-gray-300">—</span>
                         </td>
-
                     </tr>
                     @endforeach
                 </tbody>
@@ -384,30 +279,15 @@
                             {{ number_format($requisition->items->sum('quantity_requested'), 2) }}
                         </td>
                         <td class="px-4 py-3 text-center tabular-nums font-bold text-green-600 border-l border-gray-200">
-                            {{ number_format($requisition->items->sum('quantity_issued'), 2) }}
-                            <div class="text-xs text-gray-400 font-normal">packs / units</div>
-                        </td>
-                        <td class="px-4 py-3">—</td>
-                        <td class="px-4 py-3 text-center tabular-nums font-bold text-green-600">
                             {{ number_format($requisition->items->sum('issued_total_pieces'), 2) }}
                             <div class="text-xs text-gray-400 font-normal">base units</div>
                         </td>
+                        <td class="px-4 py-3 pack-info-col hidden-column">—</td>
                         <td class="px-4 py-3 text-center tabular-nums font-bold text-purple-600 border-l border-gray-200">
-                            {{ number_format($requisition->items->sum('quantity_returned'), 2) }}
-                            <div class="text-xs text-gray-400 font-normal">packs / units</div>
-                        </td>
-                        <td class="px-4 py-3 text-center tabular-nums font-bold text-purple-600">
                             {{ number_format($requisition->items->sum('returned_total_pieces'), 2) }}
                             <div class="text-xs text-gray-400 font-normal">base units</div>
                         </td>
-                        <td class="px-4 py-3 text-center tabular-nums font-bold text-orange-600 border-l border-gray-200">
-                            {{ number_format($requisition->items->sum('quantity_consumed'), 2) }}
-                            <div class="text-xs text-gray-400 font-normal">base units</div>
-                        </td>
-                        <td class="px-4 py-3 text-center tabular-nums font-bold text-blue-600 border-l border-gray-200">
-                            {{ number_format($requisition->items->sum('quantity_sold'), 2) }}
-                            <div class="text-xs text-gray-400 font-normal">base units</div>
-                        </td>
+                        <td class="px-4 py-3 pack-info-returned-col hidden-column">—</td>
                     </tr>
                 </tfoot>
             </table>
@@ -419,13 +299,13 @@
     @if($requisition->status === 'pending')
     <div class="flex justify-end gap-3">
         <button type="button" onclick="document.getElementById('rejectModal').classList.remove('hidden')"
-                class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-red-600 border border-red-200 rounded-lg hover:bg-red-50 transition">
+                class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium hidden text-red-600 border border-red-200 rounded-lg hover:bg-red-50 transition">
             Reject
         </button>
         <form action="{{ route('store.department-requisitions.approve', $requisition->id) }}" method="POST">
             @csrf
             <button type="submit"
-                    class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition">
+                    class="inline-flex items-center gap-2 px-4 py-2 text-sm hidden font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition">
                 Approve Requisition
             </button>
         </form>
@@ -503,6 +383,12 @@
         </form>
     </div>
 </div>
+
+<style>
+    .hidden-column {
+        display: none;
+    }
+</style>
 
 <script>
     document.getElementById('rejectModal').addEventListener('click', function(e) {
