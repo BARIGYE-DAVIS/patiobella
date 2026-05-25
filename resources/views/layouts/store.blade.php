@@ -18,16 +18,17 @@
     <style>
         body {
             font-family: 'Inter', sans-serif;
-            background: #f3f4f6;
+            background: #fef7e8;
         }
         .sidebar-active {
-            background-color: #1e40af;
+            background-color: #ea580c;
             color: white;
         }
         .sidebar-active svg {
             color: white;
         }
-        /* Sidebar hidden by default */
+
+        /* Sidebar - Orange theme */
         #sidebar {
             position: fixed;
             left: -280px;
@@ -36,11 +37,14 @@
             height: 100%;
             transition: left 0.3s ease;
             z-index: 50;
-            background-color: #1e3a8a;
+            background-color: #9a3412;
+            display: flex;
+            flex-direction: column;
         }
         #sidebar.open {
             left: 0;
         }
+
         /* Overlay when sidebar is open */
         .sidebar-overlay {
             position: fixed;
@@ -55,10 +59,11 @@
         .sidebar-overlay.active {
             display: block;
         }
+
         /* Custom Menu Button */
         .custom-menu-btn {
             background: transparent;
-            color: #1e3a8a;
+            color: #c2410c;
             width: 40px;
             height: 40px;
             display: flex;
@@ -71,11 +76,12 @@
             border-radius: 8px;
         }
         .custom-menu-btn:hover {
-            background: #e5e7eb;
+            background: #ffedd5;
         }
-        /* Top Bar - Fixed */
+
+        /* Top Bar - Orange theme */
         .top-bar {
-            background: white;
+            background: #fff7ed;
             box-shadow: 0 1px 3px rgba(0,0,0,0.1);
             padding: 12px 24px;
             display: flex;
@@ -95,26 +101,36 @@
         .department-title {
             font-size: 18px;
             font-weight: 600;
-            color: #1e3a8a;
+            color: #9a3412;
         }
         .department-subtitle {
             font-size: 12px;
-            color: #6b7280;
+            color: #78350f;
         }
+
         /* Main content */
         main {
             margin-top: 65px;
             transition: margin-left 0.3s ease;
             padding: 20px;
         }
+
         /* When sidebar opens, shift main content */
         body.sidebar-open main {
             margin-left: 280px;
         }
+
         @media (max-width: 768px) {
             body.sidebar-open main {
                 margin-left: 0;
             }
+        }
+
+        /* Scrollable nav area */
+        .sidebar-nav-scroll {
+            flex: 1;
+            overflow-y: auto;
+            padding-bottom: 20px;
         }
     </style>
 
@@ -125,15 +141,17 @@
 {{-- Sidebar Overlay --}}
 <div class="sidebar-overlay" id="sidebarOverlay"></div>
 
-{{-- Sidebar --}}
-<aside id="sidebar" class="text-white shadow-xl overflow-y-auto">
-    <div class="p-4 border-b border-blue-700">
+{{-- Sidebar (Orange theme, logout at bottom) --}}
+<aside id="sidebar" class="text-white shadow-xl">
+
+    <!-- Header - stays at top -->
+    <div class="p-4 border-b border-orange-700/60 flex-shrink-0">
         <div class="flex justify-between items-center">
             <div>
-                <h2 class="text-xl font-bold">STORE</h2>
-                <p class="text-xs text-blue-300 mt-1">Store & Inventory</p>
+                <h2 class="text-xl font-bold tracking-tight">STORE</h2>
+                <p class="text-xs text-orange-200 mt-1">Store & Inventory</p>
             </div>
-            <button id="closeSidebarBtn" class="text-white hover:text-gray-300 bg-transparent border-none cursor-pointer">
+            <button id="closeSidebarBtn" class="text-white hover:text-orange-200 bg-transparent border-none cursor-pointer">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
                 </svg>
@@ -141,77 +159,88 @@
         </div>
     </div>
 
-    <nav class="mt-6">
-        <a href="{{ route('store.dashboard') }}" class="flex items-center px-4 py-3 text-sm hover:bg-blue-700 transition sidebar-nav-link {{ request()->routeIs('store.dashboard') ? 'sidebar-active' : '' }}">
-            <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/>
-            </svg>
-            Dashboard
-        </a>
+    <!-- Scrollable navigation area -->
+    <div class="sidebar-nav-scroll">
+        <nav class="mt-4">
+            <a href="{{ route('store.dashboard') }}"
+               class="flex items-center px-4 py-3 text-sm hover:bg-orange-700 transition sidebar-nav-link
+                      {{ request()->routeIs('store.dashboard') ? 'sidebar-active' : '' }}">
+                <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/>
+                </svg>
+                Dashboard
+            </a>
 
-        <a href="{{ route('store.inventory.index') }}" class="flex items-center px-4 py-3 text-sm hover:bg-blue-700 transition sidebar-nav-link {{ request()->routeIs('store.inventory.*') ? 'sidebar-active' : '' }}">
-            <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
-            </svg>
-            Inventory
-        </a>
+            <a href="{{ route('store.inventory.index') }}"
+               class="flex items-center px-4 py-3 text-sm hover:bg-orange-700 transition sidebar-nav-link
+                      {{ request()->routeIs('store.inventory.*') ? 'sidebar-active' : '' }}">
+                <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
+                </svg>
+                Inventory
+            </a>
 
-        <a href="{{ route('store.stock-movements.index') }}" class="flex items-center px-4 py-3 text-sm hover:bg-blue-700 transition sidebar-nav-link">
-            <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/>
-            </svg>
-            Stock Movements
-        </a>
+            <a href="{{ route('store.stock-movements.index') }}"
+               class="flex items-center px-4 py-3 text-sm hover:bg-orange-700 transition sidebar-nav-link
+                      {{ request()->routeIs('store.stock-movements.*') ? 'sidebar-active' : '' }}">
+                <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/>
+                </svg>
+                Stock Movements
+            </a>
 
-        <a href="{{ route('store.requisitions.index') }}" class="flex items-center px-4 py-3 text-sm hover:bg-blue-700 transition sidebar-nav-link {{ request()->routeIs('store.requisitions.*') ? 'sidebar-active' : '' }}">
-            <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
-            </svg>
-            Requisitions
-        </a>
+            <a href="{{ route('store.requisitions.index') }}"
+               class="flex items-center px-4 py-3 text-sm hover:bg-orange-700 transition sidebar-nav-link
+                      {{ request()->routeIs('store.requisitions.*') ? 'sidebar-active' : '' }}">
+                <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                </svg>
+                Requisitions
+            </a>
 
-        <a href="{{ route('store.department-requisitions.index') }}"
-   class="flex items-center px-4 py-3 text-sm hover:bg-blue-700 transition sidebar-nav-link
-          {{ request()->routeIs('store.department-requisitions.*') ? 'sidebar-active' : '' }}">
-    <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-              d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
-    </svg>
-    Department Requisitions
-    <span class="ml-auto text-xs bg-yellow-600 px-2 py-0.5 rounded-full">New</span>
-</a>
+            <a href="{{ route('store.department-requisitions.index') }}"
+               class="flex items-center px-4 py-3 text-sm hover:bg-orange-700 transition sidebar-nav-link
+                      {{ request()->routeIs('store.department-requisitions.*') ? 'sidebar-active' : '' }}">
+                <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                          d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                </svg>
+                Department Requisitions
+                <span class="ml-auto text-xs bg-yellow-600 px-2 py-0.5 rounded-full">New</span>
+            </a>
 
+            <a href="{{ route('store.categories.index') }}"
+               class="flex items-center px-4 py-3 text-sm hover:bg-orange-700 transition sidebar-nav-link
+                      {{ request()->routeIs('store.categories.*') ? 'sidebar-active' : '' }}">
+                <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
+                </svg>
+                Categories
+            </a>
 
-   
-
-
-
-        <a href="{{ route('store.categories.index') }}" class="flex items-center px-4 py-3 text-sm hover:bg-blue-700 transition sidebar-nav-link {{ request()->routeIs('store.categories.*') ? 'sidebar-active' : '' }}">
-            <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
-            </svg>
-            Categories
-        </a>
-
-
-
-
-    </nav>
-
-    <div class="absolute bottom-0 w-full p-4 border-t border-blue-700">
-        <div class="flex items-center">
-            <div class="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center">
-                <span class="text-sm font-bold">{{ substr(Auth::user()->first_name ?? 'U', 0, 1) }}{{ substr(Auth::user()->last_name ?? '', 0, 1) }}</span>
+            <!-- User profile section (inside scrollable area, above logout) -->
+            <div class="px-4 pt-6 pb-3 mt-4 border-t border-orange-700/40">
+                <div class="flex items-center">
+                    <div class="w-8 h-8 rounded-full bg-orange-500 flex items-center justify-center flex-shrink-0">
+                        <span class="text-sm font-bold text-white">
+                            {{ substr(Auth::user()->first_name ?? 'U', 0, 1) }}{{ substr(Auth::user()->last_name ?? '', 0, 1) }}
+                        </span>
+                    </div>
+                    <div class="ml-3 overflow-hidden">
+                        <p class="text-sm font-medium truncate">{{ Auth::user()->first_name ?? 'User' }} {{ Auth::user()->last_name ?? '' }}</p>
+                        <p class="text-xs text-orange-200">{{ Auth::user()->role ?? 'Store Keeper' }}</p>
+                    </div>
+                </div>
             </div>
-            <div class="ml-3">
-                <p class="text-sm font-medium">{{ Auth::user()->first_name }} {{ Auth::user()->last_name }}</p>
-                <p class="text-xs text-blue-300">{{ Auth::user()->role ?? 'Store Keeper' }}</p>
-            </div>
-        </div>
+        </nav>
+    </div>
+
+    <!-- LOGOUT - absolute bottom, last element -->
+    <div class="flex-shrink-0 border-t border-orange-700/60 bg-[#9a3412] p-4">
         <a href="{{ route('logout') }}"
            onclick="event.preventDefault(); document.getElementById('logout-form').submit();"
-           class="mt-3 flex items-center text-sm text-blue-300 hover:text-white transition">
-            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+           class="flex items-center text-sm text-orange-200 hover:text-white transition group">
+            <svg class="w-4 h-4 mr-2 flex-shrink-0 group-hover:translate-x-0.5 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
             </svg>
             Logout
@@ -236,11 +265,12 @@
         </div>
     </div>
     <div class="flex items-center gap-4">
-        <a href="{{ route('dashboard') }}" class="text-gray-600 hover:text-gray-800 text-sm">
-            <i class="fas fa-tachometer-alt mr-1"></i> Main Dashboard
+        <a href="{{ route('dashboard') }}" class="text-gray-600 hover:text-orange-700 text-sm flex items-center gap-1">
+            <i class="fas fa-tachometer-alt"></i>
+            <span>Main Dashboard</span>
         </a>
         <div class="relative">
-            <button class="text-gray-600 hover:text-gray-800">
+            <button class="text-gray-600 hover:text-orange-700">
                 <i class="fas fa-bell"></i>
             </button>
         </div>
@@ -250,13 +280,15 @@
 {{-- Main Content --}}
 <main>
     @if(session('success'))
-        <div class="mb-4 p-4 bg-green-100 border border-green-400 text-green-700 rounded-lg">
+        <div class="mb-4 p-4 bg-amber-50 border-l-4 border-orange-500 text-amber-800 rounded-r-lg flex items-center gap-2 shadow-sm">
+            <i class="fas fa-check-circle text-orange-600"></i>
             {{ session('success') }}
         </div>
     @endif
 
     @if(session('error'))
-        <div class="mb-4 p-4 bg-red-100 border border-red-400 text-red-700 rounded-lg">
+        <div class="mb-4 p-4 bg-red-50 border-l-4 border-red-500 text-red-700 rounded-r-lg flex items-center gap-2 shadow-sm">
+            <i class="fas fa-exclamation-circle text-red-500"></i>
             {{ session('error') }}
         </div>
     @endif

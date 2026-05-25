@@ -225,42 +225,77 @@ class StockCountController extends Controller
     }
 
     /**
-     * Update physical quantities for items.
-     */
-    public function updateItems(Request $request, $id)
-    {
-        $validated = $request->validate([
-            'items' => 'required|array',
-            'items.*.id' => 'required|exists:stock_count_items,id',
-            'items.*.physical_quantity' => 'required|numeric|min:0',
-        ]);
+ * Show edit form for stock count
+ */
+public function editCount($id)
+{
+    $stockCount = StockCount::with(['items.inventoryItem', 'creator', 'completer', 'location'])
+        ->findOrFail($id);
 
-        DB::beginTransaction();
-
-        try {
-            $stockCount = StockCount::findOrFail($id);
-
-            if ($stockCount->status !== StockCount::STATUS_DRAFT) {
-                return redirect()->back()->with('error', 'Only draft counts can be edited.');
-            }
-
-            foreach ($validated['items'] as $itemData) {
-                $countItem = StockCountItem::findOrFail($itemData['id']);
-                $countItem->physical_quantity = $itemData['physical_quantity'];
-                $countItem->save();
-            }
-
-            DB::commit();
-
-            return redirect()->route('management.stock-counts.show', $stockCount->id)
-                ->with('success', 'Stock count items updated successfully.');
-
-        } catch (\Exception $e) {
-            DB::rollBack();
-            return redirect()->back()->with('error', 'Failed to update items: ' . $e->getMessage());
-        }
+    if ($stockCount->status !== StockCount::STATUS_DRAFT) {
+        return redirect()->route('management.stock-counts.show', $stockCount->id)
+            ->with('error', 'Only draft counts can be edited.');
     }
 
+    $type = $stockCount->location_type;
+
+    return view('management.stock-counts.edit', compact('stockCount', 'type'));
+}
+    /**
+     * Update physical quantities for items.
+     */
+   /**
+ * Update physical quantities for items.
+ */
+public function updateItems(Request $request, $id)
+{
+    $validated = $request->validate([
+        'items' => 'required|array',
+        'items.*.id' => 'required|exists:stock_count_items,id',
+        'items.*.physical_quantity' => 'required|numeric|min:0',
+        'items.*.reason_notes' => 'nullable|string',  // ← ADD THIS
+        'items.*.reason_details' => 'nullable|string', // ← ADD THIS for details
+    ]);
+
+    DB::beginTransaction();
+
+    try {
+        $stockCount = StockCount::findOrFail($id);
+
+        if ($stockCount->status !== StockCount::STATUS_DRAFT) {
+            return redirect()->back()->with('error', 'Only draft counts can be edited.');
+        }
+
+        foreach ($validated['items'] as $itemData) {
+            $countItem = StockCountItem::findOrFail($itemData['id']);
+            $countItem->physical_quantity = $itemData['physical_quantity'];
+
+            // Save reason notes
+            if (isset($itemData['reason_notes'])) {
+                $countItem->reason_notes = $itemData['reason_notes'];
+            }
+
+            // Save reason details (combine with notes if needed)
+            if (isset($itemData['reason_details']) && !empty($itemData['reason_details'])) {
+                $existingNotes = $countItem->reason_notes ?? '';
+                $countItem->reason_notes = $existingNotes
+                    ? $existingNotes . ' - ' . $itemData['reason_details']
+                    : $itemData['reason_details'];
+            }
+
+            $countItem->save();
+        }
+
+        DB::commit();
+
+        return redirect()->route('management.stock-counts.show', $stockCount->id)
+            ->with('success', 'Stock count items updated successfully.');
+
+    } catch (\Exception $e) {
+        DB::rollBack();
+        return redirect()->back()->with('error', 'Failed to update items: ' . $e->getMessage());
+    }
+}
     /**
      * Submit stock count for review.
      */

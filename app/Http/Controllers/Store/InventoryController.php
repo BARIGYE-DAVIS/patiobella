@@ -497,91 +497,190 @@ class InventoryController extends Controller
         return view('store.inventory.show', compact('item', 'stockMovements'));
     }
 
-    // ─────────────────────────────────────────────────────────────────────────────
-    // EDIT
-    // ─────────────────────────────────────────────────────────────────────────────
 
-    public function edit($id)
-    {
-        $user = Auth::user();
 
-        if (!$user->department || $user->department->name !== 'STORE') {
-            return redirect()->route('dashboard')->with('error', 'Unauthorized access');
-        }
 
-        try {
-            $item       = InventoryItem::findOrFail($id);
-            $categories = Category::where('is_active', true)->orderBy('name')->get();
-            $vendors    = Vendor::where('status', 'active')->orderBy('name')->get();
+// ─────────────────────────────────────────────────────────────────────────────
+// EDIT - Updated to include dynamic base units
+// ─────────────────────────────────────────────────────────────────────────────
 
-            return view('store.inventory.edit', compact('item', 'categories', 'vendors'));
+public function edit($id)
+{
+    $user = Auth::user();
 
-        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
-            return redirect()->route('store.inventory.index')->with('error', 'Inventory item not found.');
-        } catch (\Exception $e) {
-            return redirect()->route('store.inventory.index')->with('error', 'Failed to load edit form.');
-        }
+    if (!$user->department || $user->department->name !== 'STORE') {
+        return redirect()->route('dashboard')->with('error', 'Unauthorized access');
     }
 
-    // ─────────────────────────────────────────────────────────────────────────────
-    // UPDATE — now saves barcode
-    // ─────────────────────────────────────────────────────────────────────────────
+    try {
+        $item       = InventoryItem::findOrFail($id);
+        $categories = Category::where('is_active', true)->orderBy('name')->get();
+        $vendors    = Vendor::where('status', 'active')->orderBy('name')->get();
 
-    public function update(Request $request, $id)
-    {
-        $user = Auth::user();
+        // Get all units of measure for dropdown
+        $unitsOfMeasure = \App\Models\UnitOfMeasure::where('is_active', true)
+            ->orderBy('sort_order')
+            ->orderBy('name')
+            ->get();
 
-        if (!$user->department || $user->department->name !== 'STORE') {
-            return redirect()->route('dashboard')->with('error', 'Unauthorized access');
-        }
+        // Get DISTINCT base_unit values from existing inventory items
+        // This ensures "portion", "bottle", "kg", etc. all appear
+        $existingBaseUnits = InventoryItem::where('is_active', true)
+            ->whereNotNull('base_unit')
+            ->distinct()
+            ->orderBy('base_unit')
+            ->pluck('base_unit')
+            ->toArray();
 
-        try {
-            $item = InventoryItem::findOrFail($id);
-        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
-            return redirect()->route('store.inventory.index')->with('error', 'Inventory item not found.');
-        }
+        return view('store.inventory.edit', compact('item', 'categories', 'vendors', 'unitsOfMeasure', 'existingBaseUnits'));
 
-        try {
-            $validated = $request->validate([
-                'name'          => 'required|string|max:255',
-                'category_id'   => 'required|exists:categories,id',
-                'item_code'     => 'nullable|string|max:50|unique:inventory_items,item_code,' . $id,
-                'barcode'       => 'nullable|string|max:100|unique:inventory_items,barcode,' . $id, // ◀ NEW
-                'base_unit'     => 'nullable|string|max:50',
-                'unit_cost'     => 'nullable|numeric|min:0',
-                'selling_price' => 'nullable|numeric|min:0',
-                'is_active'     => 'boolean',
-                'notes'         => 'nullable|string',
-            ]);
-        } catch (\Illuminate\Validation\ValidationException $e) {
-            throw $e;
-        }
+    } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+        return redirect()->route('store.inventory.index')->with('error', 'Inventory item not found.');
+    } catch (\Exception $e) {
+        return redirect()->route('store.inventory.index')->with('error', 'Failed to load edit form.');
+    }
+}
+// ─────────────────────────────────────────────────────────────────────────────
+// UPDATE — with unit of measure handling and ability to add new units
+// ─────────────────────────────────────────────────────────────────────────────
 
-        try {
-            $item->update([
-                'name'          => $validated['name'],
-                'category_id'   => $validated['category_id'],
-                'item_code'     => $validated['item_code']     ?? $item->item_code,
-                'barcode'       => $validated['barcode']       ?? $item->barcode,  // ◀ NEW
-                'base_unit'     => $validated['base_unit']     ?? $item->base_unit,
-                'unit_cost'     => $validated['unit_cost']     ?? $item->unit_cost,
-                'selling_price' => $validated['selling_price'] ?? $item->selling_price,
-                'is_active'     => $validated['is_active']     ?? $item->is_active,
-                'notes'         => $validated['notes']         ?? $item->notes,
-                'updated_by'    => Auth::id(),
-            ]);
+public function update(Request $request, $id)
+{
+    $user = Auth::user();
 
-            return redirect()->route('store.inventory.show', $item->id)
-                ->with('success', 'Inventory item updated successfully.');
-
-        } catch (\Exception $e) {
-            return redirect()->back()
-                ->with('error', 'Failed to update inventory item: ' . $e->getMessage())
-                ->withInput();
-        }
+    if (!$user->department || $user->department->name !== 'STORE') {
+        return redirect()->route('dashboard')->with('error', 'Unauthorized access');
     }
 
-    // ─────────────────────────────────────────────────────────────────────────────
+    try {
+        $item = InventoryItem::findOrFail($id);
+    } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+        return redirect()->route('store.inventory.index')->with('error', 'Inventory item not found.');
+    }
+
+    try {
+        $validated = $request->validate([
+            'name'                          => 'required|string|max:255',
+            'category_id'                   => 'required|exists:categories,id',
+            'item_code'                     => 'nullable|string|max:50|unique:inventory_items,item_code,' . $id,
+            'barcode'                       => 'nullable|string|max:100|unique:inventory_items,barcode,' . $id,
+            'empty_bottle_weight'           => 'nullable|numeric|min:0|max:999999.999999',
+            'base_unit'                     => 'required|string|max:50',
+            'default_unit_of_measure_id'    => 'nullable|exists:units_of_measure,id',
+            'unit_cost'                     => 'nullable|numeric|min:0',
+            'selling_price'                 => 'nullable|numeric|min:0',
+            'is_active'                     => 'boolean',
+            'notes'                         => 'nullable|string',
+
+            // New unit fields (if user wants to add a new unit)
+            'new_unit_code'                 => 'nullable|string|max:50',
+            'new_unit_name'                 => 'nullable|string|max:255',
+            'new_unit_symbol'               => 'nullable|string|max:20',
+            'new_unit_is_base'              => 'nullable|boolean',
+        ]);
+    } catch (\Illuminate\Validation\ValidationException $e) {
+        throw $e;
+    }
+
+    DB::beginTransaction();
+
+    try {
+        $defaultUnitId = $validated['default_unit_of_measure_id'] ?? null;
+
+        // Check if user wants to add a new unit of measure
+        if (!empty($validated['new_unit_code']) && !empty($validated['new_unit_name'])) {
+            // Check if unit already exists
+            $existingUnit = \App\Models\UnitOfMeasure::where('code', $validated['new_unit_code'])
+                ->orWhere('name', $validated['new_unit_name'])
+                ->first();
+
+            if ($existingUnit) {
+                // Use existing unit
+                $defaultUnitId = $existingUnit->id;
+                Log::info('Using existing unit of measure', [
+                    'user_id' => Auth::id(),
+                    'unit_id' => $existingUnit->id,
+                    'unit_name' => $existingUnit->name,
+                ]);
+            } else {
+                // Create new unit of measure
+                $newUnit = \App\Models\UnitOfMeasure::create([
+                    'code'              => strtoupper($validated['new_unit_code']),
+                    'name'              => $validated['new_unit_name'],
+                    'symbol'            => $validated['new_unit_symbol'] ?? null,
+                    'is_base_unit'      => $validated['new_unit_is_base'] ?? false,
+                    'base_unit_id'      => null,
+                    'conversion_factor' => 1,
+                    'sort_order'        => 0,
+                    'is_active'         => true,
+                    'created_at'        => now(),
+                    'updated_at'        => now(),
+                ]);
+
+                $defaultUnitId = $newUnit->id;
+
+                Log::info('New unit of measure created', [
+                    'user_id'   => Auth::id(),
+                    'unit_id'   => $newUnit->id,
+                    'unit_code' => $newUnit->code,
+                    'unit_name' => $newUnit->name,
+                ]);
+            }
+        }
+
+        $oldWeight = $item->empty_bottle_weight;
+        $newWeight = $validated['empty_bottle_weight'] ?? $item->empty_bottle_weight;
+        $oldUnitId = $item->default_unit_of_measure_id;
+
+        $item->update([
+            'name'                       => $validated['name'],
+            'category_id'                => $validated['category_id'],
+            'item_code'                  => $validated['item_code'] ?? $item->item_code,
+            'barcode'                    => $validated['barcode'] ?? $item->barcode,
+            'empty_bottle_weight'        => $newWeight,
+            'base_unit'                  => $validated['base_unit'],
+            'default_unit_of_measure_id' => $defaultUnitId ?? $item->default_unit_of_measure_id,
+            'unit_cost'                  => $validated['unit_cost'] ?? $item->unit_cost,
+            'selling_price'              => $validated['selling_price'] ?? $item->selling_price,
+            'is_active'                  => $validated['is_active'] ?? $item->is_active,
+            'notes'                      => $validated['notes'] ?? $item->notes,
+            'updated_by'                 => Auth::id(),
+        ]);
+
+        // Log if empty bottle weight changed
+        if ($oldWeight != $newWeight) {
+            Log::info('Empty bottle weight updated in inventory edit', [
+                'user_id'       => Auth::id(),
+                'item_id'       => $item->id,
+                'item_name'     => $item->name,
+                'old_weight'    => $oldWeight,
+                'new_weight'    => $newWeight,
+            ]);
+        }
+
+        // Log if unit of measure changed
+        if ($oldUnitId != $defaultUnitId) {
+            Log::info('Unit of measure changed for inventory item', [
+                'user_id'           => Auth::id(),
+                'item_id'           => $item->id,
+                'item_name'         => $item->name,
+                'old_unit_id'       => $oldUnitId,
+                'new_unit_id'       => $defaultUnitId,
+            ]);
+        }
+
+        DB::commit();
+
+        return redirect()->route('store.inventory.show', $item->id)
+            ->with('success', 'Inventory item updated successfully.');
+
+    } catch (\Exception $e) {
+        DB::rollBack();
+        return redirect()->back()
+            ->with('error', 'Failed to update inventory item: ' . $e->getMessage())
+            ->withInput();
+    }
+}    // ─────────────────────────────────────────────────────────────────────────────
     // DESTROY — unchanged
     // ─────────────────────────────────────────────────────────────────────────────
 

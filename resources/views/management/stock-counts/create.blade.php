@@ -168,14 +168,14 @@
                         @endif
                     </div>
 
-                    <div class="rounded-lg border border-gray-200">
+                    <div class="rounded-lg border border-gray-200 overflow-x-auto">
                         <table class="w-full text-sm">
                             <thead class="bg-gray-50 border-b-2 border-gray-200">
                                 <tr>
                                     <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider w-2/5">Item <span class="text-red-500">*</span></th>
                                     <th class="px-4 py-3 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider w-1/12">Expected Qty</th>
                                     <th class="px-4 py-3 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider w-1/12">Physical Count</th>
-                                    <th class="px-4 py-3 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider w-1/12">Empty Bottle Wt</th>
+                                    <th class="px-4 py-3 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider w-1/12">Empty Bottle Wt (kg)</th>
                                     <th class="px-4 py-3 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider w-1/12">Net Qty</th>
                                     <th class="px-4 py-3 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider w-1/12">Variance</th>
                                     <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider w-1/5">Reason</th>
@@ -342,7 +342,7 @@
             <td class="px-4 py-3 text-center">
                 <input type="number" name="items[${index}][empty_bottle_weight]" step="any"
                        class="empty-weight-${index} w-24 px-2 py-1 border border-gray-300 rounded-lg text-center text-sm bg-gray-100 cursor-not-allowed"
-                       placeholder="0.000" disabled>
+                       placeholder="0.000" readonly disabled>
             </td>
             <td class="px-4 py-3 text-center">
                 <span class="net-qty-display-${index} text-gray-500">—</span>
@@ -378,7 +378,7 @@
         // Initialise Tom Select on the <select>
         const ts = new TomSelect(`#item-select-${index}`, {
             placeholder: 'Search item by name or code...',
-            searchField: ['text', 'code'],  // searches name and code
+            searchField: ['text', 'code'],
             maxOptions: 200,
             render: {
                 option: function(data, escape) {
@@ -407,16 +407,20 @@
                     return;
                 }
 
-                // Enable fields
+                // Enable physical count field
                 const pInput = document.querySelector(`.physical-qty-${index}`);
                 const eInput = document.querySelector(`.empty-weight-${index}`);
                 if(pInput){ pInput.disabled=false; pInput.classList.remove('bg-gray-100','cursor-not-allowed'); }
-                if(eInput){ eInput.disabled=false; eInput.classList.remove('bg-gray-100','cursor-not-allowed'); }
 
-                // Set empty bottle weight from option dataset
+                // Set empty bottle weight from option dataset (READ-ONLY)
                 const optEl = this.options[value]?.$option;
                 const emptyWt = parseFloat(optEl?.dataset?.empty ?? 0) || 0;
-                if(eInput) eInput.value = emptyWt;
+                if(eInput) {
+                    eInput.value = emptyWt;
+                    eInput.readOnly = true;
+                    eInput.disabled = false;
+                    eInput.classList.add('bg-gray-100', 'cursor-not-allowed');
+                }
 
                 // Fetch current stock from store
                 fetchItemStock(index, value);
@@ -477,8 +481,8 @@
             </td>
             <td class="px-4 py-3 text-center">
                 <input type="number" name="items[${index}][empty_bottle_weight]" step="any"
-                       class="empty-weight-${index} w-24 px-2 py-1 border border-gray-300 rounded-lg text-center text-sm"
-                       value="${itemData.empty_bottle_weight || 0}" placeholder="0.000">
+                       class="empty-weight-${index} w-24 px-2 py-1 border border-gray-300 rounded-lg text-center text-sm bg-gray-100 cursor-not-allowed"
+                       value="${itemData.empty_bottle_weight || 0}" placeholder="0.000" readonly disabled>
             </td>
             <td class="px-4 py-3 text-center">
                 <span class="net-qty-display-${index} text-gray-500">—</span>
@@ -574,7 +578,6 @@
 
     const deptSelect = document.getElementById('department_id');
     if (deptSelect) {
-        // Auto-load if a department is already selected (e.g. after validation error)
         if (deptSelect.value) loadDepartmentItems(deptSelect.value);
         deptSelect.addEventListener('change', () => loadDepartmentItems(deptSelect.value));
     }

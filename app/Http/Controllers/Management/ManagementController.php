@@ -230,4 +230,22 @@ $deptMonthlyKitchen = []; $deptMonthlyBar = []; $deptMonthlyCafe = [];
             'distributions'
         ));
     }
+
+
+
+public function vendorsIndex()
+{
+    $user = Auth::user();
+
+    if (!$user->department || $user->department->name !== 'GENERAL MANAGEMENT') {
+        return redirect()->route('dashboard')->with('error', 'Unauthorized access');
+    }
+
+    $vendors = \App\Models\Vendor::withCount(['purchaseOrders'])
+        ->orderBy('name')
+        ->paginate(20);
+
+    return view('management.vendors', compact('vendors'));
+}
+
 }

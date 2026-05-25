@@ -17,7 +17,7 @@ class User extends Authenticatable
         'email',
         'department_id',
         'role_id',       // ← use role_id as the FK
-        'role',          
+        'role',
         'password',
         'is_active',
         'can_create_users',
@@ -125,4 +125,18 @@ class User extends Authenticatable
     {
         return $this->hasMany(StockMovement::class, 'approved_by');
     }
+
+        public function roles()
+    {
+        return $this->belongsToMany(Role::class, 'user_roles');
+    }
+
+    // app/Models/User.php
+
+public function userPermissions()
+{
+    return $this->belongsToMany(Permission::class, 'user_permissions')
+        ->withPivot('is_allowed');
+}
+
 }

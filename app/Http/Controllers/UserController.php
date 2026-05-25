@@ -5,11 +5,13 @@ namespace App\Http\Controllers;
 use App\Models\User;
 use App\Models\Role;
 use App\Models\Department;
+use App\Models\Permission;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rule;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\DB;
 
 class UserController extends Controller
 {
@@ -18,9 +20,11 @@ class UserController extends Controller
      */
     public function index(Request $request)
     {
-        $users = User::with(['role', 'department'])
+        $users = User::with(['roles', 'department'])
             ->when($request->filled('role_id'), function ($query) use ($request) {
-                return $query->where('role_id', $request->role_id);
+                return $query->whereHas('roles', function ($q) use ($request) {
+                    $q->where('role_id', $request->role_id);
+                });
             })
             ->when($request->filled('department_id'), function ($query) use ($request) {
                 return $query->where('department_id', $request->department_id);
@@ -51,8 +55,7 @@ class UserController extends Controller
     public function create()
     {
         try {
-            // Only super admin or users with can_create_users permission can create users
-            if (!Auth::user()->is_super_admin && !Auth::user()->can_create_users) {
+            if (!$this->canManageUsers()) {
                 Log::warning('Unauthorized create attempt', ['user_id' => Auth::id()]);
                 return redirect()->route('users.index')
                     ->with('error', 'You do not have permission to create users.');
@@ -60,19 +63,11 @@ class UserController extends Controller
 
             $roles = Role::where('is_active', true)->orderBy('name')->get();
             $departments = Department::where('is_active', true)->orderBy('name')->get();
+            $permissions = Permission::where('is_active', true)->orderBy('group')->orderBy('sort_order')->get();
 
-            Log::info('Create user form accessed', [
-                'user_id' => Auth::id(),
-                'roles_count' => $roles->count(),
-                'departments_count' => $departments->count()
-            ]);
-
-            return view('users.create', compact('roles', 'departments'));
+            return view('users.create', compact('roles', 'departments', 'permissions'));
         } catch (\Exception $e) {
-            Log::error('Error in create method: ' . $e->getMessage(), [
-                'file' => $e->getFile(),
-                'line' => $e->getLine()
-            ]);
+            Log::error('Error in create method: ' . $e->getMessage());
             return redirect()->route('users.index')->with('error', 'An error occurred: ' . $e->getMessage());
         }
     }
@@ -83,43 +78,69 @@ class UserController extends Controller
     public function store(Request $request)
     {
         try {
-            if (!Auth::user()->is_super_admin && !Auth::user()->can_create_users) {
+            if (!$this->canManageUsers()) {
                 return redirect()->route('users.index')
                     ->with('error', 'You do not have permission to create users.');
             }
 
             $validated = $request->validate([
-                'first_name'       => 'required|string|max:100',
-                'last_name'        => 'nullable|string|max:100',
-                'email'            => 'required|email|unique:users,email',
-                'password'         => 'required|string|min:8',
-                'role_id'          => 'required|exists:roles,id',
-                'department_id'    => 'nullable|exists:departments,id',
-                'is_active'        => 'sometimes|boolean',
-                'can_create_users' => 'sometimes|boolean',
+                'first_name'           => 'required|string|max:100',
+                'last_name'            => 'nullable|string|max:100',
+                'email'                => 'required|email|unique:users,email',
+                'password'             => 'required|string|min:8',
+                'role_ids'             => 'required|array|min:1',
+                'role_ids.*'           => 'exists:roles,id',
+                'department_id'        => 'nullable|exists:departments,id',
+                'is_active'            => 'sometimes|boolean',
+                'can_create_users'     => 'sometimes|boolean',
+                'extra_permissions'    => 'sometimes|array',
+                'extra_permissions.*'  => 'exists:permissions,id',
             ]);
 
-            // Get the role for logging only
-            $role = Role::find($validated['role_id']);
+            $userData = [
+                'first_name' => $validated['first_name'],
+                'last_name' => $validated['last_name'],
+                'email' => $validated['email'],
+                'password' => Hash::make($validated['password']),
+                'department_id' => $validated['department_id'] ?? null,
+                'is_active' => $validated['is_active'] ?? true,
+                'can_create_users' => $validated['can_create_users'] ?? false,
+                'is_super_admin' => false,
+                'created_by' => Auth::id(),
+            ];
 
-            $validated['password'] = Hash::make($validated['password']);
-            $validated['role'] = $validated['role_id'];  // Save INTEGER, same as role_id
-            $validated['is_super_admin'] = false;
-            $validated['created_by'] = Auth::id();
+            DB::beginTransaction();
 
-            $user = User::create($validated);
+            $user = User::create($userData);
 
-            Log::info('User created', [
-                'user_id' => $user->id,
-                'role_id' => $validated['role_id'],
-                'role_name' => $role->name
-            ]);
+            // Assign roles
+            $user->roles()->sync($validated['role_ids']);
 
-            return redirect()->route('users.index')->with('success', 'User created successfully.');
+            // Assign extra permissions (user-specific)
+            if (!empty($validated['extra_permissions'])) {
+                $extraPermissions = [];
+                foreach ($validated['extra_permissions'] as $permId) {
+                    $extraPermissions[$permId] = ['is_allowed' => true];
+                }
+                $user->userPermissions()->sync($extraPermissions);
+            }
+
+            // Set primary role for backward compatibility
+            $primaryRoleId = $validated['role_ids'][0];
+            $user->role_id = $primaryRoleId;
+            $user->role = $primaryRoleId;
+            $user->saveQuietly();
+
+            DB::commit();
+
+            $roleCount = count($validated['role_ids']);
+            $permCount = count($validated['extra_permissions'] ?? []);
+            return redirect()->route('users.index')->with('success', "User created successfully with {$roleCount} role(s) and {$permCount} extra permission(s).");
 
         } catch (\Illuminate\Validation\ValidationException $e) {
             return redirect()->back()->withErrors($e->errors())->withInput();
         } catch (\Exception $e) {
+            DB::rollBack();
             Log::error('Error creating user: ' . $e->getMessage());
             return redirect()->back()->with('error', 'An error occurred: ' . $e->getMessage())->withInput();
         }
@@ -131,18 +152,12 @@ class UserController extends Controller
     public function show($id)
     {
         try {
-            Log::info('Show user method called', ['user_id' => $id, 'auth_user' => Auth::id()]);
-
-            $user = User::with(['department', 'creator', 'updater'])->findOrFail($id);
+            $user = User::with(['roles', 'department', 'creator', 'updater', 'userPermissions'])->findOrFail($id);
             $roles = Role::where('is_active', true)->orderBy('name')->get();
 
             return view('users.show', compact('user', 'roles'));
         } catch (\Exception $e) {
-            Log::error('Error in show method: ' . $e->getMessage(), [
-                'user_id' => $id,
-                'file' => $e->getFile(),
-                'line' => $e->getLine()
-            ]);
+            Log::error('Error in show method: ' . $e->getMessage());
             return redirect()->route('users.index')->with('error', 'User not found.');
         }
     }
@@ -153,37 +168,35 @@ class UserController extends Controller
     public function edit($id)
     {
         try {
-            Log::info('Edit method called', ['user_id' => $id, 'auth_user' => Auth::id()]);
-
-            // Only super admin or users with can_create_users permission can edit users
-            if (!Auth::user()->is_super_admin && !Auth::user()->can_create_users) {
-                Log::warning('Unauthorized edit attempt', ['user_id' => Auth::id(), 'target_user' => $id]);
+            if (!$this->canManageUsers()) {
                 return redirect()->route('users.index')
                     ->with('error', 'You do not have permission to edit users.');
             }
 
-            $user = User::findOrFail($id);
+            $user = User::with(['roles', 'userPermissions'])->findOrFail($id);
 
-            // Cannot edit super admin unless you are super admin
             if ($user->is_super_admin && !Auth::user()->is_super_admin) {
-                Log::warning('Attempt to edit super admin', ['user_id' => Auth::id(), 'target_user' => $id]);
                 return redirect()->route('users.index')
                     ->with('error', 'You cannot edit a super administrator.');
             }
 
             $roles = Role::where('is_active', true)->orderBy('name')->get();
             $departments = Department::where('is_active', true)->orderBy('name')->get();
+            $permissions = Permission::where('is_active', true)->orderBy('group')->orderBy('sort_order')->get();
 
-            return view('users.edit', compact('user', 'roles', 'departments'));
+            $userRoleIds = $user->roles->pluck('id')->toArray();
+
+            // Get user's extra permissions (only allowed ones)
+            $extraPermissionIds = $user->userPermissions()
+                ->wherePivot('is_allowed', true)
+                ->pluck('permissions.id')
+                ->toArray();
+
+            return view('users.edit', compact('user', 'roles', 'departments', 'userRoleIds', 'permissions', 'extraPermissionIds'));
         } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
-            Log::error('User not found in edit method', ['user_id' => $id]);
             return redirect()->route('users.index')->with('error', 'User not found.');
         } catch (\Exception $e) {
-            Log::error('Error in edit method: ' . $e->getMessage(), [
-                'user_id' => $id,
-                'file' => $e->getFile(),
-                'line' => $e->getLine()
-            ]);
+            Log::error('Error in edit method: ' . $e->getMessage());
             return redirect()->route('users.index')->with('error', 'An error occurred: ' . $e->getMessage());
         }
     }
@@ -194,7 +207,7 @@ class UserController extends Controller
     public function update(Request $request, $id)
     {
         try {
-            if (!Auth::user()->is_super_admin && !Auth::user()->can_create_users) {
+            if (!$this->canManageUsers()) {
                 return redirect()->route('users.index')
                     ->with('error', 'You do not have permission to update users.');
             }
@@ -207,39 +220,68 @@ class UserController extends Controller
             }
 
             $validated = $request->validate([
-                'first_name'       => 'required|string|max:100',
-                'last_name'        => 'nullable|string|max:100',
-                'email'            => ['required', 'email', Rule::unique('users', 'email')->ignore($id)],
-                'role_id'          => 'required|exists:roles,id',
-                'department_id'    => 'nullable|exists:departments,id',
-                'is_active'        => 'sometimes|boolean',
-                'can_create_users' => 'sometimes|boolean',
+                'first_name'           => 'required|string|max:100',
+                'last_name'            => 'nullable|string|max:100',
+                'email'                => ['required', 'email', Rule::unique('users', 'email')->ignore($id)],
+                'role_ids'             => 'required|array|min:1',
+                'role_ids.*'           => 'exists:roles,id',
+                'department_id'        => 'nullable|exists:departments,id',
+                'is_active'            => 'sometimes|boolean',
+                'can_create_users'     => 'sometimes|boolean',
+                'extra_permissions'    => 'sometimes|array',
+                'extra_permissions.*'  => 'exists:permissions,id',
             ]);
 
-            // Get the role for logging only
-            $role = Role::find($validated['role_id']);
-
-            $validated['role'] = $validated['role_id'];  // Save INTEGER, same as role_id
-            $validated['updated_by'] = Auth::id();
+            $userData = [
+                'first_name' => $validated['first_name'],
+                'last_name' => $validated['last_name'],
+                'email' => $validated['email'],
+                'department_id' => $validated['department_id'] ?? null,
+                'is_active' => $validated['is_active'] ?? true,
+                'can_create_users' => $validated['can_create_users'] ?? false,
+                'updated_by' => Auth::id(),
+            ];
 
             if ($request->filled('password')) {
                 $request->validate(['password' => 'required|string|min:8|confirmed']);
-                $validated['password'] = Hash::make($request->password);
+                $userData['password'] = Hash::make($request->password);
             }
 
-            $user->update($validated);
+            DB::beginTransaction();
 
-            Log::info('User updated', [
-                'user_id' => $user->id,
-                'role_id' => $validated['role_id'],
-                'role_name' => $role->name
-            ]);
+            $user->update($userData);
 
-            return redirect()->route('users.index')->with('success', 'User updated successfully.');
+            // Sync roles
+            $user->roles()->sync($validated['role_ids']);
+
+            // Handle extra permissions (user-specific)
+            $extraPermissions = $request->input('extra_permissions', []);
+
+            // Prepare data for sync (all are allowed = true)
+            $permissionsData = [];
+            foreach ($extraPermissions as $permId) {
+                $permissionsData[$permId] = ['is_allowed' => true];
+            }
+
+            // Sync user permissions - this will add/remove based on what is checked
+            $user->userPermissions()->sync($permissionsData);
+
+            // Set primary role for backward compatibility
+            $primaryRoleId = $validated['role_ids'][0];
+            $user->role_id = $primaryRoleId;
+            $user->role = $primaryRoleId;
+            $user->saveQuietly();
+
+            DB::commit();
+
+            $roleCount = count($validated['role_ids']);
+            $permCount = count($extraPermissions);
+            return redirect()->route('users.index')->with('success', "User updated successfully with {$roleCount} role(s) and {$permCount} extra permission(s).");
 
         } catch (\Illuminate\Validation\ValidationException $e) {
             return redirect()->back()->withErrors($e->errors())->withInput();
         } catch (\Exception $e) {
+            DB::rollBack();
             Log::error('Error updating user: ' . $e->getMessage());
             return redirect()->back()->with('error', 'An error occurred: ' . $e->getMessage())->withInput();
         }
@@ -251,7 +293,7 @@ class UserController extends Controller
     public function updatePassword(Request $request, $id)
     {
         try {
-            if (!Auth::user()->is_super_admin && !Auth::user()->can_create_users) {
+            if (!$this->canManageUsers()) {
                 return redirect()->route('users.index')->with('error', 'You do not have permission.');
             }
 
@@ -266,8 +308,6 @@ class UserController extends Controller
                 'updated_by' => Auth::user()->id
             ]);
 
-            Log::info('Password updated for user', ['user_id' => $id, 'updated_by' => Auth::id()]);
-
             return redirect()->route('users.edit', $id)->with('success', 'Password updated successfully.');
         } catch (\Exception $e) {
             Log::error('Error updating password: ' . $e->getMessage());
@@ -276,38 +316,29 @@ class UserController extends Controller
     }
 
     /**
-     * Delete (soft delete) the specified user.
+     * Delete the specified user.
      */
     public function destroy($id)
     {
         try {
-            // Only super admin can delete users
             if (!Auth::user()->is_super_admin) {
-                Log::warning('Unauthorized delete attempt', ['user_id' => Auth::id(), 'target_user' => $id]);
                 return redirect()->route('users.index')
                     ->with('error', 'Only super administrator can delete users.');
             }
 
             $user = User::findOrFail($id);
 
-            // Cannot delete yourself
             if ($user->id === Auth::user()->id) {
-                Log::warning('Attempt to delete own account', ['user_id' => Auth::id()]);
                 return redirect()->route('users.index')
                     ->with('error', 'You cannot delete your own account.');
             }
 
             $user->delete();
-            Log::info('User deleted successfully', ['user_id' => $id, 'deleted_by' => Auth::id()]);
 
             return redirect()->route('users.index')
                 ->with('success', 'User deleted successfully.');
         } catch (\Exception $e) {
-            Log::error('Error in destroy method: ' . $e->getMessage(), [
-                'user_id' => $id,
-                'file' => $e->getFile(),
-                'line' => $e->getLine()
-            ]);
+            Log::error('Error in destroy method: ' . $e->getMessage());
             return redirect()->route('users.index')->with('error', 'An error occurred while deleting the user.');
         }
     }
@@ -318,8 +349,7 @@ class UserController extends Controller
     public function activate($id)
     {
         try {
-            if (!Auth::user()->is_super_admin && !Auth::user()->can_create_users) {
-                Log::warning('Unauthorized activate attempt', ['user_id' => Auth::id(), 'target_user' => $id]);
+            if (!$this->canManageUsers()) {
                 return redirect()->route('users.index')
                     ->with('error', 'You do not have permission to activate users.');
             }
@@ -330,16 +360,10 @@ class UserController extends Controller
                 'updated_by' => Auth::user()->id
             ]);
 
-            Log::info('User activated successfully', ['user_id' => $id, 'activated_by' => Auth::id()]);
-
             return redirect()->route('users.index')
                 ->with('success', 'User activated successfully.');
         } catch (\Exception $e) {
-            Log::error('Error in activate method: ' . $e->getMessage(), [
-                'user_id' => $id,
-                'file' => $e->getFile(),
-                'line' => $e->getLine()
-            ]);
+            Log::error('Error in activate method: ' . $e->getMessage());
             return redirect()->route('users.index')->with('error', 'An error occurred while activating the user.');
         }
     }
@@ -350,17 +374,14 @@ class UserController extends Controller
     public function deactivate($id)
     {
         try {
-            if (!Auth::user()->is_super_admin && !Auth::user()->can_create_users) {
-                Log::warning('Unauthorized deactivate attempt', ['user_id' => Auth::id(), 'target_user' => $id]);
+            if (!$this->canManageUsers()) {
                 return redirect()->route('users.index')
                     ->with('error', 'You do not have permission to deactivate users.');
             }
 
             $user = User::findOrFail($id);
 
-            // Cannot deactivate yourself
             if ($user->id === Auth::user()->id) {
-                Log::warning('Attempt to deactivate own account', ['user_id' => Auth::id()]);
                 return redirect()->route('users.index')
                     ->with('error', 'You cannot deactivate your own account.');
             }
@@ -370,17 +391,67 @@ class UserController extends Controller
                 'updated_by' => Auth::user()->id
             ]);
 
-            Log::info('User deactivated successfully', ['user_id' => $id, 'deactivated_by' => Auth::id()]);
-
             return redirect()->route('users.index')
                 ->with('success', 'User deactivated successfully.');
         } catch (\Exception $e) {
-            Log::error('Error in deactivate method: ' . $e->getMessage(), [
-                'user_id' => $id,
-                'file' => $e->getFile(),
-                'line' => $e->getLine()
-            ]);
+            Log::error('Error in deactivate method: ' . $e->getMessage());
             return redirect()->route('users.index')->with('error', 'An error occurred while deactivating the user.');
         }
+    }
+
+    /**
+     * Check if current user can manage users.
+     */
+    private function canManageUsers()
+    {
+        $user = Auth::user();
+
+        if ($user->is_super_admin) {
+            return true;
+        }
+
+        return $user->can_create_users;
+    }
+
+    /**
+     * Get user's merged permissions from all roles and user-specific permissions.
+     */
+    public function getUserPermissions($userId)
+    {
+        $user = User::with(['roles.permissions', 'userPermissions'])->find($userId);
+
+        if ($user->is_super_admin) {
+            return Permission::where('is_active', true)->get();
+        }
+
+        // Get permissions from all roles
+        $rolePermissions = collect();
+        foreach ($user->roles as $role) {
+            $rolePermissions = $rolePermissions->merge($role->permissions);
+        }
+
+        // Get user-specific extra permissions (allowed)
+        $extraPermissions = $user->userPermissions()
+            ->wherePivot('is_allowed', true)
+            ->get();
+
+        // Merge role permissions with extra user permissions
+        $allPermissions = $rolePermissions->merge($extraPermissions);
+
+        return $allPermissions->unique('id');
+    }
+
+    /**
+     * Check if a user has a specific permission.
+     */
+    public function checkPermission($userId, $permissionCode)
+    {
+        $user = User::find($userId);
+
+        if (!$user) return false;
+        if ($user->is_super_admin) return true;
+
+        $permissions = $this->getUserPermissions($userId);
+        return $permissions->contains('code', $permissionCode);
     }
 }

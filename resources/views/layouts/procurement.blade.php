@@ -12,24 +12,23 @@
     <!-- Font Awesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
-
     <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 
     <style>
         body {
             font-family: 'Inter', sans-serif;
-            background: #ebecee;
+            background: #fef7e8;
         }
         .sidebar-active {
-            background-color: #1e40af;
+            background-color: #ea580c;
             color: white;
         }
         .sidebar-active svg {
             color: white;
         }
 
-        /* ── Sidebar ── */
+        /* ── Sidebar (Orange theme) ── */
         #sidebar {
             position: fixed;
             left: -280px;
@@ -38,8 +37,10 @@
             height: 100%;
             transition: left 0.3s ease;
             z-index: 50;
-            background-color: #0631a8;
+            background-color: #9a3412;
             overflow-y: auto;
+            display: flex;
+            flex-direction: column;
         }
         #sidebar.open {
             left: 0;
@@ -59,7 +60,7 @@
 
         /* ── Top Bar ── */
         .top-bar {
-            background: #eff1f3;
+            background: #fff7ed;
             box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
             padding: 0 24px;
             height: 65px;
@@ -89,12 +90,12 @@
             justify-content: center;
             cursor: pointer;
             border-radius: 8px;
-            color: #1e3a8a;
+            color: #c2410c;
             transition: background 0.2s;
             flex-shrink: 0;
         }
         #menuIconBtn:hover {
-            background: #e5e7eb;
+            background: #ffedd5;
         }
 
         /* ── Main content ── */
@@ -111,6 +112,13 @@
                 margin-left: 0;
             }
         }
+
+        /* Scrollable nav area */
+        .sidebar-nav-scroll {
+            flex: 1;
+            overflow-y: auto;
+            padding-bottom: 20px;
+        }
     </style>
 
     @stack('styles')
@@ -120,17 +128,18 @@
 {{-- Sidebar Overlay --}}
 <div class="sidebar-overlay" id="sidebarOverlay"></div>
 
-{{-- ── SIDEBAR ── --}}
+{{-- ── SIDEBAR (Orange theme, logout at bottom) ── --}}
 <aside id="sidebar" class="text-white shadow-xl">
 
-    <div class="p-4 border-b border-blue-700">
+    <!-- Header - stays at top -->
+    <div class="p-4 border-b border-orange-700/60 flex-shrink-0">
         <div class="flex justify-between items-center">
             <div>
-                <h2 class="text-xl font-bold">PROCUREMENT</h2>
-                <p class="text-xs text-blue-300 mt-1">Purchase & Supplies</p>
+                <h2 class="text-xl font-bold tracking-tight">PROCUREMENT</h2>
+                <p class="text-xs text-orange-200 mt-1">Purchase & Supplies</p>
             </div>
             <button id="closeSidebarBtn"
-                    class="text-white hover:text-gray-300 bg-transparent border-none cursor-pointer p-1 rounded">
+                    class="text-white hover:text-orange-200 bg-transparent border-none cursor-pointer p-1 rounded">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
                 </svg>
@@ -138,109 +147,110 @@
         </div>
     </div>
 
-    <nav class="mt-6">
-        <a href="{{ route('procurement.dashboard') }}"
-           class="flex items-center px-4 py-3 text-sm hover:bg-blue-700 transition sidebar-nav-link
-                  {{ request()->routeIs('procurement.dashboard') ? 'sidebar-active' : '' }}">
-            <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                      d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/>
-            </svg>
-            Dashboard
-        </a>
+    <!-- Scrollable navigation area -->
+    <div class="sidebar-nav-scroll">
+        <nav class="mt-4">
+            <a href="{{ route('procurement.dashboard') }}"
+               class="flex items-center px-4 py-3 text-sm hover:bg-orange-700 transition sidebar-nav-link
+                      {{ request()->routeIs('procurement.dashboard') ? 'sidebar-active' : '' }}">
+                <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                          d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/>
+                </svg>
+                Dashboard
+            </a>
 
-        <a href="{{ route('procurement.requisitions.index') }}"
-           class="flex items-center px-4 py-3 text-sm hover:bg-blue-700 transition sidebar-nav-link
-                  {{ request()->routeIs('procurement.requisitions.*') ? 'sidebar-active' : '' }}">
-            <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                      d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
-            </svg>
-            Requisitions
-        </a>
+            <a href="{{ route('procurement.requisitions.index') }}"
+               class="flex items-center px-4 py-3 text-sm hover:bg-orange-700 transition sidebar-nav-link
+                      {{ request()->routeIs('procurement.requisitions.*') ? 'sidebar-active' : '' }}">
+                <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                          d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+                </svg>
+                Requisitions
+                @if(isset($pendingCount) && $pendingCount > 0)
+                <span class="ml-auto bg-red-500 text-white text-xs px-2 py-0.5 rounded-full">{{ $pendingCount }}</span>
+                @endif
+            </a>
 
-        <a href="{{ route('procurement.purchase-orders.index') }}"
-           class="flex items-center px-4 py-3 text-sm hover:bg-blue-700 transition sidebar-nav-link
-                  {{ request()->routeIs('procurement.purchase-orders.*') ? 'sidebar-active' : '' }}">
-            <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                      d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"/>
-            </svg>
-            Purchase Orders
-        </a>
+            <a href="{{ route('procurement.purchase-orders.index') }}"
+               class="flex items-center px-4 py-3 text-sm hover:bg-orange-700 transition sidebar-nav-link
+                      {{ request()->routeIs('procurement.purchase-orders.*') ? 'sidebar-active' : '' }}">
+                <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                          d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"/>
+                </svg>
+                Purchase Orders
+            </a>
 
-        <a href="{{ route('procurement.lpo.index') }}"
-           class="flex items-center px-4 py-3 text-sm hover:bg-blue-700 transition sidebar-nav-link
-                  {{ request()->routeIs('procurement.lpo.*') ? 'sidebar-active' : '' }}">
-            <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                      d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
-            </svg>
-            LPOs
-        </a>
+            <a href="{{ route('procurement.lpo.index') }}"
+               class="flex items-center px-4 py-3 text-sm hover:bg-orange-700 transition sidebar-nav-link
+                      {{ request()->routeIs('procurement.lpo.*') ? 'sidebar-active' : '' }}">
+                <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                          d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                </svg>
+                LPOs
+            </a>
 
-        <a href="{}"></a>
+            <a href="{{ route('procurement.approved-lpos.index') }}"
+               class="flex items-center px-4 py-3 text-sm hover:bg-orange-700 transition sidebar-nav-link
+                      {{ request()->routeIs('procurement.approved-lpos.*') ? 'sidebar-active' : '' }}">
+                <i class="fas fa-file-alt mr-3 w-5"></i>
+                <span>Approved LPOs</span>
+                <span class="ml-auto text-xs bg-yellow-600 px-2 py-0.5 rounded-full">EPO</span>
+            </a>
 
-  <a href="{{ route('procurement.approved-lpos.index') }}"
-   class="flex items-center px-4 py-3 text-sm hover:bg-blue-700 transition sidebar-nav-link
-          {{ request()->routeIs('procurement.approved-lpos.*') ? 'sidebar-active' : '' }}">
-    <i class="fas fa-file-alt mr-3 w-5"></i>
-    Approved LPOs
-    <span class="ml-auto text-xs bg-green-600 px-2 py-0.5 rounded-full">EPO</span>
-</a>
+            <a href="{{ route('procurement.vendors.index') }}"
+               class="flex items-center px-4 py-3 text-sm hover:bg-orange-700 transition sidebar-nav-link
+                      {{ request()->routeIs('procurement.vendors.*') ? 'sidebar-active' : '' }}">
+                <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                          d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/>
+                </svg>
+                Vendors
+            </a>
 
+            <a href="{{ route('procurement.goods-received.index') }}"
+               class="flex items-center px-4 py-3 text-sm hover:bg-orange-700 transition sidebar-nav-link
+                      {{ request()->routeIs('procurement.goods-received.*') ? 'sidebar-active' : '' }}">
+                <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                          d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                </svg>
+                Goods Received
+            </a>
 
-        <a href="{{ route('procurement.vendors.index') }}"
-           class="flex items-center px-4 py-3 text-sm hover:bg-blue-700 transition sidebar-nav-link
-                  {{ request()->routeIs('procurement.vendors.*') ? 'sidebar-active' : '' }}">
-            <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                      d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/>
-            </svg>
-            Vendors
-        </a>
+            <a href="{{ route('procurement.cost-prices.index') }}"
+               class="flex items-center px-4 py-3 text-sm hover:bg-orange-700 transition sidebar-nav-link
+                      {{ request()->routeIs('procurement.cost-prices.*') ? 'sidebar-active' : '' }}">
+                <i class="fas fa-dollar-sign w-5 h-5 mr-3"></i>
+                <span>Cost Prices</span>
+            </a>
 
-
-<a href="{{ route('procurement.goods-received.index') }}"
-   class="flex items-center px-4 py-3 text-sm hover:bg-blue-700 transition sidebar-nav-link
-          {{ request()->routeIs('procurement.goods-received.*') ? 'sidebar-active' : '' }}">
-    <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-              d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
-    </svg>
-    Goods Received
-</a>
-
-<!-- Add this inside the <nav> section, after existing links -->
-
-<a href="{{ route('procurement.cost-prices.index') }}"
-   class="flex items-center px-4 py-3 text-sm hover:bg-emerald-700 transition sidebar-nav-link
-          {{ request()->routeIs('procurement.cost-prices.*') ? 'sidebar-active' : '' }}">
-    <i class="fas fa-dollar-sign w-5 h-5 mr-3"></i>
-    <span>Cost Prices</span>
-</a>
-
-    </nav>
-
-    {{-- Sidebar Footer --}}
-    <div class="absolute bottom-0 w-full p-4 border-t border-blue-700 bg-[#1e3a8a]">
-        <div class="flex items-center">
-            <div class="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center flex-shrink-0">
-                <span class="text-sm font-bold">
-                    {{ substr(Auth::user()->first_name ?? 'U', 0, 1) }}{{ substr(Auth::user()->last_name ?? '', 0, 1) }}
-                </span>
+            <!-- User profile section (inside scrollable area) -->
+            <div class="px-4 pt-6 pb-3 mt-4 border-t border-orange-700/40">
+                <div class="flex items-center mb-3">
+                    <div class="w-8 h-8 rounded-full bg-orange-500 flex items-center justify-center flex-shrink-0">
+                        <span class="text-sm font-bold text-white">
+                            {{ substr(Auth::user()->first_name ?? 'U', 0, 1) }}{{ substr(Auth::user()->last_name ?? '', 0, 1) }}
+                        </span>
+                    </div>
+                    <div class="ml-3 overflow-hidden">
+                        <p class="text-sm font-medium truncate">{{ Auth::user()->first_name ?? 'User' }} {{ Auth::user()->last_name ?? '' }}</p>
+                        <p class="text-xs text-orange-200">{{ Auth::user()->role ?? 'Procurement Officer' }}</p>
+                    </div>
+                </div>
             </div>
-            <div class="ml-3 overflow-hidden">
-                <p class="text-sm font-medium truncate">{{ Auth::user()->first_name }} {{ Auth::user()->last_name }}</p>
-                <p class="text-xs text-blue-300">{{ Auth::user()->role ?? 'Procurement Officer' }}</p>
-            </div>
-        </div>
+        </nav>
+    </div>
 
-
+    <!-- LOGOUT - absolute bottom, last element -->
+    <div class="flex-shrink-0 border-t border-orange-700/60 bg-[#9a3412] p-4">
         <a href="{{ route('logout') }}"
            onclick="event.preventDefault(); document.getElementById('logout-form').submit();"
-           class="mt-3 flex items-center text-sm text-blue-300 hover:text-white transition">
-            <svg class="w-4 h-4 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+           class="flex items-center text-sm text-orange-200 hover:text-white transition group">
+            <svg class="w-4 h-4 mr-2 flex-shrink-0 group-hover:translate-x-0.5 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                       d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
             </svg>
@@ -263,21 +273,21 @@
             </svg>
         </button>
         <div>
-            <div class="text-base font-semibold text-blue-900">Procurement Module</div>
-            <div class="text-xs text-gray-500">Purchase & Supplies</div>
+            <div class="text-base font-semibold text-orange-800">Procurement Module</div>
+            <div class="text-xs text-orange-600">Purchase & Supplies</div>
         </div>
     </div>
 
     {{-- Right: Main Dashboard link + Notification Bell --}}
     <div class="flex items-center gap-4">
-        <a href="{{ route('dashboard') }}" class="text-gray-600 hover:text-gray-800 text-sm hidden sm:inline-flex items-center gap-1">
+        <a href="{{ route('dashboard') }}" class="text-gray-600 hover:text-orange-700 text-sm hidden sm:inline-flex items-center gap-1">
             <i class="fas fa-tachometer-alt"></i>
             <span>Main Dashboard</span>
         </a>
 
         {{-- Notification Bell --}}
         <div class="relative">
-            <button id="notificationBell" class="relative text-gray-600 hover:text-gray-800 p-1" aria-label="Notifications">
+            <button id="notificationBell" class="relative text-gray-600 hover:text-orange-700 p-1" aria-label="Notifications">
                 <i class="fas fa-bell text-lg"></i>
                 <span id="notificationBadge"
                       class="absolute -top-1 -right-1 bg-red-600 text-white text-xs rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1 hidden">
@@ -297,7 +307,7 @@
                 </div>
                 <div class="p-2 border-t border-gray-100 text-center">
                     <a href="{{ route('procurement.requisitions.index') }}"
-                       class="text-xs text-blue-600 hover:underline">View all requisitions</a>
+                       class="text-xs text-orange-600 hover:underline">View all requisitions</a>
                 </div>
             </div>
         </div>
@@ -308,15 +318,15 @@
 {{-- ── MAIN CONTENT ── --}}
 <main>
     @if(session('success'))
-        <div class="mb-4 p-4 bg-green-100 border border-green-400 text-green-700 rounded-lg flex items-center gap-2">
-            <i class="fas fa-check-circle"></i>
+        <div class="mb-4 p-4 bg-amber-50 border-l-4 border-orange-500 text-amber-800 rounded-r-lg flex items-center gap-2 shadow-sm">
+            <i class="fas fa-check-circle text-orange-600"></i>
             {{ session('success') }}
         </div>
     @endif
 
     @if(session('error'))
-        <div class="mb-4 p-4 bg-red-100 border border-red-400 text-red-700 rounded-lg flex items-center gap-2">
-            <i class="fas fa-exclamation-circle"></i>
+        <div class="mb-4 p-4 bg-red-50 border-l-4 border-red-500 text-red-700 rounded-r-lg flex items-center gap-2 shadow-sm">
+            <i class="fas fa-exclamation-circle text-red-500"></i>
             {{ session('error') }}
         </div>
     @endif
@@ -401,6 +411,7 @@
         const bellBtn  = document.getElementById('notificationBell');
         const dropdown = document.getElementById('notificationDropdown');
         const clearBtn = document.getElementById('clearNotifications');
+        const notificationList = document.getElementById('notificationList');
         const badge    = document.getElementById('notificationBadge');
 
         // Toggle dropdown

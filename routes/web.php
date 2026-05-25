@@ -126,6 +126,13 @@ Route::prefix('inventory')->name('inventory.')->group(function () {
     Route::patch('/{id}/adjust',     [App\Http\Controllers\Store\InventoryController::class, 'adjustStock'])  ->name('adjust');
 });
 
+// Empty Bottle Weight Management Routes
+Route::prefix('empty-bottle-weights')->name('empty-bottle-weights.')->group(function () {
+    Route::get('/', [App\Http\Controllers\Store\EmptyBottleWeightController::class, 'index'])->name('index');
+    Route::get('/{id}/edit', [App\Http\Controllers\Store\EmptyBottleWeightController::class, 'edit'])->name('edit');
+    Route::put('/{id}', [App\Http\Controllers\Store\EmptyBottleWeightController::class, 'update'])->name('update');
+});
+
 // Store - Department Requisitions Routes
 Route::prefix('department-requisitions')->name('department-requisitions.')->group(function () {
     Route::get('/', [App\Http\Controllers\Store\DepartmentRequisitionController::class, 'index'])->name('index');
@@ -343,7 +350,8 @@ Route::post('/department-requisitions/bulk-approve', [App\Http\Controllers\Manag
 
         // Download PDF route
         Route::get('/{id}/download-pdf', [App\Http\Controllers\Management\StockCountController::class, 'downloadPdf'])->name('download-pdf');
-
+        // In your management stock-counts routes
+        Route::get('/{id}/edit', [App\Http\Controllers\Management\StockCountController::class, 'editCount'])->name('edit-count');
         // Approve routes
         Route::get('/{id}/approve-count', [App\Http\Controllers\Management\StockCountController::class, 'approveCountForm'])->name('approve-count');
         Route::post('/{id}/approve-count-submit', [App\Http\Controllers\Management\StockCountController::class, 'approveCountSubmit'])->name('approve-count-submit');
