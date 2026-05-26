@@ -47,7 +47,7 @@ class RestaurantDashboardController extends Controller
             $user = Auth::user();
 
             // Check department
-            if (!$user->department || $user->department->name !== 'RESTAURANT') {
+            if (!$user->department || $user->department->name !== 'CAFE') {
                 Log::warning('Restaurant dashboard access denied - wrong department', [
                     'user_id' => $user->id,
                     'department' => $user->department->name ?? 'none'

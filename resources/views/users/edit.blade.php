@@ -1,5 +1,3 @@
-{{-- resources/views/users/edit.blade.php --}}
-
 @extends('layouts.app')
 
 @section('title', 'Edit User')
@@ -59,33 +57,41 @@
                 <p class="text-gray-500 text-xs mt-1">Assign user to a specific department (optional)</p>
             </div>
 
-            {{-- Multiple Roles Section --}}
+            {{-- Multiple Roles Section (Informational Only) --}}
             <div class="md:col-span-2">
-                <label class="block text-gray-700 font-medium mb-2">Roles <span class="text-red-500">*</span></label>
+                <label class="block text-gray-700 font-medium mb-2">Assigned Roles (Informational Only)</label>
                 <div class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-3 p-4 border-2 border-gray-300 rounded-lg bg-gray-50">
                     @foreach($roles as $role)
                         @php
                             $isChecked = in_array($role->id, old('role_ids', $userRoleIds));
                         @endphp
-                        <label class="inline-flex items-center p-2 rounded transition duration-200 {{ $isChecked ? 'bg-green-50 border-l-4 border-green-500' : 'hover:bg-gray-100' }}">
+                        <label class="inline-flex items-center p-2 rounded transition duration-200 {{ $isChecked ? 'bg-blue-50 border-l-4 border-blue-500' : 'hover:bg-gray-100' }}">
                             <input type="checkbox" name="role_ids[]" value="{{ $role->id }}"
                                 {{ $isChecked ? 'checked' : '' }}
-                                class="rounded border-gray-300 text-orange-600 focus:ring-orange-500">
+                                class="rounded border-gray-300 text-blue-600 focus:ring-blue-500">
                             <span class="ml-2 {{ $isChecked ? 'text-gray-900 font-medium' : 'text-gray-600' }}">
                                 {{ $role->name }}
                             </span>
                         </label>
                     @endforeach
                 </div>
-                @error('role_ids')
-                    <p class="text-red-500 text-sm mt-1">{{ $message }}</p>
-                @enderror
-                <p class="text-gray-500 text-xs mt-1">Select one or more roles for this user.</p>
+                <p class="text-gray-500 text-xs mt-1">Roles are for organizational purposes only. Permissions are assigned below.</p>
             </div>
 
-            {{-- User Specific Permissions Section - Single Checkbox --}}
+            {{-- Permissions Section - Simple Flat List with Live Search --}}
             <div class="md:col-span-2 mt-4">
-                <label class="block text-gray-700 font-medium mb-2">Extra Permissions (Add to Role)</label>
+                <div class="flex justify-between items-center mb-3">
+                    <label class="block text-gray-700 font-medium">Permissions</label>
+                    <div class="relative w-64">
+                        <input type="text" id="permissionSearch" placeholder="Search permissions..."
+                               class="w-full px-4 py-2 pl-10 border-2 border-gray-300 rounded-lg focus:outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-200 transition duration-200">
+                        <svg class="absolute left-3 top-2.5 w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                        </svg>
+                    </div>
+                </div>
+                <p class="text-gray-500 text-xs mb-2">Check the permissions this user should have.</p>
+
                 <div class="border-2 border-gray-300 rounded-lg overflow-hidden">
                     <div class="bg-orange-50 px-4 py-2 border-b border-gray-300">
                         <div class="grid grid-cols-12 gap-4">
@@ -97,38 +103,30 @@
                             </div>
                         </div>
                     </div>
-                    <div class="max-h-96 overflow-y-auto">
-                        @php
-                            $groupedPermissions = $permissions->groupBy('group');
-                        @endphp
-                        @foreach($groupedPermissions as $groupName => $groupPermissions)
-                            <div class="border-b border-gray-200">
-                                <div class="bg-gray-100 px-4 py-2">
-                                    <span class="text-sm font-semibold text-gray-700 uppercase">{{ $groupName ?: 'General' }}</span>
+                    <div class="max-h-96 overflow-y-auto" id="permissionsList">
+                        @foreach($permissions as $permission)
+                            @php
+                                $isAllowed = in_array($permission->id, $extraPermissionIds);
+                            @endphp
+                            <div class="permission-item grid grid-cols-12 gap-4 px-4 py-2 hover:bg-gray-50 transition duration-200 border-b border-gray-100"
+                                 data-permission-name="{{ strtolower($permission->name) }}"
+                                 data-permission-code="{{ strtolower($permission->code) }}">
+                                <div class="col-span-11 flex items-center">
+                                    <span class="text-gray-700">{{ $permission->name }}</span>
+                                    <span class="text-gray-400 text-xs ml-2">({{ $permission->code }})</span>
                                 </div>
-                                @foreach($groupPermissions as $permission)
-                                    @php
-                                        $isAllowed = in_array($permission->id, $extraPermissionIds);
-                                    @endphp
-                                    <div class="grid grid-cols-12 gap-4 px-4 py-2 hover:bg-gray-50 transition duration-200 border-b border-gray-100">
-                                        <div class="col-span-11 flex items-center">
-                                            <span class="text-gray-700">{{ $permission->name }}</span>
-                                            <span class="text-gray-400 text-xs ml-2">({{ $permission->code }})</span>
-                                        </div>
-                                        <div class="col-span-1 text-center">
-                                            <input type="checkbox" name="extra_permissions[]" value="{{ $permission->id }}"
-                                                {{ $isAllowed ? 'checked' : '' }}
-                                                class="w-5 h-5 rounded border-gray-300 text-green-600 focus:ring-green-500">
-                                        </div>
-                                    </div>
-                                @endforeach
+                                <div class="col-span-1 text-center">
+                                    <input type="checkbox" name="extra_permissions[]" value="{{ $permission->id }}"
+                                        {{ $isAllowed ? 'checked' : '' }}
+                                        class="w-5 h-5 rounded border-gray-300 text-green-600 focus:ring-green-500">
+                                </div>
                             </div>
                         @endforeach
                     </div>
                 </div>
                 <p class="text-gray-500 text-xs mt-2">
                     <span class="inline-block w-3 h-3 bg-green-100 border border-green-500 mr-1"></span>
-                    Checked = User gets this permission IN ADDITION to their role permissions.
+                    Checked = User has this specific permission
                 </p>
             </div>
 
@@ -248,6 +246,29 @@
 </form>
 
 <script>
+    // Live search functionality
+    const searchInput = document.getElementById('permissionSearch');
+    const permissionItems = document.querySelectorAll('.permission-item');
+
+    if (searchInput) {
+        searchInput.addEventListener('input', function() {
+            const searchTerm = this.value.toLowerCase().trim();
+
+            permissionItems.forEach(item => {
+                const permissionName = item.getAttribute('data-permission-name');
+                const permissionCode = item.getAttribute('data-permission-code');
+
+                if (searchTerm === '') {
+                    item.style.display = '';
+                } else if (permissionName.includes(searchTerm) || permissionCode.includes(searchTerm)) {
+                    item.style.display = '';
+                } else {
+                    item.style.display = 'none';
+                }
+            });
+        });
+    }
+
     function confirmDelete() {
         document.getElementById('deleteModal').classList.remove('hidden');
         document.getElementById('deleteModal').classList.add('flex');

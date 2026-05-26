@@ -10,7 +10,8 @@ use App\Http\Middleware\ManagementMiddleware;
 use App\Http\Middleware\BarMiddleware;
 use App\Http\Middleware\KitchenMiddleware;
 use App\Http\Middleware\CashierMiddleware;
-use App\Http\Middleware\RestaurantMiddleware; // ← add this import
+use App\Http\Middleware\RestaurantMiddleware;
+use App\Http\Middleware\CheckPermission;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -25,9 +26,10 @@ return Application::configure(basePath: dirname(__DIR__))
             'management'  => ManagementMiddleware::class,
             'director'    => DirectorMiddleware::class,
             'kitchen'     => KitchenMiddleware::class,
-            'restaurant'  => RestaurantMiddleware::class, // ← use the import
+            'restaurant'  => RestaurantMiddleware::class,
             'cashier'     => CashierMiddleware::class,
             'bar'         => BarMiddleware::class,
+            'permission'  => CheckPermission::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {

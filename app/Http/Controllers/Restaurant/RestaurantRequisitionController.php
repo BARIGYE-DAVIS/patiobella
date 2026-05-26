@@ -21,7 +21,7 @@ class RestaurantRequisitionController extends Controller
     {
         $user = Auth::user();
 
-        if (!$user->department || $user->department->name !== 'RESTAURANT') {
+        if (!$user->department || $user->department->name !== 'CAFE') {
             return redirect()->route('dashboard')->with('error', 'Unauthorized access');
         }
 
@@ -59,7 +59,7 @@ class RestaurantRequisitionController extends Controller
     {
         $user = Auth::user();
 
-        if (!$user->department || $user->department->name !== 'RESTAURANT') {
+        if (!$user->department || $user->department->name !== 'CAFE') {
             return redirect()->route('dashboard')->with('error', 'Unauthorized access');
         }
 
@@ -127,7 +127,7 @@ class RestaurantRequisitionController extends Controller
     {
         $user = Auth::user();
 
-        if (!$user->department || $user->department->name !== 'RESTAURANT') {
+        if (!$user->department || $user->department->name !== 'CAFE') {
             return redirect()->route('dashboard')->with('error', 'Unauthorized access');
         }
 
@@ -147,7 +147,7 @@ class RestaurantRequisitionController extends Controller
         DB::beginTransaction();
 
         try {
-            $requisitionNumber = 'REST-REQ-' . date('Ymd') . '-' . str_pad(rand(0, 9999), 4, '0', STR_PAD_LEFT);
+            $requisitionNumber = 'CAF-REQ-' . date('Ymd') . '-' . str_pad(rand(0, 9999), 4, '0', STR_PAD_LEFT);
 
             $requisition = DepartmentRequisition::create([
                 'requisition_number' => $requisitionNumber,
@@ -202,7 +202,7 @@ class RestaurantRequisitionController extends Controller
     {
         $user = Auth::user();
 
-        if (!$user->department || $user->department->name !== 'RESTAURANT') {
+        if (!$user->department || $user->department->name !== 'CAFE') {
             return redirect()->route('dashboard')->with('error', 'Unauthorized access');
         }
 
@@ -228,7 +228,7 @@ class RestaurantRequisitionController extends Controller
     {
         $user = Auth::user();
 
-        if (!$user->department || $user->department->name !== 'RESTAURANT') {
+        if (!$user->department || $user->department->name !== 'CAFE') {
             return redirect()->route('dashboard')->with('error', 'Unauthorized access');
         }
 
@@ -261,7 +261,7 @@ class RestaurantRequisitionController extends Controller
     {
         $user = Auth::user();
 
-        if (!$user->department || $user->department->name !== 'RESTAURANT') {
+        if (!$user->department || $user->department->name !== 'CAFE') {
             return redirect()->route('dashboard')->with('error', 'Unauthorized access');
         }
 
@@ -386,7 +386,7 @@ class RestaurantRequisitionController extends Controller
     {
         $user = Auth::user();
 
-        if (!$user->department || $user->department->name !== 'RESTAURANT') {
+        if (!$user->department || $user->department->name !== 'CAFE') {
             return redirect()->route('dashboard')->with('error', 'Unauthorized access');
         }
 

@@ -16,9 +16,9 @@ class RestaurantMiddleware
         }
 
         $user = Auth::user();
-
+    
         // Must be in RESTAURANT department
-        if (!$user->department || $user->department->name !== 'RESTAURANT') {
+        if (!$user->department || $user->department->name !== 'CAFE') {
             return redirect()->route('dashboard')
                 ->with('error', 'Unauthorized access. Restaurant access only.');
         }

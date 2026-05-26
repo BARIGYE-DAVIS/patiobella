@@ -6,6 +6,12 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use App\Models\Role;  // ← ADD THIS LINE
+use App\Models\Permission;  // ← ADD THIS LINE
+use App\Models\Department;  // ← ADD THIS LINE
+use App\Models\PurchaseOrder;  // ← ADD THIS LINE
+use App\Models\GoodsReceivedNote;  // ← ADD THIS LINE
+use App\Models\StockMovement;  // ← ADD THIS LINE
 
 class User extends Authenticatable
 {
@@ -16,7 +22,7 @@ class User extends Authenticatable
         'last_name',
         'email',
         'department_id',
-        'role_id',       // ← use role_id as the FK
+        'role_id',
         'role',
         'password',
         'is_active',
@@ -49,31 +55,21 @@ class User extends Authenticatable
         return $this->first_name . ' ' . $this->last_name;
     }
 
-    /**
-     * Role relationship — uses role_id FK (correct)
-     */
     public function role()
     {
         return $this->belongsTo(Role::class, 'role_id', 'id');
     }
 
-    /**
-     * Helper to get role name regardless of how it's stored.
-     * Handles legacy data where role column has the numeric id.
-     */
     public function getRoleName(): ?string
     {
-        // Preferred: role_id FK is set
         if ($this->role_id) {
             return optional(Role::find($this->role_id))->name;
         }
 
-        // Legacy fallback: role column has a numeric id
         if (!empty($this->role) && is_numeric($this->role)) {
             return optional(Role::find($this->role))->name;
         }
 
-        // Legacy fallback: role column has the name directly
         if (!empty($this->role)) {
             return $this->role;
         }
@@ -126,17 +122,60 @@ class User extends Authenticatable
         return $this->hasMany(StockMovement::class, 'approved_by');
     }
 
-        public function roles()
+    public function roles()
     {
-        return $this->belongsToMany(Role::class, 'user_roles');
+        return $this->belongsToMany(Role::class, 'user_roles', 'user_id', 'role_id')
+            ->withTimestamps();
     }
 
-    // app/Models/User.php
+    public function userPermissions()
+    {
+        return $this->belongsToMany(Permission::class, 'user_permissions', 'user_id', 'permission_id')
+            ->withPivot('is_allowed')
+            ->withTimestamps();
+    }
 
-public function userPermissions()
-{
-    return $this->belongsToMany(Permission::class, 'user_permissions')
-        ->withPivot('is_allowed');
-}
+    public function hasPermission($permissionCode)
+    {
+        if ($this->is_super_admin) {
+            return true;
+        }
 
+        foreach ($this->roles as $role) {
+            foreach ($role->permissions as $permission) {
+                if ($permission->code === $permissionCode) {
+                    return true;
+                }
+            }
+        }
+
+        foreach ($this->userPermissions as $permission) {
+            if ($permission->pivot->is_allowed && $permission->code === $permissionCode) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    public function getAllPermissions()
+    {
+        if ($this->is_super_admin) {
+            return Permission::where('is_active', true)->get();
+        }
+
+        $permissions = collect();
+
+        foreach ($this->roles as $role) {
+            $permissions = $permissions->merge($role->permissions);
+        }
+
+        foreach ($this->userPermissions as $permission) {
+            if ($permission->pivot->is_allowed) {
+                $permissions = $permissions->push($permission);
+            }
+        }
+
+        return $permissions->unique('id');
+    }
 }

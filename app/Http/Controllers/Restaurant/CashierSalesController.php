@@ -34,7 +34,7 @@ class CashierSalesController extends Controller
     {
         $user = Auth::user();
 
-        if (!$user->department || $user->department->name !== 'RESTAURANT') {
+        if (!$user->department || $user->department->name !== 'CAFE') {
             return redirect()->route('dashboard')->with('error', 'Unauthorized access');
         }
 
@@ -141,7 +141,7 @@ class CashierSalesController extends Controller
     {
         $user = Auth::user();
 
-        if (!$user->department || $user->department->name !== 'RESTAURANT') {
+        if (!$user->department || $user->department->name !== 'CAFE') {
             return redirect()->route('dashboard')->with('error', 'Unauthorized access');
         }
 
@@ -171,7 +171,7 @@ class CashierSalesController extends Controller
     {
         $user = Auth::user();
 
-        if (!$user->department || $user->department->name !== 'RESTAURANT') {
+        if (!$user->department || $user->department->name !== 'CAFE') {
             return redirect()->route('dashboard')->with('error', 'Unauthorized access');
         }
 

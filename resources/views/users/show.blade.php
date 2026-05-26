@@ -7,7 +7,7 @@
     <div class="flex justify-between items-center mb-6">
         <div>
             <h2 class="text-2xl font-bold text-gray-800">User Details</h2>
-            <p class="text-gray-500 text-sm mt-1">View user information and permissions</p>
+            <p class="text-gray-500 text-sm mt-1">View user information and specific permissions</p>
         </div>
         <div class="flex gap-2">
             <a href="{{ route('users.index') }}" class="text-gray-600 hover:text-gray-800 transition duration-200">
@@ -71,12 +71,13 @@
                 </div>
             </div>
 
-            {{-- Roles Information --}}
+            {{-- Roles Information (Display only, not used for permissions) --}}
             <div class="border-2 border-gray-200 rounded-lg overflow-hidden">
                 <div class="bg-green-50 px-4 py-3 border-b border-green-200">
                     <h3 class="font-semibold text-gray-800">
-                        <i class="fas fa-users mr-2 text-green-600"></i> Assigned Roles
+                        <i class="fas fa-users mr-2 text-green-600"></i> Assigned Roles (Informational Only)
                     </h3>
+                    <p class="text-xs text-gray-500 mt-1">Roles do NOT grant permissions. Permissions are assigned individually below.</p>
                 </div>
                 <div class="p-4">
                     @if($user->roles && $user->roles->count() > 0)
@@ -88,7 +89,7 @@
                             @endforeach
                         </div>
                         <p class="text-xs text-gray-500 mt-3">
-                            Total: {{ $user->roles->count() }} role(s) assigned
+                            Total: {{ $user->roles->count() }} role(s) assigned (informational only)
                         </p>
                     @else
                         <p class="text-gray-500 text-sm">No roles assigned to this user.</p>
@@ -99,33 +100,24 @@
 
         {{-- Right Column --}}
         <div class="space-y-6">
-            {{-- Permissions (All permissions combined) --}}
+            {{-- Specific Permissions (Extra Permissions only - NO role permissions) --}}
             <div class="border-2 border-gray-200 rounded-lg overflow-hidden">
                 <div class="bg-orange-50 px-4 py-3 border-b border-orange-200">
                     <h3 class="font-semibold text-gray-800">
-                        <i class="fas fa-key mr-2 text-orange-600"></i> Permissions
+                        <i class="fas fa-key mr-2 text-orange-600"></i> Specific Permissions
                     </h3>
-                    <p class="text-xs text-gray-500 mt-1">All permissions this user has (from roles + extras)</p>
+                    <p class="text-xs text-gray-500 mt-1">Permissions specifically assigned to this user </p>
                 </div>
                 <div class="p-4 max-h-96 overflow-y-auto">
                     @php
-                        // Get permissions from roles
-                        $rolePermissions = collect();
-                        foreach($user->roles as $role) {
-                            $rolePermissions = $rolePermissions->merge($role->permissions);
-                        }
-
-                        // Get extra permissions
+                        // Get ONLY extra permissions (user-specific)
                         $extraPermissions = $user->userPermissions()
                             ->wherePivot('is_allowed', true)
                             ->get();
-
-                        // Merge all permissions
-                        $allPermissions = $rolePermissions->merge($extraPermissions)->unique('id');
-                        $groupedPermissions = $allPermissions->groupBy('group');
+                        $groupedPermissions = $extraPermissions->groupBy('group');
                     @endphp
 
-                    @if($allPermissions->count() > 0)
+                    @if($extraPermissions->count() > 0)
                         @foreach($groupedPermissions as $groupName => $groupPermissions)
                             <div class="mb-4">
                                 <div class="bg-gray-100 px-3 py-1 rounded mb-2">
@@ -142,10 +134,10 @@
                             </div>
                         @endforeach
                         <p class="text-xs text-gray-500 mt-2 border-t pt-2">
-                            Total: {{ $allPermissions->count() }} permission(s)
+                            Total: {{ $extraPermissions->count() }} specific permission(s)
                         </p>
                     @else
-                        <p class="text-gray-500 text-sm">No permissions available for this user.</p>
+                        <p class="text-gray-500 text-sm">No specific permissions assigned to this user.</p>
                     @endif
                 </div>
             </div>

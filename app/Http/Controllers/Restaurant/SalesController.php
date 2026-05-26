@@ -97,7 +97,7 @@ class SalesController extends Controller
      */
     private function authorize($user): ?string
     {
-        if (!$user->department || $user->department->name !== 'RESTAURANT') {
+        if (!$user->department || $user->department->name !== 'CAFE') {
             return 'wrong_department';
         }
         $role = $this->getRoleName($user);
@@ -431,7 +431,7 @@ public function exportPdf(Request $request)
     {
         try {
             $user = Auth::user();
-            if (!$user->department || $user->department->name !== 'RESTAURANT') {
+            if (!$user->department || $user->department->name !== 'CAFE') {
                 return redirect()->route('dashboard')->with('error', 'Unauthorized access');
             }
             $order = SalesOrder::with('items')->where('department_id', $user->department_id)->findOrFail($id);
@@ -445,7 +445,7 @@ public function exportPdf(Request $request)
     {
         try {
             $user = Auth::user();
-            if (!$user->department || $user->department->name !== 'RESTAURANT') {
+            if (!$user->department || $user->department->name !== 'CAFE') {
                 return redirect()->route('dashboard')->with('error', 'Unauthorized access');
             }
             $order = SalesOrder::with('items')->where('department_id', $user->department_id)->findOrFail($id);
@@ -459,7 +459,7 @@ public function exportPdf(Request $request)
     {
         try {
             $user = Auth::user();
-            if (!$user->department || $user->department->name !== 'RESTAURANT') {
+            if (!$user->department || $user->department->name !== 'CAFE') {
                 return redirect()->route('dashboard')->with('error', 'Unauthorized access');
             }
             $date   = $request->get('date', today()->toDateString());

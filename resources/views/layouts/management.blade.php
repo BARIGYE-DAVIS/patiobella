@@ -253,6 +253,20 @@
                 <span>Menu Item Categories</span>
             </a>
 
+            <a href="{{ route('management.tables.index') }}"
+               class="flex items-center px-4 py-3 text-sm hover:bg-orange-700 transition sidebar-nav-link
+                      {{ request()->routeIs('management.tables.*') ? 'sidebar-active' : '' }}">
+                <i class="fas fa-table w-5 h-5 mr-3 text-orange-200"></i>
+                <span>Tables</span>
+            </a>
+
+            <a href="{{ route('management.reservations.index') }}"
+               class="flex items-center px-4 py-3 text-sm hover:bg-orange-700 transition sidebar-nav-link
+                      {{ request()->routeIs('management.reservations.*') ? 'sidebar-active' : '' }}">
+                <i class="fas fa-calendar-alt w-5 h-5 mr-3 text-orange-200"></i>
+                <span>Reservations</span>
+            </a>
+
             <!-- ========== PRICING & FINANCIAL ========== -->
             <div class="px-4 pt-5 pb-1 text-xs uppercase tracking-wider text-orange-300 font-semibold">Procurement & Analytics</div>
 

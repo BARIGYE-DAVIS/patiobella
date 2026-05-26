@@ -32,53 +32,35 @@ class Permission extends Model
         ];
     }
 
-    /**
-     * Scope for active permissions only
-     */
     public function scopeActive($query)
     {
         return $query->where('is_active', true);
     }
 
-    /**
-     * Scope to get permissions by group
-     */
     public function scopeByGroup($query, $group)
     {
         return $query->where('group', $group);
     }
 
-    /**
-     * Get all unique permission groups
-     */
-    public static function getGroups()
-    {
-        return self::where('is_active', true)
-            ->select('group')
-            ->distinct()
-            ->orderBy('group')
-            ->pluck('group');
-    }
-
-    /**
-     * Get permissions grouped by their group
-     */
-    public static function getGroupedPermissions()
-    {
-        $permissions = self::where('is_active', true)
-            ->orderBy('sort_order')
-            ->orderBy('name')
-            ->get();
-        
-        return $permissions->groupBy('group');
-    }
-
-    /**
-     * Relationship: Roles that have this permission
-     */
     public function roles()
     {
         return $this->belongsToMany(Role::class, 'role_permission', 'permission_id', 'role_id')
                     ->withTimestamps();
+    }
+
+    public function users()
+    {
+        return $this->belongsToMany(User::class, 'user_permissions', 'permission_id', 'user_id')
+                    ->withPivot('is_allowed')
+                    ->withTimestamps();
+    }
+
+    public static function getGroups()
+    {
+        return self::where('is_active', true)
+            ->whereNotNull('group')
+            ->distinct()
+            ->pluck('group')
+            ->toArray();
     }
 }

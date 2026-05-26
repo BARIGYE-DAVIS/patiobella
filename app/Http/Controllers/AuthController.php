@@ -89,8 +89,7 @@ class AuthController extends Controller
                     ->with('success', 'Welcome to Kitchen Dashboard, ' . $user->first_name);
             }
 
-            if ($departmentName === 'RESTAURANT') {
-                // Resolve role name
+            if ($departmentName === 'CAFE') {
                 $roleName = null;
 
                 if ($user->role_id) {
@@ -100,19 +99,16 @@ class AuthController extends Controller
                     $roleName = $user->role;
                 }
 
-                // Cashier gets their own dashboard
                 if ($roleName === 'Cashier') {
                     return redirect()->route('restaurant.cashier.dashboard')
                         ->with('success', 'Welcome to Cashier Dashboard, ' . $user->first_name);
                 }
 
-                // All other restaurant staff
                 return redirect()->route('restaurant.dashboard')
                     ->with('success', 'Welcome to Restaurant Dashboard, ' . $user->first_name);
             }
 
             if ($departmentName === 'BAR') {
-                // Resolve role name
                 $roleName = null;
 
                 if ($user->role_id) {
@@ -122,18 +118,17 @@ class AuthController extends Controller
                     $roleName = $user->role;
                 }
 
-                // Bar Cashier gets their own dashboard
                 if ($roleName === 'Cashier' || $roleName === 'Bar Cashier') {
                     return redirect()->route('bar.cashier.dashboard')
                         ->with('success', 'Welcome to Bar Cashier Dashboard, ' . $user->first_name);
                 }
 
-                // Bar Manager gets the bar dashboard
                 return redirect()->route('bar.dashboard')
                     ->with('success', 'Welcome to Bar Dashboard, ' . $user->first_name);
             }
         }
 
+        // Fallback to main dashboard
         return redirect()->route('dashboard')
             ->with('success', 'Welcome back, ' . $user->first_name);
     }
