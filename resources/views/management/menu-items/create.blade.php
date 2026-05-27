@@ -1,5 +1,3 @@
-{{-- resources/views/management/menu-items/create.blade.php --}}
-
 @extends('layouts.management')
 
 @section('title', 'Create Menu Item')
@@ -67,6 +65,13 @@
     .hidden {
         display: none;
     }
+    .item-type-option {
+        transition: all 0.2s ease;
+    }
+    .item-type-option.active {
+        border-color: #ea580c !important;
+        background-color: #fff7ed !important;
+    }
 </style>
 @endpush
 
@@ -98,7 +103,7 @@
     <div class="flex items-center justify-between mb-6">
         <div>
             <h1 class="text-2xl font-bold text-gray-900">Create New Menu Item</h1>
-            <p class="text-sm text-gray-500 mt-0.5">Add a new dish to a menu with its recipe ingredients</p>
+            <p class="text-sm text-gray-500 mt-0.5">Add a new dish or beverage to a menu</p>
         </div>
         <div>
             <a href="{{ route('management.menu-items.index') }}"
@@ -111,6 +116,7 @@
     <form method="POST" action="{{ route('management.menu-items.store') }}" id="mainForm" novalidate>
         @csrf
         <input type="hidden" name="pricing_mode" id="pricing_mode_hidden" value="{{ old('pricing_mode', 'price') }}">
+        <input type="hidden" name="item_type" id="item_type_hidden" value="{{ old('item_type', 'recipe') }}">
 
         {{-- Section 1: Basic Information --}}
         <div class="bg-white rounded-2xl border border-gray-200 shadow-sm mb-6 overflow-hidden">
@@ -162,11 +168,33 @@
                     @error('menu_item_category_id')<p class="text-red-500 text-xs mt-1">{{ $message }}</p>@enderror
                 </div>
 
+                <div>
+                    <label class="block text-xs font-semibold text-gray-600 mb-1.5">
+                        Item Type <span class="text-red-500">*</span>
+                    </label>
+                    <div class="grid grid-cols-2 gap-3 mt-1">
+                        <div id="recipeTypeOption" class="item-type-option border-2 rounded-xl p-3 cursor-pointer transition-all {{ old('item_type', 'recipe') == 'recipe' ? 'active border-orange-500 bg-orange-50' : 'border-gray-200 hover:border-orange-300' }}">
+                            <div class="flex items-center gap-2">
+                                <i class="fas fa-utensils text-orange-500"></i>
+                                <span class="font-semibold text-sm text-gray-800">Recipe Item</span>
+                            </div>
+                            <p class="text-xs text-gray-500 mt-1">Food that requires ingredients and cooking</p>
+                        </div>
+                        <div id="beverageTypeOption" class="item-type-option border-2 rounded-xl p-3 cursor-pointer transition-all {{ old('item_type') == 'beverage' ? 'active border-orange-500 bg-orange-50' : 'border-gray-200 hover:border-orange-300' }}">
+                            <div class="flex items-center gap-2">
+                                <i class="fas fa-glass-cheers text-orange-500"></i>
+                                <span class="font-semibold text-sm text-gray-800">Beverage Item</span>
+                            </div>
+                            <p class="text-xs text-gray-500 mt-1">Ready-to-serve drink, no ingredients needed</p>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="md:col-span-2">
                     <label class="block text-xs font-semibold text-gray-600 mb-1.5">Description</label>
                     <textarea name="description" id="description" rows="2"
                               class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-100 transition resize-none"
-                              placeholder="Brief description of this dish...">{{ old('description') }}</textarea>
+                              placeholder="Brief description of this item...">{{ old('description') }}</textarea>
                 </div>
 
                 <div>
@@ -185,11 +213,33 @@
                         </label>
                     </div>
                 </div>
+
+                {{-- Inventory Item (for beverage items to get unit cost) --}}
+                <div id="inventoryItemField" class="md:col-span-2 hidden">
+                    <label class="block text-xs font-semibold text-gray-600 mb-1.5">
+                        Inventory Item <span id="inventoryRequired" class="text-red-500 hidden">*</span>
+                    </label>
+                    <select name="inventory_item_id" id="inventory_item_id"
+                            class="w-full text-sm border border-gray-300 rounded-lg select2-inventory">
+                        <option value="">Select inventory item...</option>
+                        @foreach($inventoryItems as $item)
+                            <option value="{{ $item->id }}"
+                                    data-unit-cost="{{ $item->unit_cost }}"
+                                    data-base-unit="{{ $item->base_unit }}"
+                                    data-selling-price="{{ $item->selling_price }}"
+                                    {{ old('inventory_item_id') == $item->id ? 'selected' : '' }}>
+                                {{ $item->name }} ({{ $item->base_unit }} — {{ number_format($item->unit_cost, 2) }} UGX)
+                            </option>
+                        @endforeach
+                    </select>
+                    <p id="inventoryUnitCostDisplay" class="text-xs text-gray-500 mt-1 hidden"></p>
+                    @error('inventory_item_id')<p class="text-red-500 text-xs mt-1">{{ $message }}</p>@enderror
+                </div>
             </div>
         </div>
 
-        {{-- Section 2: Recipe Ingredients --}}
-        <div class="bg-white rounded-2xl border border-gray-200 shadow-sm mb-6 overflow-hidden">
+        {{-- Section 2: Recipe Ingredients (Only for Recipe Items) --}}
+        <div id="recipeSection" class="bg-white rounded-2xl border border-gray-200 shadow-sm mb-6 overflow-hidden">
             <div class="flex items-center justify-between px-6 py-4 border-b border-gray-100 bg-gray-50">
                 <div class="flex items-center gap-3">
                     <span class="flex items-center justify-center w-7 h-7 rounded-full bg-orange-100 text-orange-600 text-xs font-bold">2</span>
@@ -251,7 +301,7 @@
                     <input type="number" name="selling_price" id="selling_price"
                            class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-100 transition"
                            placeholder="Enter selling price" step="0.01" min="0" value="{{ old('selling_price') }}">
-                    <p class="text-xs text-gray-400 mt-1">Margin will be calculated automatically</p>
+                    <p class="text-xs text-gray-400 mt-1">Price customer pays (includes 18% VAT)</p>
                 </div>
 
                 {{-- Margin mode --}}
@@ -260,21 +310,37 @@
                     <input type="number" name="desired_margin" id="desired_margin"
                            class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-100 transition"
                            placeholder="Enter desired margin %" step="0.1" min="0" max="99.9" value="{{ old('desired_margin') }}">
-                    <p class="text-xs text-gray-400 mt-1">Selling price will be calculated automatically</p>
+                    <p class="text-xs text-gray-400 mt-1">Your target profit margin after VAT</p>
                 </div>
 
-                {{-- Calculated summary --}}
-                <div class="flex flex-wrap items-center gap-4 text-xs bg-gray-50 rounded-lg px-3 py-2">
-                    <span class="text-gray-600">Material Cost: <strong id="summaryMaterialCost" class="text-gray-900">0 UGX</strong></span>
-                    <span class="text-gray-600">Margin: <strong id="summaryMargin" class="text-gray-900">0%</strong></span>
-                    <span class="text-gray-600">Mark Up: <strong id="summaryMarkUp" class="text-gray-900">0 UGX</strong></span>
-                    <span class="text-gray-600">Cost %: <strong id="summaryCostPercent" class="text-gray-900">0%</strong></span>
+                {{-- Pricing Summary: Cost, Markup (after VAT), Margin %, VAT Amount --}}
+                <div class="grid grid-cols-4 gap-3 text-xs bg-gray-50 rounded-lg p-3">
+                    <div>
+                        <span class="text-gray-500">Item Cost</span>
+                        <p class="text-sm font-semibold text-gray-800" id="summaryCost">0 UGX</p>
+                        <p class="text-xs text-gray-400" id="costSource">From ingredients</p>
+                    </div>
+                    <div>
+                        <span class="text-gray-500">Markup (after VAT)</span>
+                        <p class="text-sm font-semibold text-emerald-600" id="summaryActualMarkup">0 UGX</p>
+                        <p class="text-xs text-gray-400">Your profit after tax</p>
+                    </div>
+                    <div>
+                        <span class="text-gray-500">Margin %</span>
+                        <p class="text-sm font-semibold text-blue-600" id="summaryMarginPercent">0%</p>
+                        <p class="text-xs text-gray-400">Profit margin</p>
+                    </div>
+                    <div>
+                        <span class="text-gray-500">VAT (18%)</span>
+                        <p class="text-sm font-semibold text-orange-600" id="summaryVatAmount">0 UGX</p>
+                        <p class="text-xs text-gray-400">Included in selling price</p>
+                    </div>
                 </div>
             </div>
         </div>
 
-        {{-- Section 4: Glovo / Delivery Platform --}}
-        <div class="bg-white rounded-2xl border border-gray-200 shadow-sm mb-6 overflow-hidden">
+        {{-- Section 4: Glovo / Delivery Platform (Only for Recipe Items, 20% fixed) --}}
+        <div id="glovoSection" class="bg-white rounded-2xl border border-gray-200 shadow-sm mb-6 overflow-hidden">
             <div class="flex items-center gap-3 px-6 py-4 border-b border-gray-100 bg-gray-50">
                 <span class="flex items-center justify-center w-7 h-7 rounded-full bg-orange-100 text-orange-600 text-xs font-bold">4</span>
                 <div>
@@ -289,23 +355,24 @@
                         Commission Rate (%) <span class="text-gray-400 font-normal">— charged by Glovo</span>
                     </label>
                     <input type="number" name="glovo_commission_percentage" id="glovo_commission_percentage"
-                           class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-100 transition"
-                           placeholder="e.g., 20" step="0.1" min="0" value="{{ old('glovo_commission_percentage', 20) }}">
+                           class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg bg-gray-100 cursor-not-allowed"
+                           value="20" readonly disabled>
+                    <p class="text-xs text-gray-400 mt-1">Glovo commission is fixed at 20% (non-editable)</p>
                 </div>
 
                 <div class="grid grid-cols-3 gap-3 bg-orange-50 rounded-lg px-3 py-2">
                     <div>
                         <span class="text-xs text-gray-500">Glovo Selling Price</span>
                         <p class="text-sm font-semibold text-orange-700" id="glovoPriceDisplay">0 UGX</p>
-                        <p class="text-xs text-gray-400">Selling price + commission%</p>
+                        <p class="text-xs text-gray-400">Selling price + 20%</p>
                     </div>
                     <div>
                         <span class="text-xs text-gray-500">Glovo Commission</span>
                         <p class="text-sm font-semibold text-red-600" id="glovoCommissionDisplay">0 UGX</p>
-                        <p class="text-xs text-gray-400">Commission% of Glovo price</p>
+                        <p class="text-xs text-gray-400">20% of Glovo price</p>
                     </div>
                     <div>
-                        <span class="text-xs text-gray-500">Final Margin</span>
+                        <span class="text-xs text-gray-500">Final Margin (Glovo)</span>
                         <p class="text-sm font-semibold text-emerald-600" id="finalMarginDisplay">0 UGX</p>
                         <p class="text-xs text-gray-400">Glovo price − cost − commission</p>
                     </div>
@@ -315,12 +382,17 @@
                 <input type="hidden" name="glovo_selling_price" id="glovo_selling_price_hidden">
                 <input type="hidden" name="glovo_commission" id="glovo_commission_hidden">
                 <input type="hidden" name="final_margin" id="final_margin_hidden">
-                <input type="hidden" name="mark_up" id="mark_up_hidden">
-                <input type="hidden" name="age_margins" id="age_margins_hidden">
-                <input type="hidden" name="age_cost" id="age_cost_hidden">
-                <input type="hidden" name="material_cost" id="material_cost_hidden" value="0">
             </div>
         </div>
+
+        {{-- Hidden fields for all items --}}
+        <input type="hidden" name="mark_up" id="mark_up_hidden">
+        <input type="hidden" name="age_margins" id="age_margins_hidden">
+        <input type="hidden" name="age_cost" id="age_cost_hidden">
+        <input type="hidden" name="material_cost" id="material_cost_hidden" value="0">
+        <input type="hidden" name="vat_amount" id="vat_amount_hidden" value="0">
+        <input type="hidden" name="net_price" id="net_price_hidden" value="0">
+        <input type="hidden" name="unit_cost" id="unit_cost_hidden" value="0">
 
         {{-- Form Actions --}}
         <div class="flex items-center justify-between">
@@ -380,11 +452,29 @@
                 <div>
                     <label class="block text-xs font-semibold text-gray-600 mb-1.5">Unit</label>
                     <select id="ingredient_unit" class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-100 transition">
-                        <option value="g">g (grams)</option>
-                        <option value="ml">ml (millilitres)</option>
-                        <option value="kg">kg (kilograms)</option>
-                        <option value="litre">litre</option>
-                        <option value="piece">piece</option>
+                        <optgroup label="Weight">
+                            <option value="g">g (grams)</option>
+                            <option value="kg">kg (kilograms)</option>
+                        </optgroup>
+                        <optgroup label="Volume">
+                            <option value="ml">ml (milliliters)</option>
+                            <option value="litre">litre (liters)</option>
+                        </optgroup>
+                        <optgroup label="Count">
+                            <option value="piece">piece</option>
+                            <option value="dozen">dozen (12 pieces)</option>
+                            <option value="half_dozen">half dozen (6 pieces)</option>
+                        </optgroup>
+                        <optgroup label="Portion">
+                            <option value="portion">portion</option>
+                            <option value="serving">serving</option>
+                        </optgroup>
+                        <optgroup label="Liquid">
+                            <option value="cup">cup</option>
+                            <option value="tablespoon">tablespoon (tbsp)</option>
+                            <option value="teaspoon">teaspoon (tsp)</option>
+                            <option value="fluid_ounce">fluid ounce (fl oz)</option>
+                        </optgroup>
                     </select>
                 </div>
                 <div>
@@ -449,6 +539,212 @@ $(document).ready(function () {
     const DRAFT_KEY = 'menu_item_create_draft_v2';
     let ingredientCounter = 0;
     let currentMaterialCost = 0;
+    let currentItemType = '{{ old("item_type", "recipe") }}';
+    let selectedInventoryCost = 0;
+
+    // Initialize Select2 for inventory dropdown
+    $('.select2-inventory').select2({
+        placeholder: 'Search inventory item...',
+        allowClear: true,
+        width: '100%'
+    });
+
+    // =====================================================
+    // ITEM TYPE TOGGLE
+    // =====================================================
+    function setItemType(type) {
+        currentItemType = type;
+        $('#item_type_hidden').val(type);
+
+        if (type === 'beverage') {
+            // Beverage mode: hide recipe section, hide Glovo section, show inventory field
+            $('#recipeSection').addClass('hidden');
+            $('#glovoSection').addClass('hidden');
+            $('#inventoryItemField').removeClass('hidden');
+            $('#inventoryRequired').removeClass('hidden');
+
+            // Make inventory item required for beverages
+            $('#inventory_item_id').attr('required', 'required');
+
+            // Clear any existing ingredients
+            $('#ingredientsContainer').empty();
+            $('#ingredientsEmptyState').removeClass('hidden');
+
+            // Update cost source text
+            $('#costSource').text('From inventory unit cost');
+
+            // Recalculate pricing with inventory cost if available
+            if (selectedInventoryCost > 0) {
+                updateBeveragePricing();
+            }
+        } else {
+            // Recipe mode: show recipe section, show Glovo section, hide inventory field
+            $('#recipeSection').removeClass('hidden');
+            $('#glovoSection').removeClass('hidden');
+            $('#inventoryItemField').addClass('hidden');
+            $('#inventoryRequired').addClass('hidden');
+
+            // Remove required from inventory
+            $('#inventory_item_id').removeAttr('required');
+
+            // Update cost source text
+            $('#costSource').text('From ingredients');
+
+            // Recalculate pricing with material cost
+            updateRecipePricing();
+        }
+
+        // Update visual active state
+        if (type === 'beverage') {
+            $('#beverageTypeOption').addClass('active border-orange-500 bg-orange-50');
+            $('#recipeTypeOption').removeClass('active border-orange-500 bg-orange-50').addClass('border-gray-200');
+        } else {
+            $('#recipeTypeOption').addClass('active border-orange-500 bg-orange-50');
+            $('#beverageTypeOption').removeClass('active border-orange-500 bg-orange-50').addClass('border-gray-200');
+        }
+
+        saveDraft();
+    }
+
+    $('#recipeTypeOption').on('click', function() {
+        setItemType('recipe');
+    });
+
+    $('#beverageTypeOption').on('click', function() {
+        setItemType('beverage');
+    });
+
+    // Inventory item change for beverages
+    $('#inventory_item_id').on('change', function() {
+        let selectedOption = $(this).find('option:selected');
+        let unitCost = parseFloat(selectedOption.data('unit-cost')) || 0;
+        let baseUnit = selectedOption.data('base-unit') || '';
+        let sellingPriceFromInventory = parseFloat(selectedOption.data('selling-price')) || 0;
+
+        selectedInventoryCost = unitCost;
+        $('#unit_cost_hidden').val(unitCost);
+
+        if (unitCost > 0) {
+            $('#inventoryUnitCostDisplay').text(`Unit cost: ${formatMoney(unitCost)} UGX per ${baseUnit}`).removeClass('hidden');
+
+            // Auto-fill selling price if not already set and inventory has selling price
+            let currentSellingPrice = parseFloat($('#selling_price').val()) || 0;
+            if (currentSellingPrice === 0 && sellingPriceFromInventory > 0) {
+                $('#selling_price').val(sellingPriceFromInventory);
+            }
+        } else {
+            $('#inventoryUnitCostDisplay').addClass('hidden');
+        }
+
+        if (currentItemType === 'beverage') {
+            updateBeveragePricing();
+        }
+        saveDraft();
+    });
+
+    // =====================================================
+    // BEVERAGE PRICING (uses inventory unit cost)
+    // =====================================================
+    function updateBeveragePricing() {
+        let sellingPrice = parseFloat($('#selling_price').val()) || 0;
+        let pricingMode = $('.pricing-mode-toggle.active').data('mode');
+        let desiredMargin = parseFloat($('#desired_margin').val()) || 0;
+
+        let unitCost = selectedInventoryCost;
+
+        if (pricingMode === 'margin' && desiredMargin > 0 && desiredMargin < 100) {
+            // Calculate selling price from desired margin (using net price after VAT)
+            let targetNetPrice = unitCost / (1 - desiredMargin / 100);
+            sellingPrice = targetNetPrice / (1 - (18 / 118));
+            $('#selling_price').val(sellingPrice.toFixed(2));
+        }
+
+        // Calculate VAT (18% inclusive)
+        let vatAmount = calculateVat(sellingPrice);
+        let netPrice = sellingPrice - vatAmount;
+        let markup = netPrice - unitCost;
+        let marginPercent = netPrice > 0 ? (markup / netPrice) * 100 : 0;
+
+        // Update displays
+        $('#summaryCost').text(formatMoney(unitCost));
+        $('#summaryActualMarkup').text(formatMoney(markup));
+        $('#summaryMarginPercent').text(marginPercent.toFixed(2) + '%');
+        $('#summaryVatAmount').text(formatMoney(vatAmount));
+
+        // Store hidden values
+        $('#material_cost_hidden').val(unitCost.toFixed(2));
+        $('#mark_up_hidden').val(markup.toFixed(2));
+        $('#age_margins_hidden').val(marginPercent.toFixed(2));
+        $('#age_cost_hidden').val(((unitCost / netPrice) * 100).toFixed(2));
+        $('#vat_amount_hidden').val(vatAmount.toFixed(2));
+        $('#net_price_hidden').val(netPrice.toFixed(2));
+    }
+
+    // =====================================================
+    // RECIPE PRICING (uses material cost from ingredients)
+    // =====================================================
+    function updateRecipePricing() {
+        let sellingPrice = parseFloat($('#selling_price').val()) || 0;
+        let pricingMode = $('.pricing-mode-toggle.active').data('mode');
+        let desiredMargin = parseFloat($('#desired_margin').val()) || 0;
+
+        if (currentMaterialCost > 0) {
+            if (pricingMode === 'margin' && desiredMargin > 0 && desiredMargin < 100) {
+                // Calculate selling price from desired margin (using net price after VAT)
+                let targetNetPrice = currentMaterialCost / (1 - desiredMargin / 100);
+                sellingPrice = targetNetPrice / (1 - (18 / 118));
+                $('#selling_price').val(sellingPrice.toFixed(2));
+            } else if (pricingMode === 'price' && sellingPrice > 0) {
+                // Calculate margin from selling price
+                let vatAmount = calculateVat(sellingPrice);
+                let netPrice = sellingPrice - vatAmount;
+                let actualMarkup = netPrice - currentMaterialCost;
+                desiredMargin = (actualMarkup / netPrice) * 100;
+                $('#desired_margin').val(desiredMargin.toFixed(2));
+            }
+        }
+
+        // Calculate VAT and display
+        let vatAmount = calculateVat(sellingPrice);
+        let netPrice = sellingPrice - vatAmount;
+        let actualMarkup = netPrice - currentMaterialCost;
+        let marginPercent = netPrice > 0 ? (actualMarkup / netPrice) * 100 : 0;
+
+        // Update summary display
+        $('#summaryCost').text(formatMoney(currentMaterialCost));
+        $('#summaryActualMarkup').text(formatMoney(actualMarkup));
+        $('#summaryMarginPercent').text(marginPercent.toFixed(2) + '%');
+        $('#summaryVatAmount').text(formatMoney(vatAmount));
+
+        // Store hidden fields
+        $('#material_cost_hidden').val(currentMaterialCost.toFixed(2));
+        $('#mark_up_hidden').val(actualMarkup.toFixed(2));
+        $('#age_margins_hidden').val(marginPercent.toFixed(2));
+        $('#age_cost_hidden').val(((currentMaterialCost / netPrice) * 100).toFixed(2));
+        $('#vat_amount_hidden').val(vatAmount.toFixed(2));
+        $('#net_price_hidden').val(netPrice.toFixed(2));
+
+        // Glovo calculations (only for recipe items)
+        let commissionPct = 20;
+        let glovoPrice = sellingPrice * (1 + commissionPct / 100);
+        let commission = glovoPrice * (commissionPct / 100);
+        let finalMargin = glovoPrice - currentMaterialCost - commission;
+
+        $('#glovoPriceDisplay').text(formatMoney(glovoPrice));
+        $('#glovoCommissionDisplay').text(formatMoney(commission));
+        $('#finalMarginDisplay').text(formatMoney(finalMargin));
+        $('#glovo_selling_price_hidden').val(glovoPrice.toFixed(2));
+        $('#glovo_commission_hidden').val(commission.toFixed(2));
+        $('#final_margin_hidden').val(finalMargin.toFixed(2));
+    }
+
+    function updatePricing() {
+        if (currentItemType === 'beverage') {
+            updateBeveragePricing();
+        } else {
+            updateRecipePricing();
+        }
+    }
 
     // =====================================================
     // DRAFT - localStorage persistence
@@ -464,22 +760,25 @@ $(document).ready(function () {
                 is_active: $('input[name="is_active"]').is(':checked') ? '1' : '',
                 selling_price: $('#selling_price').val(),
                 desired_margin: $('#desired_margin').val(),
-                glovo_commission: $('#glovo_commission_percentage').val(),
                 pricing_mode: $('.pricing-mode-toggle.active').data('mode'),
+                item_type: currentItemType,
+                inventory_item_id: $('#inventory_item_id').val(),
                 ingredients: []
             };
 
-            $('.ingredient-row').each(function(idx) {
-                draft.ingredients.push({
-                    inventory_item_id: $(this).find('.ingredient-inventory-id').val(),
-                    name: $(this).find('.ingredient-name-display').text(),
-                    base_unit: $(this).find('.ingredient-base-unit').val(),
-                    unit_cost: $(this).find('.ingredient-unit-cost').val(),
-                    quantity: $(this).find('.ingredient-quantity').val(),
-                    unit: $(this).find('.ingredient-unit-selected').val(),
-                    wastage: $(this).find('.ingredient-wastage-val').val()
+            if (currentItemType === 'recipe') {
+                $('.ingredient-row').each(function(idx) {
+                    draft.ingredients.push({
+                        inventory_item_id: $(this).find('.ingredient-inventory-id').val(),
+                        name: $(this).find('.ingredient-name-display').text(),
+                        base_unit: $(this).find('.ingredient-base-unit').val(),
+                        unit_cost: $(this).find('.ingredient-unit-cost').val(),
+                        quantity: $(this).find('.ingredient-quantity').val(),
+                        unit: $(this).find('.ingredient-unit-selected').val(),
+                        wastage: $(this).find('.ingredient-wastage-val').val()
+                    });
                 });
-            });
+            }
 
             localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
         } catch(e) { console.log('Draft save failed'); }
@@ -499,7 +798,6 @@ $(document).ready(function () {
             if (data.is_active) $('input[name="is_active"]').prop('checked', data.is_active === '1');
             if (data.selling_price) $('#selling_price').val(data.selling_price);
             if (data.desired_margin) $('#desired_margin').val(data.desired_margin);
-            if (data.glovo_commission) $('#glovo_commission_percentage').val(data.glovo_commission);
 
             // Set pricing mode
             if (data.pricing_mode === 'margin') {
@@ -520,8 +818,18 @@ $(document).ready(function () {
                 $('#selling_price').attr('required', 'required');
             }
 
+            // Set item type
+            if (data.item_type === 'beverage') {
+                setItemType('beverage');
+                if (data.inventory_item_id) {
+                    $('#inventory_item_id').val(data.inventory_item_id).trigger('change');
+                }
+            } else {
+                setItemType('recipe');
+            }
+
             // Restore ingredients
-            if (data.ingredients && data.ingredients.length) {
+            if (data.ingredients && data.ingredients.length && currentItemType === 'recipe') {
                 $.each(data.ingredients, function(idx, ing) {
                     let totalCost = convertToBaseUnit(ing.quantity, ing.unit, ing.base_unit) * ing.unit_cost * (1 + (ing.wastage || 0) / 100);
 
@@ -535,7 +843,7 @@ $(document).ready(function () {
                     rowTmpl = rowTmpl.replace(/__UNIT__/g, ing.unit);
                     rowTmpl = rowTmpl.replace(/__WASTAGE__/g, ing.wastage || 0);
                     rowTmpl = rowTmpl.replace(/__COST_DISPLAY__/g, Number(ing.unit_cost).toLocaleString() + ' / ' + ing.base_unit);
-                    rowTmpl = rowTmpl.replace(/__TOTAL_DISPLAY__/g, fmtUGX(totalCost));
+                    rowTmpl = rowTmpl.replace(/__TOTAL_DISPLAY__/g, formatMoney(totalCost));
 
                     $('#ingredientsContainer').append(rowTmpl);
                     $('#ingredientsEmptyState').addClass('hidden');
@@ -544,6 +852,7 @@ $(document).ready(function () {
                 calculateTotalMaterialCost();
             }
         } catch(e) {
+            console.log('Draft load error:', e);
             localStorage.removeItem(DRAFT_KEY);
         }
     }
@@ -553,16 +862,43 @@ $(document).ready(function () {
     }
 
     // Helper functions
-    function fmtUGX(n) {
+    function formatMoney(n) {
         return Number(n || 0).toLocaleString('en-UG', { maximumFractionDigits: 0 }) + ' UGX';
+    }
+
+    function calculateVat(sellingPrice) {
+        if (sellingPrice <= 0) return 0;
+        return sellingPrice * (18 / 118);
     }
 
     function convertToBaseUnit(qty, fromUnit, toBaseUnit) {
         let v = parseFloat(qty);
         if (isNaN(v)) return 0;
-        if (toBaseUnit === 'kg')    { if (fromUnit === 'g') return v / 1000;  if (fromUnit === 'kg')    return v; }
-        if (toBaseUnit === 'litre') { if (fromUnit === 'ml') return v / 1000; if (fromUnit === 'litre') return v; }
-        if (toBaseUnit === 'piece') { if (fromUnit === 'piece') return v; }
+
+        if (fromUnit === 'dozen') v = v * 12;
+        if (fromUnit === 'half_dozen') v = v * 6;
+        if (fromUnit === 'portion' || fromUnit === 'serving') {
+            fromUnit = 'piece';
+        }
+
+        if (toBaseUnit === 'litre') {
+            if (fromUnit === 'cup') return v * 0.236588;
+            if (fromUnit === 'tablespoon') return v * 0.0147868;
+            if (fromUnit === 'teaspoon') return v * 0.00492892;
+            if (fromUnit === 'fluid_ounce') return v * 0.0295735;
+        }
+
+        if (toBaseUnit === 'kg') {
+            if (fromUnit === 'g') return v / 1000;
+            if (fromUnit === 'kg') return v;
+        }
+        if (toBaseUnit === 'litre') {
+            if (fromUnit === 'ml') return v / 1000;
+            if (fromUnit === 'litre') return v;
+        }
+        if (toBaseUnit === 'piece') {
+            if (fromUnit === 'piece') return v;
+        }
         return v;
     }
 
@@ -574,54 +910,10 @@ $(document).ready(function () {
             if (!isNaN(cost)) total += cost;
         });
         currentMaterialCost = total;
-        $('#materialCostDisplay, #summaryMaterialCost').text(fmtUGX(total));
-        $('#material_cost_hidden').val(total.toFixed(2));
+        $('#materialCostDisplay').text(formatMoney(total));
         updatePricing();
         saveDraft();
         return total;
-    }
-
-    // FRONTEND REAL-TIME CALCULATIONS - BOTH DIRECTIONS
-    function updatePricing() {
-        let pricingMode = $('.pricing-mode-toggle.active').data('mode');
-        let sellingPrice = parseFloat($('#selling_price').val()) || 0;
-        let desiredMargin = parseFloat($('#desired_margin').val()) || 0;
-
-        if (currentMaterialCost > 0) {
-            if (pricingMode === 'margin' && desiredMargin > 0 && desiredMargin < 100) {
-                // Calculate selling price from desired margin
-                sellingPrice = currentMaterialCost / (1 - desiredMargin / 100);
-                $('#selling_price').val(sellingPrice.toFixed(2));
-            } else if (pricingMode === 'price' && sellingPrice > 0) {
-                // Calculate margin from selling price
-                desiredMargin = ((sellingPrice - currentMaterialCost) / sellingPrice) * 100;
-                $('#desired_margin').val(desiredMargin.toFixed(2));
-            }
-        }
-
-        let margin = (sellingPrice > 0 && currentMaterialCost > 0) ? ((sellingPrice - currentMaterialCost) / sellingPrice) * 100 : 0;
-        let markUp = sellingPrice > currentMaterialCost ? sellingPrice - currentMaterialCost : 0;
-        let costPercent = (sellingPrice > 0 && currentMaterialCost > 0) ? (currentMaterialCost / sellingPrice) * 100 : 0;
-
-        $('#summaryMargin').text(margin.toFixed(1) + '%');
-        $('#summaryMarkUp').text(fmtUGX(markUp));
-        $('#summaryCostPercent').text(costPercent.toFixed(1) + '%');
-        $('#mark_up_hidden').val(markUp.toFixed(2));
-        $('#age_margins_hidden').val(margin.toFixed(2));
-        $('#age_cost_hidden').val(costPercent.toFixed(2));
-
-        // Glovo calculations
-        let commissionPct = parseFloat($('#glovo_commission_percentage').val()) || 0;
-        let glovoPrice = sellingPrice * (1 + commissionPct / 100);
-        let commission = glovoPrice * (commissionPct / 100);
-        let finalMargin = glovoPrice - currentMaterialCost - commission;
-
-        $('#glovoPriceDisplay').text(fmtUGX(glovoPrice));
-        $('#glovoCommissionDisplay').text(fmtUGX(commission));
-        $('#finalMarginDisplay').text(fmtUGX(finalMargin));
-        $('#glovo_selling_price_hidden').val(glovoPrice.toFixed(2));
-        $('#glovo_commission_hidden').val(commission.toFixed(2));
-        $('#final_margin_hidden').val(finalMargin.toFixed(2));
     }
 
     // Add ingredient modal handlers
@@ -651,7 +943,7 @@ $(document).ready(function () {
 
         if ($('#ingredient_select').val() && qty > 0) {
             let total = convertToBaseUnit(qty, unit, baseUnit) * unitCost * (1 + wastage / 100);
-            $('.ingredient-cost-preview').text('Estimated cost: ' + fmtUGX(total));
+            $('.ingredient-cost-preview').text('Estimated cost: ' + formatMoney(total));
         } else {
             $('.ingredient-cost-preview').text('Select an ingredient and quantity to preview cost');
         }
@@ -683,7 +975,7 @@ $(document).ready(function () {
         rowTmpl = rowTmpl.replace(/__UNIT__/g, unit);
         rowTmpl = rowTmpl.replace(/__WASTAGE__/g, wastage);
         rowTmpl = rowTmpl.replace(/__COST_DISPLAY__/g, unitCost.toLocaleString() + ' / ' + baseUnit);
-        rowTmpl = rowTmpl.replace(/__TOTAL_DISPLAY__/g, fmtUGX(totalCost));
+        rowTmpl = rowTmpl.replace(/__TOTAL_DISPLAY__/g, formatMoney(totalCost));
 
         $('#ingredientsContainer').append(rowTmpl);
         $('#ingredientsEmptyState').addClass('hidden');
@@ -704,7 +996,7 @@ $(document).ready(function () {
         }
     });
 
-    // Pricing mode toggle - Update both frontend and hidden field
+    // Pricing mode toggle
     $('.pricing-mode-toggle').on('click', function() {
         let mode = $(this).data('mode');
         if ($(this).hasClass('active')) return;
@@ -712,34 +1004,24 @@ $(document).ready(function () {
         $('.pricing-mode-toggle').removeClass('active');
         $(this).addClass('active');
 
-        // Update hidden field for backend
         $('#pricing_mode_hidden').val(mode);
 
         if (mode === 'price') {
             $('.price-mode-field').removeClass('hidden');
             $('.margin-mode-field').addClass('hidden');
-            // Remove required from margin, add required to price
             $('#desired_margin').removeAttr('required');
             $('#selling_price').attr('required', 'required');
-            // If there's a selling price already, calculate margin
-            if ($('#selling_price').val()) {
-                updatePricing();
-            }
         } else {
             $('.price-mode-field').addClass('hidden');
             $('.margin-mode-field').removeClass('hidden');
-            // Remove required from price, add required to margin
             $('#selling_price').removeAttr('required');
             $('#desired_margin').attr('required', 'required');
-            // If there's a desired margin already, calculate price
-            if ($('#desired_margin').val()) {
-                updatePricing();
-            }
         }
+        updatePricing();
         saveDraft();
     });
 
-    // Input event handlers with real-time calculation
+    // Input event handlers
     $('#selling_price').on('change keyup', function() {
         let pricingMode = $('.pricing-mode-toggle.active').data('mode');
         if (pricingMode === 'price') {
@@ -762,11 +1044,6 @@ $(document).ready(function () {
         saveDraft();
     });
 
-    $('#glovo_commission_percentage').on('change keyup', function() {
-        updatePricing();
-        saveDraft();
-    });
-
     // Other fields draft save
     $('#menu_id, #item_name, #description, #category_id, #allergen_info, input[name="is_active"]').on('change keyup click', function() {
         saveDraft();
@@ -783,7 +1060,7 @@ $(document).ready(function () {
         }
     });
 
-    // Form submission - ONLY validate active pricing mode
+    // Form submission validation
     $('#mainForm').on('submit', function(e) {
         let menuId = $('#menu_id').val();
         let itemName = $('#item_name').val();
@@ -799,19 +1076,44 @@ $(document).ready(function () {
             return false;
         }
 
-        let hasIngredients = $('.ingredient-row').length > 0;
         let sellingPrice = parseFloat($('#selling_price').val()) || 0;
         let desiredMargin = parseFloat($('#desired_margin').val()) || 0;
         let pricingMode = $('.pricing-mode-toggle.active').data('mode');
 
-        if (hasIngredients) {
+        if (currentItemType === 'recipe') {
+            let hasIngredients = $('.ingredient-row').length > 0;
+            if (!hasIngredients) {
+                alert('Recipe items must have at least one ingredient. Please add ingredients or select "Beverage Item" type.');
+                e.preventDefault();
+                return false;
+            }
+
             if (pricingMode === 'price' && sellingPrice <= 0) {
-                alert('This item has ingredients. Please enter a selling price.');
+                alert('Please enter a selling price.');
                 e.preventDefault();
                 return false;
             }
             if (pricingMode === 'margin' && desiredMargin <= 0) {
-                alert('This item has ingredients. Please enter a desired margin percentage.');
+                alert('Please enter a desired margin percentage.');
+                e.preventDefault();
+                return false;
+            }
+        } else {
+            // Beverage validation
+            let inventoryId = $('#inventory_item_id').val();
+            if (!inventoryId) {
+                alert('Please select an inventory item for this beverage.');
+                e.preventDefault();
+                return false;
+            }
+
+            if (pricingMode === 'price' && sellingPrice <= 0) {
+                alert('Please enter a selling price.');
+                e.preventDefault();
+                return false;
+            }
+            if (pricingMode === 'margin' && desiredMargin <= 0) {
+                alert('Please enter a desired margin percentage.');
                 e.preventDefault();
                 return false;
             }
@@ -830,12 +1132,16 @@ $(document).ready(function () {
                    .replace(/'/g, '&#39;');
     }
 
-    // Load draft on page load (after old input fallback from Laravel)
+    // Initialize
+    setItemType(currentItemType);
     loadDraft();
 
-    // Also update pricing after draft load
     setTimeout(function() {
-        calculateTotalMaterialCost();
+        if (currentItemType === 'recipe') {
+            calculateTotalMaterialCost();
+        } else {
+            updateBeveragePricing();
+        }
     }, 100);
 
 });

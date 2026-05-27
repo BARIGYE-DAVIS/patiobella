@@ -16,7 +16,7 @@ class RestaurantMiddleware
         }
 
         $user = Auth::user();
-    
+
         // Must be in RESTAURANT department
         if (!$user->department || $user->department->name !== 'CAFE') {
             return redirect()->route('dashboard')
@@ -41,7 +41,7 @@ class RestaurantMiddleware
             }
 
             // Redirect cashiers away from all other restaurant routes
-            return redirect()->route('restaurant.cashier.dashboard')
+            return redirect()->route('cashier.index')
                 ->with('error', 'Cashiers must use the cashier dashboard.');
         }
 

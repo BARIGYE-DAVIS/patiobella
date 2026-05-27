@@ -646,3 +646,103 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/notifications/mark-all-read', [App\Http\Controllers\NotificationController::class, 'markAllRead'])->name('notifications.mark-all-read');
     Route::post('/notifications/{id}/mark-read', [App\Http\Controllers\NotificationController::class, 'markRead'])->name('notifications.mark-read');
 });
+
+
+// =====================================================
+// WAITER ROUTES
+// =====================================================
+Route::prefix('waiter')->name('waiter.')->middleware(['auth'])->group(function () {
+
+    // Dashboard
+    Route::get('/dashboard', [App\Http\Controllers\Waiter\WaiterController::class, 'index'])
+        ->name('dashboard')
+        ->middleware('permission:access_waiter_module');
+
+    // Orders
+    Route::post('/place-order', [App\Http\Controllers\Waiter\WaiterController::class, 'placeOrder'])
+        ->name('place-order')
+        ->middleware('permission:create_orders');
+
+    Route::get('/orders/active', [App\Http\Controllers\Waiter\WaiterController::class, 'getActiveOrders'])
+        ->name('active-orders')
+        ->middleware('permission:view_orders');
+
+    Route::get('/order/{orderId}/status', [App\Http\Controllers\Waiter\WaiterController::class, 'getOrderStatus'])
+        ->name('order-status')
+        ->middleware('permission:view_orders');
+
+    // Bills
+    Route::get('/bills', [App\Http\Controllers\Waiter\WaiterController::class, 'getBills'])
+        ->name('bills.index')
+        ->middleware('permission:view_orders');
+
+    Route::get('/bills/{orderId}/print', [App\Http\Controllers\Waiter\WaiterController::class, 'printBill'])
+        ->name('bills.print')
+        ->middleware('permission:print_bills');
+
+    // Products & Categories (AJAX)
+    Route::get('/products/category/{categoryId}', [App\Http\Controllers\Waiter\WaiterController::class, 'getProductsByCategory'])
+        ->name('products.by-category')
+        ->middleware('permission:view_menu');
+
+    Route::get('/products/search', [App\Http\Controllers\Waiter\WaiterController::class, 'searchProducts'])
+        ->name('products.search')
+        ->middleware('permission:view_menu');
+});
+
+// =====================================================
+// BAR ORDER TICKETS
+// =====================================================
+Route::prefix('bar')->name('bar.')->middleware(['auth'])->group(function () {
+    Route::get('/order-tickets', [App\Http\Controllers\BarOrdersController::class, 'index'])->name('order-tickets');
+    Route::get('/tickets/{id}/print', [App\Http\Controllers\BarOrdersController::class, 'printTicket'])->name('tickets.print');
+    Route::post('/tickets/{id}/complete', [App\Http\Controllers\BarOrdersController::class, 'completeTicket'])->name('tickets.complete');
+});
+
+// =====================================================
+// KITCHEN ORDER TICKETS
+// =====================================================
+Route::prefix('kitchen')->name('kitchen.')->middleware(['auth'])->group(function () {
+    Route::get('/order-tickets', [App\Http\Controllers\KitchenOrdersController::class, 'index'])->name('order-tickets');
+    Route::get('/tickets/{id}/print', [App\Http\Controllers\KitchenOrdersController::class, 'printTicket'])->name('tickets.print');
+    Route::post('/tickets/{id}/complete', [App\Http\Controllers\KitchenOrdersController::class, 'completeTicket'])->name('tickets.complete');
+});
+
+Route::prefix('cafe')->name('cafe.')->middleware(['auth'])->group(function () {
+    Route::get('/order-tickets', [App\Http\Controllers\CafeOrdersController::class, 'index'])->name('order-tickets');
+    Route::get('/tickets/{id}/print', [App\Http\Controllers\CafeOrdersController::class, 'printTicket'])->name('tickets.print');
+    Route::post('/tickets/{id}/complete', [App\Http\Controllers\CafeOrdersController::class, 'completeTicket'])->name('tickets.complete');
+});
+
+
+// =====================================================
+// CASHIER ROUTES WITH PERMISSIONS
+// =====================================================
+Route::prefix('cashier')->name('cashier.')->middleware(['auth'])->group(function () {
+
+    // Dashboard - No permission required (already controlled by AuthController redirect)
+    Route::get('/', [App\Http\Controllers\CashierController::class, 'index'])->name('index');
+
+    // Order details - requires view_orders permission
+    Route::get('/order/{id}/details', [App\Http\Controllers\CashierController::class, 'getOrderDetails'])
+        ->name('order.details')
+        ->middleware('permission:view_orders');
+
+    // Process payment - requires process_payments permission
+    Route::post('/order/{id}/pay', [App\Http\Controllers\CashierController::class, 'processPayment'])
+        ->name('order.pay')
+        ->middleware('permission:process_payments');
+
+        Route::get('/table/{tableId}/order', [App\Http\Controllers\CashierController::class, 'getOrderByTable'])
+    ->name('cashier.table.order')
+    ->middleware('permission:view_orders');
+    // Mark as paid - requires process_payments permission
+    Route::post('/order/{id}/mark-paid', [App\Http\Controllers\CashierController::class, 'markAsPaid'])
+        ->name('order.mark-paid')
+        ->middleware('permission:process_payments');
+
+    // Print receipt - requires print_receipts permission
+    Route::get('/receipt/{id}', [App\Http\Controllers\CashierController::class, 'printReceipt'])
+        ->name('receipt')
+        ->middleware('permission:print_receipts');
+});

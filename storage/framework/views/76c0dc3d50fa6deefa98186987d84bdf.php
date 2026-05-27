@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="csrf-token" content="{{ csrf_token() }}">
+    <meta name="csrf-token" content="<?php echo e(csrf_token()); ?>">
     <title>Login - PaitoBella POS</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
@@ -68,34 +68,48 @@
                     </div>
 
                     <!-- Error Message from Session -->
-                    @if(session('error'))
+                    <?php if(session('error')): ?>
                     <div class="mb-6 bg-red-500/20 border-l-4 border-red-500 rounded-r-lg p-4">
                         <div class="flex items-center gap-3">
                             <i class="fas fa-exclamation-circle text-red-400"></i>
-                            <span class="text-red-200 text-sm">{{ session('error') }}</span>
+                            <span class="text-red-200 text-sm"><?php echo e(session('error')); ?></span>
                         </div>
                     </div>
-                    @endif
+                    <?php endif; ?>
 
                     <!-- Error Message from Validation -->
-                    @error('password')
+                    <?php $__errorArgs = ['password'];
+$__bag = $errors->getBag($__errorArgs[1] ?? 'default');
+if ($__bag->has($__errorArgs[0])) :
+if (isset($message)) { $__messageOriginal = $message; }
+$message = $__bag->first($__errorArgs[0]); ?>
                     <div class="mb-6 bg-red-500/20 border-l-4 border-red-500 rounded-r-lg p-4">
                         <div class="flex items-center gap-3">
                             <i class="fas fa-exclamation-circle text-red-400"></i>
-                            <span class="text-red-200 text-sm">{{ $message }}</span>
+                            <span class="text-red-200 text-sm"><?php echo e($message); ?></span>
                         </div>
                     </div>
-                    @enderror
+                    <?php unset($message);
+if (isset($__messageOriginal)) { $message = $__messageOriginal; }
+endif;
+unset($__errorArgs, $__bag); ?>
 
-                    <form method="POST" action="{{ route('login') }}">
-                        @csrf
+                    <form method="POST" action="<?php echo e(route('login')); ?>">
+                        <?php echo csrf_field(); ?>
                         <div class="mb-6">
                             <label class="block text-orange-200/70 text-xs uppercase tracking-wider mb-2">
                                 <i class="fas fa-key mr-2"></i>Password
                             </label>
                             <div class="relative">
                                 <input type="password" name="password" id="password"
-                                       class="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white text-lg font-mono tracking-wider focus:outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-500/30 transition @error('password') border-red-500 @enderror"
+                                       class="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white text-lg font-mono tracking-wider focus:outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-500/30 transition <?php $__errorArgs = ['password'];
+$__bag = $errors->getBag($__errorArgs[1] ?? 'default');
+if ($__bag->has($__errorArgs[0])) :
+if (isset($message)) { $__messageOriginal = $message; }
+$message = $__bag->first($__errorArgs[0]); ?> border-red-500 <?php unset($message);
+if (isset($__messageOriginal)) { $message = $__messageOriginal; }
+endif;
+unset($__errorArgs, $__bag); ?>"
                                        placeholder="Enter password" autofocus>
                                 <button type="button" onclick="togglePassword()" class="absolute right-3 top-1/2 -translate-y-1/2 text-white/40 hover:text-orange-400 transition">
                                     <i id="eyeIcon" class="fas fa-eye"></i>
@@ -169,3 +183,4 @@
 </script>
 </body>
 </html>
+<?php /**PATH C:\xampp\htdocs\patiobella\resources\views/auth/login.blade.php ENDPATH**/ ?>

@@ -18,7 +18,7 @@ class CashierMiddleware
         $user = Auth::user();
 
         // Must be in RESTAURANT department
-        if (!$user->department || $user->department->name !== 'RESTAURANT') {
+        if (!$user->role_id || $user->role->name !== 'Cashier') {
             return redirect()->route('dashboard')
                 ->with('error', 'Unauthorized access. Cashier access only.');
         }

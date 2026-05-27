@@ -173,11 +173,11 @@
             Menu
         </a>
 
-        <a href="{{ route('restaurant.sales.pos') }}"
+        <a href="{{ route('cafe.order-tickets') }}"
            class="flex items-center px-4 py-3 text-sm hover:bg-orange-700 transition sidebar-nav-link
-                  {{ request()->routeIs('restaurant.sales.*') ? 'sidebar-active' : '' }}">
+                  {{ request()->routeIs('cafe.order-tickets') ? 'sidebar-active' : '' }}">
             <i class="fas fa-cash-register w-5 h-5 mr-3"></i>
-            Point of Sale
+            order Tickets
         </a>
 
         <a href="{{ route('restaurant.sales.index') }}"

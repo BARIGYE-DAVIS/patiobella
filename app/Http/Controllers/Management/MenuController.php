@@ -68,6 +68,41 @@ class MenuController extends Controller
         return $value;
     }
 
+    /**
+     * Calculate VAT amounts for a menu item
+     */
+    private function calculateVat($sellingPrice, $vatRate = 18, $vatInclusive = true)
+    {
+        if (!$vatInclusive || $sellingPrice <= 0) {
+            return [
+                'vat_amount' => 0,
+                'net_price' => $sellingPrice,
+                'calculated_vat_rate' => $vatRate,
+            ];
+        }
+
+        // VAT Inclusive formula: Net Price = Selling Price / (1 + VAT Rate/100)
+        $netPrice = $sellingPrice / (1 + ($vatRate / 100));
+        $vatAmount = $sellingPrice - $netPrice;
+
+        return [
+            'vat_amount' => round($vatAmount, 2),
+            'net_price' => round($netPrice, 2),
+            'calculated_vat_rate' => $vatRate,
+        ];
+    }
+
+    /**
+     * Get net price (excluding VAT) for margin calculations
+     */
+    private function getNetPriceForMargin($vatInclusive, $vatRate, $sellingPrice)
+    {
+        if ($vatInclusive && $vatRate > 0 && $sellingPrice > 0) {
+            return $sellingPrice / (1 + ($vatRate / 100));
+        }
+        return $sellingPrice;
+    }
+
     // =====================================================
     // MENUS MANAGEMENT (Simplified - No Items)
     // =====================================================
@@ -339,59 +374,59 @@ class MenuController extends Controller
     }
 
     /**
-     * Store a new menu item (standalone)
+     * Store a new menu item (standalone) WITH VAT
      */
-    public function storeItemStandalone(Request $request)
-    {
-        if (!$this->checkAuthorization()) {
-            return redirect()->route('dashboard')->with('error', 'Unauthorized access. Manager only.');
-        }
+public function storeItemStandalone(Request $request)
+{
+    if (!$this->checkAuthorization()) {
+        return redirect()->route('dashboard')->with('error', 'Unauthorized access. Manager only.');
+    }
 
+    // =====================================================
+    // CHECK ITEM TYPE FIRST
+    // =====================================================
+    $itemType = $request->input('item_type', 'recipe');
+
+    // =====================================================
+    // BEVERAGE ITEM (No recipe, no Glovo)
+    // =====================================================
+    if ($itemType === 'beverage') {
         $validated = $request->validate([
-            'menu_id'                           => 'required|exists:menus,id',
-            'name'                              => 'required|string|max:255',
-            'description'                       => 'nullable|string',
-            'menu_item_category_id'             => 'nullable|exists:menu_item_categories,id',
-            'allergen_info'                     => 'nullable|string',
-            'is_active'                         => 'nullable|string',
-            'selling_price'                     => 'nullable|numeric|min:0',
-            'desired_margin'                    => 'nullable|numeric|min:0|max:99.9',
-            'glovo_commission_percentage'       => 'nullable|numeric|min:0',
-            'glovo_selling_price'               => 'nullable|numeric',
-            'glovo_commission'                  => 'nullable|numeric',
-            'final_margin'                      => 'nullable|numeric',
-            'mark_up'                           => 'nullable|numeric',
-            'age_margins'                       => 'nullable|numeric',
-            'age_cost'                          => 'nullable|numeric',
-            'material_cost'                     => 'nullable|numeric',
-            'ingredients'                       => 'nullable|array',
-            'ingredients.*.inventory_item_id'   => 'required_with:ingredients|exists:inventory_items,id',
-            'ingredients.*.quantity'            => 'required_with:ingredients|numeric|min:0.001',
-            'ingredients.*.unit'                => 'required_with:ingredients|string',
-            'ingredients.*.base_unit'           => 'required_with:ingredients|string',
-            'ingredients.*.unit_cost'           => 'required_with:ingredients|numeric',
-            'ingredients.*.wastage_percentage'  => 'nullable|numeric|min:0|max:100',
+            'menu_id'               => 'required|exists:menus,id',
+            'name'                  => 'required|string|max:255',
+            'description'           => 'nullable|string',
+            'menu_item_category_id' => 'nullable|exists:menu_item_categories,id',
+            'allergen_info'         => 'nullable|string',
+            'is_active'             => 'nullable|string',
+            'inventory_item_id'     => 'required|exists:inventory_items,id',
+            'selling_price'         => 'required|numeric|min:0',
+            'desired_margin'        => 'nullable|numeric|min:0|max:99.9',
         ]);
 
         try {
             DB::beginTransaction();
 
-            $materialCost = floatval($validated['material_cost'] ?? 0);
-            $sellingPrice = floatval($validated['selling_price'] ?? 0);
-            $markUp       = floatval($validated['mark_up'] ?? 0);
-            $ageMargins   = floatval($validated['age_margins'] ?? 0);
-            $ageCost      = floatval($validated['age_cost'] ?? 0);
-            $glovoSellingPrice = floatval($validated['glovo_selling_price'] ?? 0);
-            $glovoCommission   = floatval($validated['glovo_commission'] ?? 0);
-            $finalMargin       = floatval($validated['final_margin'] ?? 0);
+            $inventoryItem = InventoryItem::findOrFail($validated['inventory_item_id']);
+            $unitCost = $inventoryItem->unit_cost ?? 0;
+            $sellingPrice = floatval($validated['selling_price']);
 
-            // Calculate Glovo figures if selling price is provided
-            if ($sellingPrice > 0 && empty($glovoSellingPrice)) {
-                $commissionPct = floatval($validated['glovo_commission_percentage'] ?? 20);
-                $glovoSellingPrice = $sellingPrice * (1 + $commissionPct / 100);
-                $glovoCommission = $glovoSellingPrice * ($commissionPct / 100);
-                $finalMargin = $glovoSellingPrice - $materialCost - $glovoCommission;
+            // Handle pricing mode for beverage
+            $pricingMode = $request->input('pricing_mode', 'price');
+            if ($pricingMode === 'margin') {
+                $desiredMargin = floatval($validated['desired_margin'] ?? 0);
+                if ($desiredMargin > 0 && $desiredMargin < 100 && $unitCost > 0) {
+                    $targetNetPrice = $unitCost / (1 - $desiredMargin / 100);
+                    $sellingPrice = $targetNetPrice / (1 - (18 / 118));
+                }
             }
+
+            // Calculate VAT (18% inclusive)
+            $vatRate = 18;
+            $vatAmount = $sellingPrice * (18 / 118);
+            $netPrice = $sellingPrice - $vatAmount;
+            $markup = $netPrice - $unitCost;
+            $marginPercent = $netPrice > 0 ? ($markup / $netPrice) * 100 : 0;
+            $ageCost = $netPrice > 0 ? ($unitCost / $netPrice) * 100 : 0;
 
             $itemIsActive = !empty($validated['is_active']) && $validated['is_active'] === '1';
 
@@ -400,79 +435,205 @@ class MenuController extends Controller
                 'description'               => $validated['description'] ?? null,
                 'menu_id'                   => $validated['menu_id'],
                 'menu_item_category_id'     => $validated['menu_item_category_id'] ?? null,
-                'selling_price'             => $sellingPrice,
+                'selling_price'             => round($sellingPrice, 2),
                 'is_active'                 => $itemIsActive,
                 'allergen_info'             => $validated['allergen_info'] ?? null,
                 'created_by'                => Auth::id(),
-                'm_cost'                    => $materialCost,
-                'mark_up'                   => $markUp,
-                'age_margins'               => $ageMargins,
-                'age_cost'                  => $ageCost,
-                'glovo_selling_price'       => $glovoSellingPrice,
-                'glovo_commission'          => $glovoCommission,
-                'final_margin'              => $finalMargin,
+                'inventory_item_id'         => $validated['inventory_item_id'],
+                'm_cost'                    => round($unitCost, 2),
+                'mark_up'                   => round($markup, 2),
+                'age_margins'               => round($marginPercent, 2),
+                'age_cost'                  => round($ageCost, 2),
+                'vat_rate'                  => $vatRate,
+                'vat_amount'                => round($vatAmount, 2),
+                'vat_inclusive'             => true,
+                'net_price'                 => round($netPrice, 2),
+                // Glovo fields set to 0 for beverages
+                'glovo_selling_price'       => 0,
+                'glovo_commission'          => 0,
+                'final_margin'              => 0,
             ]);
-
-            // Create recipe ingredients
-            if (!empty($validated['ingredients'])) {
-                foreach ($validated['ingredients'] as $ingredientIdx => $ingredientData) {
-
-                    $unitOfMeasure = UnitOfMeasure::where('code', $ingredientData['unit'])
-                        ->orWhere('symbol', $ingredientData['unit'])
-                        ->first();
-
-                    if (!$unitOfMeasure) {
-                        $unitOfMeasure = UnitOfMeasure::create([
-                            'code'      => $ingredientData['unit'],
-                            'name'      => $ingredientData['unit'],
-                            'symbol'    => $ingredientData['unit'],
-                            'is_active' => true,
-                        ]);
-                    }
-
-                    $qtyInBaseUnit = $this->convertToBaseUnit(
-                        $ingredientData['quantity'],
-                        $ingredientData['unit'],
-                        $ingredientData['base_unit']
-                    );
-
-                    RecipeItem::create([
-                        'menu_item_id'        => $menuItem->id,
-                        'inventory_item_id'   => $ingredientData['inventory_item_id'],
-                        'quantity_required'   => $qtyInBaseUnit,
-                        'unit_of_measure_id'  => $unitOfMeasure->id,
-                        'wastage_percentage'  => $ingredientData['wastage_percentage'] ?? 0,
-                        'unit_cost_at_creation' => $ingredientData['unit_cost'],
-                        'sort_order'          => $ingredientIdx,
-                        'created_at'          => now(),
-                        'updated_at'          => now(),
-                    ]);
-                }
-            }
 
             DB::commit();
 
-            Log::info('Menu item created', [
-                'user_id'       => Auth::id(),
-                'menu_item_id'  => $menuItem->id,
-                'menu_item_name'=> $menuItem->name,
-                'menu_id'       => $validated['menu_id'],
+            Log::info('Beverage menu item created', [
+                'user_id' => Auth::id(),
+                'menu_item_id' => $menuItem->id,
+                'menu_item_name' => $menuItem->name,
             ]);
 
             return redirect()->route('management.menu-items.index')
-                ->with('success', "Menu item '{$menuItem->name}' created successfully.");
+                ->with('success', "Beverage '{$menuItem->name}' created successfully.");
 
         } catch (\Exception $e) {
             DB::rollBack();
-            Log::error('Menu item creation failed', [
+            Log::error('Beverage creation failed', [
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString(),
             ]);
             return redirect()->back()
-                ->with('error', 'Failed to create menu item: ' . $e->getMessage())
+                ->with('error', 'Failed to create beverage: ' . $e->getMessage())
                 ->withInput();
         }
     }
+
+    // =====================================================
+    // RECIPE ITEM (Original logic - with ingredients and Glovo)
+    // =====================================================
+
+    $validated = $request->validate([
+        'menu_id'                           => 'required|exists:menus,id',
+        'name'                              => 'required|string|max:255',
+        'description'                       => 'nullable|string',
+        'menu_item_category_id'             => 'nullable|exists:menu_item_categories,id',
+        'allergen_info'                     => 'nullable|string',
+        'is_active'                         => 'nullable|string',
+        'selling_price'                     => 'nullable|numeric|min:0',
+        'desired_margin'                    => 'nullable|numeric|min:0|max:99.9',
+        'glovo_commission_percentage'       => 'nullable|numeric|min:0',
+        'glovo_selling_price'               => 'nullable|numeric',
+        'glovo_commission'                  => 'nullable|numeric',
+        'final_margin'                      => 'nullable|numeric',
+        'mark_up'                           => 'nullable|numeric',
+        'age_margins'                       => 'nullable|numeric',
+        'age_cost'                          => 'nullable|numeric',
+        'material_cost'                     => 'nullable|numeric',
+        'ingredients'                       => 'required|array|min:1',
+        'ingredients.*.inventory_item_id'   => 'required|exists:inventory_items,id',
+        'ingredients.*.quantity'            => 'required|numeric|min:0.001',
+        'ingredients.*.unit'                => 'required|string',
+        'ingredients.*.base_unit'           => 'required|string',
+        'ingredients.*.unit_cost'           => 'required|numeric',
+        'ingredients.*.wastage_percentage'  => 'nullable|numeric|min:0|max:100',
+        'vat_rate'                          => 'nullable|numeric|min:0',
+        'vat_inclusive'                     => 'nullable|boolean',
+    ]);
+
+    try {
+        DB::beginTransaction();
+
+        $materialCost = floatval($validated['material_cost'] ?? 0);
+        $sellingPrice = floatval($validated['selling_price'] ?? 0);
+        $markUp       = floatval($validated['mark_up'] ?? 0);
+        $ageMargins   = floatval($validated['age_margins'] ?? 0);
+        $ageCost      = floatval($validated['age_cost'] ?? 0);
+        $glovoSellingPrice = floatval($validated['glovo_selling_price'] ?? 0);
+        $glovoCommission   = floatval($validated['glovo_commission'] ?? 0);
+        $finalMargin       = floatval($validated['final_margin'] ?? 0);
+
+        // Calculate Glovo figures if selling price is provided
+        if ($sellingPrice > 0 && empty($glovoSellingPrice)) {
+            $commissionPct = floatval($validated['glovo_commission_percentage'] ?? 20);
+            $glovoSellingPrice = $sellingPrice * (1 + $commissionPct / 100);
+            $glovoCommission = $glovoSellingPrice * ($commissionPct / 100);
+            $finalMargin = $glovoSellingPrice - $materialCost - $glovoCommission;
+        }
+
+        // =====================================================
+        // VAT CALCULATION
+        // =====================================================
+        $vatRate = 18;
+        $vatInclusive = true;
+
+        $vatData = $this->calculateVat($sellingPrice, $vatRate, $vatInclusive);
+
+        // For margin calculations, use net price (excl. VAT)
+        $netPriceForMargin = $this->getNetPriceForMargin($vatInclusive, $vatRate, $sellingPrice);
+
+        // Recalculate margin based on net price if VAT is inclusive
+        if ($vatInclusive && $vatRate > 0 && $sellingPrice > 0 && $materialCost > 0) {
+            $ageMargins = (($netPriceForMargin - $materialCost) / $netPriceForMargin) * 100;
+            $markUp = $netPriceForMargin - $materialCost;
+            $ageCost = ($materialCost / $netPriceForMargin) * 100;
+        }
+        // =====================================================
+
+        $itemIsActive = !empty($validated['is_active']) && $validated['is_active'] === '1';
+
+        $menuItem = MenuItem::create([
+            'name'                      => $validated['name'],
+            'description'               => $validated['description'] ?? null,
+            'menu_id'                   => $validated['menu_id'],
+            'menu_item_category_id'     => $validated['menu_item_category_id'] ?? null,
+            'selling_price'             => $sellingPrice,
+            'is_active'                 => $itemIsActive,
+            'allergen_info'             => $validated['allergen_info'] ?? null,
+            'created_by'                => Auth::id(),
+            'm_cost'                    => $materialCost,
+            'mark_up'                   => $markUp,
+            'age_margins'               => $ageMargins,
+            'age_cost'                  => $ageCost,
+            'glovo_selling_price'       => $glovoSellingPrice,
+            'glovo_commission'          => $glovoCommission,
+            'final_margin'              => $finalMargin,
+            // VAT fields
+            'vat_rate'                  => $vatRate,
+            'vat_amount'                => $vatData['vat_amount'],
+            'vat_inclusive'             => $vatInclusive,
+            'net_price'                 => $vatData['net_price'],
+        ]);
+
+        // Create recipe ingredients
+        if (!empty($validated['ingredients'])) {
+            foreach ($validated['ingredients'] as $ingredientIdx => $ingredientData) {
+
+                $unitOfMeasure = UnitOfMeasure::where('code', $ingredientData['unit'])
+                    ->orWhere('symbol', $ingredientData['unit'])
+                    ->first();
+
+                if (!$unitOfMeasure) {
+                    $unitOfMeasure = UnitOfMeasure::create([
+                        'code'      => $ingredientData['unit'],
+                        'name'      => $ingredientData['unit'],
+                        'symbol'    => $ingredientData['unit'],
+                        'is_active' => true,
+                    ]);
+                }
+
+                $qtyInBaseUnit = $this->convertToBaseUnit(
+                    $ingredientData['quantity'],
+                    $ingredientData['unit'],
+                    $ingredientData['base_unit']
+                );
+
+                RecipeItem::create([
+                    'menu_item_id'        => $menuItem->id,
+                    'inventory_item_id'   => $ingredientData['inventory_item_id'],
+                    'quantity_required'   => $qtyInBaseUnit,
+                    'unit_of_measure_id'  => $unitOfMeasure->id,
+                    'wastage_percentage'  => $ingredientData['wastage_percentage'] ?? 0,
+                    'unit_cost_at_creation' => $ingredientData['unit_cost'],
+                    'sort_order'          => $ingredientIdx,
+                    'created_at'          => now(),
+                    'updated_at'          => now(),
+                ]);
+            }
+        }
+
+        DB::commit();
+
+        Log::info('Menu item created with VAT', [
+            'user_id'       => Auth::id(),
+            'menu_item_id'  => $menuItem->id,
+            'menu_item_name'=> $menuItem->name,
+            'vat_rate'      => $vatRate,
+            'vat_inclusive' => $vatInclusive,
+        ]);
+
+        return redirect()->route('management.menu-items.index')
+            ->with('success', "Menu item '{$menuItem->name}' created successfully.");
+
+    } catch (\Exception $e) {
+        DB::rollBack();
+        Log::error('Menu item creation failed', [
+            'error' => $e->getMessage(),
+            'trace' => $e->getTraceAsString(),
+        ]);
+        return redirect()->back()
+            ->with('error', 'Failed to create menu item: ' . $e->getMessage())
+            ->withInput();
+    }
+}
 
     /**
      * Show form to edit a menu item
@@ -520,6 +681,11 @@ class MenuController extends Controller
                     'glovo_selling_price' => $item->glovo_selling_price ?? ($item->selling_price * 1.2),
                     'glovo_commission' => $item->glovo_commission,
                     'final_margin' => $item->final_margin,
+                    // VAT fields
+                    'vat_rate' => $item->vat_rate ?? 18,
+                    'vat_amount' => $item->vat_amount ?? 0,
+                    'vat_inclusive' => $item->vat_inclusive ?? true,
+                    'net_price' => $item->net_price ?? $item->selling_price,
                 ]
             ]);
         } catch (\Exception $e) {
@@ -528,15 +694,9 @@ class MenuController extends Controller
     }
 
     /**
-     * Update a menu item (AJAX)
+     * Update a menu item (Form Submission) WITH VAT
      */
-   /**
- * Update a menu item (Form Submission - NOT AJAX)
- */
-/**
- * Update a menu item (Form Submission)
- */
-public function updateMenuItem(Request $request, $id)
+    public function updateMenuItem(Request $request, $id)
 {
     if (!$this->checkAuthorization()) {
         return redirect()->route('dashboard')->with('error', 'Unauthorized access. Manager only.');
@@ -545,17 +705,13 @@ public function updateMenuItem(Request $request, $id)
     try {
         $menuItem = MenuItem::findOrFail($id);
 
-        // Log the incoming request to debug
-        Log::info('Update Menu Item Request', [
-            'id' => $id,
-            'name' => $request->input('name'),
-            'all_data' => $request->all()
-        ]);
+        // Check if this is a beverage item (has inventory_item_id and no recipe items)
+        $isBeverage = $menuItem->inventory_item_id && $menuItem->recipeItems->isEmpty();
 
         // Get pricing mode
         $pricingMode = $request->input('pricing_mode', 'price');
 
-        // Validate based on pricing mode
+        // Validate based on item type
         $rules = [
             'name'                  => 'required|string|max:255',
             'menu_id'               => 'required|exists:menus,id',
@@ -563,147 +719,243 @@ public function updateMenuItem(Request $request, $id)
             'menu_item_category_id' => 'nullable|exists:menu_item_categories,id',
             'allergen_info'         => 'nullable|string',
             'is_active'             => 'nullable|string',
-            'glovo_commission_percentage' => 'nullable|numeric|min:0',
         ];
 
-        if ($pricingMode === 'price') {
-            $rules['selling_price'] = 'required|numeric|min:0';
-            $rules['desired_margin'] = 'nullable|numeric|min:0|max:99.9';
+        if ($isBeverage) {
+            // Beverage validation
+            $rules['inventory_item_id'] = 'required|exists:inventory_items,id';
+
+            if ($pricingMode === 'price') {
+                $rules['selling_price'] = 'required|numeric|min:0';
+                $rules['desired_margin'] = 'nullable|numeric|min:0|max:99.9';
+            } else {
+                $rules['selling_price'] = 'nullable|numeric|min:0';
+                $rules['desired_margin'] = 'required|numeric|min:0.1|max:99.9';
+            }
         } else {
-            $rules['selling_price'] = 'nullable|numeric|min:0';
-            $rules['desired_margin'] = 'required|numeric|min:0.1|max:99.9';
+            // Recipe item validation
+            if ($pricingMode === 'price') {
+                $rules['selling_price'] = 'required|numeric|min:0';
+                $rules['desired_margin'] = 'nullable|numeric|min:0|max:99.9';
+            } else {
+                $rules['selling_price'] = 'nullable|numeric|min:0';
+                $rules['desired_margin'] = 'required|numeric|min:0.1|max:99.9';
+            }
+
+            $rules['glovo_commission_percentage'] = 'nullable|numeric|min:0';
         }
 
         $validated = $request->validate($rules);
 
-        // Calculate material cost from ingredients
-        $materialCost = 0;
-        if ($request->has('ingredients')) {
-            foreach ($request->ingredients as $ingredientData) {
-                if (isset($ingredientData['quantity']) && $ingredientData['quantity'] > 0) {
-                    $qtyInBaseUnit = $this->convertToBaseUnit(
-                        $ingredientData['quantity'],
-                        $ingredientData['unit'],
-                        $ingredientData['base_unit']
-                    );
-                    $materialCost += $qtyInBaseUnit * $ingredientData['unit_cost'] * (1 + ($ingredientData['wastage_percentage'] ?? 0) / 100);
+        // Calculate values based on item type
+        if ($isBeverage) {
+            // BEVERAGE ITEM LOGIC
+            $inventoryItem = InventoryItem::findOrFail($validated['inventory_item_id']);
+            $unitCost = $inventoryItem->unit_cost ?? 0;
+            $sellingPrice = floatval($validated['selling_price'] ?? 0);
+
+            // Handle pricing mode for beverage
+            if ($pricingMode === 'margin') {
+                $desiredMargin = floatval($validated['desired_margin'] ?? 0);
+                if ($desiredMargin > 0 && $desiredMargin < 100 && $unitCost > 0) {
+                    $targetNetPrice = $unitCost / (1 - $desiredMargin / 100);
+                    $sellingPrice = $targetNetPrice / (1 - (18 / 118));
                 }
             }
-        }
 
-        // Calculate selling price and margin
-        $sellingPrice = 0;
-        $ageMargins = 0;
+            // Calculate VAT (18% inclusive)
+            $vatRate = 18;
+            $vatAmount = $sellingPrice * (18 / 118);
+            $netPrice = $sellingPrice - $vatAmount;
+            $markup = $netPrice - $unitCost;
+            $marginPercent = $netPrice > 0 ? ($markup / $netPrice) * 100 : 0;
+            $ageCost = $netPrice > 0 ? ($unitCost / $netPrice) * 100 : 0;
 
-        if ($pricingMode === 'price') {
-            $sellingPrice = floatval($validated['selling_price'] ?? 0);
-            if ($sellingPrice > 0 && $materialCost > 0) {
-                $ageMargins = (($sellingPrice - $materialCost) / $sellingPrice) * 100;
-            }
+            $itemIsActive = !empty($validated['is_active']) && $validated['is_active'] === '1';
+
+            $updateData = [
+                'name'                      => $validated['name'],
+                'menu_id'                   => $validated['menu_id'],
+                'description'               => $validated['description'] ?? null,
+                'menu_item_category_id'     => $validated['menu_item_category_id'] ?? null,
+                'selling_price'             => round($sellingPrice, 2),
+                'is_active'                 => $itemIsActive,
+                'allergen_info'             => $validated['allergen_info'] ?? null,
+                'updated_by'                => Auth::id(),
+                'inventory_item_id'         => $validated['inventory_item_id'],
+                'm_cost'                    => round($unitCost, 2),
+                'mark_up'                   => round($markup, 2),
+                'age_margins'               => round($marginPercent, 2),
+                'age_cost'                  => round($ageCost, 2),
+                'vat_rate'                  => $vatRate,
+                'vat_amount'                => round($vatAmount, 2),
+                'vat_inclusive'             => true,
+                'net_price'                 => round($netPrice, 2),
+                // Glovo fields set to 0 for beverages
+                'glovo_selling_price'       => 0,
+                'glovo_commission'          => 0,
+                'final_margin'              => 0,
+            ];
+
+            $menuItem->update($updateData);
+
+            Log::info('Beverage menu item updated', [
+                'user_id' => Auth::id(),
+                'menu_item_id' => $menuItem->id,
+                'menu_item_name' => $menuItem->name,
+            ]);
+
+            return redirect()->route('management.menu-items.index')
+                ->with('success', "Beverage '{$menuItem->name}' updated successfully.");
+
         } else {
-            $desiredMargin = floatval($validated['desired_margin'] ?? 0);
-            if ($desiredMargin > 0 && $desiredMargin < 100 && $materialCost > 0) {
-                $sellingPrice = $materialCost / (1 - $desiredMargin / 100);
-                $ageMargins = $desiredMargin;
-            }
-        }
+            // RECIPE ITEM LOGIC (existing code)
 
-        $markUp = $sellingPrice - $materialCost;
-        $ageCost = ($sellingPrice > 0 && $materialCost > 0) ? ($materialCost / $sellingPrice) * 100 : 0;
-
-        // Glovo calculations
-        $commissionPct = floatval($validated['glovo_commission_percentage'] ?? 20);
-        $glovoSellingPrice = $sellingPrice * (1 + $commissionPct / 100);
-        $glovoCommission = $glovoSellingPrice * ($commissionPct / 100);
-        $finalMargin = $glovoSellingPrice - $materialCost - $glovoCommission;
-
-        $itemIsActive = !empty($validated['is_active']) && $validated['is_active'] === '1';
-
-        // Update menu item - MAKE SURE NAME IS INCLUDED
-        $updateData = [
-            'name'                      => $validated['name'],  // THIS IS THE FIX - name is explicitly set
-            'menu_id'                   => $validated['menu_id'],
-            'description'               => $validated['description'] ?? null,
-            'menu_item_category_id'     => $validated['menu_item_category_id'] ?? null,
-            'selling_price'             => round($sellingPrice, 2),
-            'is_active'                 => $itemIsActive,
-            'allergen_info'             => $validated['allergen_info'] ?? null,
-            'updated_by'                => Auth::id(),
-            'm_cost'                    => round($materialCost, 2),
-            'mark_up'                   => round($markUp, 2),
-            'age_margins'               => round($ageMargins, 2),
-            'age_cost'                  => round($ageCost, 2),
-            'glovo_selling_price'       => round($glovoSellingPrice, 2),
-            'glovo_commission'          => round($glovoCommission, 2),
-            'final_margin'              => round($finalMargin, 2),
-        ];
-
-        $menuItem->update($updateData);
-
-        Log::info('Menu Item Updated', ['new_name' => $menuItem->name, 'id' => $menuItem->id]);
-
-        // Handle ingredients (update existing, create new, delete removed)
-        $existingRecipeIds = $menuItem->recipeItems->pluck('id')->toArray();
-        $processedIds = [];
-
-        if ($request->has('ingredients')) {
-            foreach ($request->ingredients as $ingredientData) {
-                if (isset($ingredientData['recipe_id']) && !empty($ingredientData['recipe_id'])) {
-                    $recipeItem = RecipeItem::find($ingredientData['recipe_id']);
-                    if ($recipeItem && $recipeItem->menu_item_id == $menuItem->id) {
+            // Calculate material cost from ingredients
+            $materialCost = 0;
+            if ($request->has('ingredients')) {
+                foreach ($request->ingredients as $ingredientData) {
+                    if (isset($ingredientData['quantity']) && $ingredientData['quantity'] > 0) {
                         $qtyInBaseUnit = $this->convertToBaseUnit(
                             $ingredientData['quantity'],
                             $ingredientData['unit'],
                             $ingredientData['base_unit']
                         );
-                        $recipeItem->update([
-                            'quantity_required'   => $qtyInBaseUnit,
-                            'wastage_percentage'  => $ingredientData['wastage_percentage'] ?? 0,
-                            'unit_cost_at_creation' => $ingredientData['unit_cost'],
-                        ]);
-                        $processedIds[] = $recipeItem->id;
+                        $materialCost += $qtyInBaseUnit * $ingredientData['unit_cost'] * (1 + ($ingredientData['wastage_percentage'] ?? 0) / 100);
                     }
-                } elseif (isset($ingredientData['inventory_item_id']) && !empty($ingredientData['inventory_item_id'])) {
-                    $unitOfMeasure = UnitOfMeasure::where('code', $ingredientData['unit'])
-                        ->orWhere('symbol', $ingredientData['unit'])
-                        ->first();
-                    if (!$unitOfMeasure) {
-                        $unitOfMeasure = UnitOfMeasure::create([
-                            'code' => $ingredientData['unit'],
-                            'name' => $ingredientData['unit'],
-                            'symbol' => $ingredientData['unit'],
-                            'is_active' => true,
-                        ]);
-                    }
-                    $qtyInBaseUnit = $this->convertToBaseUnit(
-                        $ingredientData['quantity'],
-                        $ingredientData['unit'],
-                        $ingredientData['base_unit']
-                    );
-                    RecipeItem::create([
-                        'menu_item_id'        => $menuItem->id,
-                        'inventory_item_id'   => $ingredientData['inventory_item_id'],
-                        'quantity_required'   => $qtyInBaseUnit,
-                        'unit_of_measure_id'  => $unitOfMeasure->id,
-                        'wastage_percentage'  => $ingredientData['wastage_percentage'] ?? 0,
-                        'unit_cost_at_creation' => $ingredientData['unit_cost'],
-                        'sort_order' => 0,
-                    ]);
                 }
             }
+
+            // Calculate selling price and margin
+            $sellingPrice = 0;
+            $ageMargins = 0;
+
+            if ($pricingMode === 'price') {
+                $sellingPrice = floatval($validated['selling_price'] ?? 0);
+                if ($sellingPrice > 0 && $materialCost > 0) {
+                    $ageMargins = (($sellingPrice - $materialCost) / $sellingPrice) * 100;
+                }
+            } else {
+                $desiredMargin = floatval($validated['desired_margin'] ?? 0);
+                if ($desiredMargin > 0 && $desiredMargin < 100 && $materialCost > 0) {
+                    $sellingPrice = $materialCost / (1 - $desiredMargin / 100);
+                    $ageMargins = $desiredMargin;
+                }
+            }
+
+            // VAT CALCULATION
+            $vatRate = 18;
+            $vatInclusive = true;
+            $vatData = $this->calculateVat($sellingPrice, $vatRate, $vatInclusive);
+            $netPriceForMargin = $this->getNetPriceForMargin($vatInclusive, $vatRate, $sellingPrice);
+
+            if ($vatInclusive && $vatRate > 0 && $sellingPrice > 0 && $materialCost > 0) {
+                $ageMargins = (($netPriceForMargin - $materialCost) / $netPriceForMargin) * 100;
+                $markUp = $netPriceForMargin - $materialCost;
+                $ageCost = ($materialCost / $netPriceForMargin) * 100;
+            } else {
+                $markUp = $sellingPrice - $materialCost;
+                $ageCost = ($sellingPrice > 0 && $materialCost > 0) ? ($materialCost / $sellingPrice) * 100 : 0;
+            }
+
+            // Glovo calculations
+            $commissionPct = floatval($validated['glovo_commission_percentage'] ?? 20);
+            $glovoSellingPrice = $sellingPrice * (1 + $commissionPct / 100);
+            $glovoCommission = $glovoSellingPrice * ($commissionPct / 100);
+            $finalMargin = $glovoSellingPrice - $materialCost - $glovoCommission;
+
+            $itemIsActive = !empty($validated['is_active']) && $validated['is_active'] === '1';
+
+            $updateData = [
+                'name'                      => $validated['name'],
+                'menu_id'                   => $validated['menu_id'],
+                'description'               => $validated['description'] ?? null,
+                'menu_item_category_id'     => $validated['menu_item_category_id'] ?? null,
+                'selling_price'             => round($sellingPrice, 2),
+                'is_active'                 => $itemIsActive,
+                'allergen_info'             => $validated['allergen_info'] ?? null,
+                'updated_by'                => Auth::id(),
+                'm_cost'                    => round($materialCost, 2),
+                'mark_up'                   => round($markUp, 2),
+                'age_margins'               => round($ageMargins, 2),
+                'age_cost'                  => round($ageCost, 2),
+                'glovo_selling_price'       => round($glovoSellingPrice, 2),
+                'glovo_commission'          => round($glovoCommission, 2),
+                'final_margin'              => round($finalMargin, 2),
+                'vat_rate'                  => $vatRate,
+                'vat_amount'                => $vatData['vat_amount'],
+                'vat_inclusive'             => $vatInclusive,
+                'net_price'                 => $vatData['net_price'],
+            ];
+
+            $menuItem->update($updateData);
+
+            // Handle ingredients (update existing, create new, delete removed)
+            $existingRecipeIds = $menuItem->recipeItems->pluck('id')->toArray();
+            $processedIds = [];
+
+            if ($request->has('ingredients')) {
+                foreach ($request->ingredients as $ingredientData) {
+                    if (isset($ingredientData['recipe_id']) && !empty($ingredientData['recipe_id'])) {
+                        $recipeItem = RecipeItem::find($ingredientData['recipe_id']);
+                        if ($recipeItem && $recipeItem->menu_item_id == $menuItem->id) {
+                            $qtyInBaseUnit = $this->convertToBaseUnit(
+                                $ingredientData['quantity'],
+                                $ingredientData['unit'],
+                                $ingredientData['base_unit']
+                            );
+                            $recipeItem->update([
+                                'quantity_required'   => $qtyInBaseUnit,
+                                'wastage_percentage'  => $ingredientData['wastage_percentage'] ?? 0,
+                                'unit_cost_at_creation' => $ingredientData['unit_cost'],
+                            ]);
+                            $processedIds[] = $recipeItem->id;
+                        }
+                    } elseif (isset($ingredientData['inventory_item_id']) && !empty($ingredientData['inventory_item_id'])) {
+                        $unitOfMeasure = UnitOfMeasure::where('code', $ingredientData['unit'])
+                            ->orWhere('symbol', $ingredientData['unit'])
+                            ->first();
+                        if (!$unitOfMeasure) {
+                            $unitOfMeasure = UnitOfMeasure::create([
+                                'code' => $ingredientData['unit'],
+                                'name' => $ingredientData['unit'],
+                                'symbol' => $ingredientData['unit'],
+                                'is_active' => true,
+                            ]);
+                        }
+                        $qtyInBaseUnit = $this->convertToBaseUnit(
+                            $ingredientData['quantity'],
+                            $ingredientData['unit'],
+                            $ingredientData['base_unit']
+                        );
+                        RecipeItem::create([
+                            'menu_item_id'        => $menuItem->id,
+                            'inventory_item_id'   => $ingredientData['inventory_item_id'],
+                            'quantity_required'   => $qtyInBaseUnit,
+                            'unit_of_measure_id'  => $unitOfMeasure->id,
+                            'wastage_percentage'  => $ingredientData['wastage_percentage'] ?? 0,
+                            'unit_cost_at_creation' => $ingredientData['unit_cost'],
+                            'sort_order' => 0,
+                        ]);
+                    }
+                }
+            }
+
+            // Delete removed ingredients
+            $deletedIds = array_diff($existingRecipeIds, $processedIds);
+            if (!empty($deletedIds)) {
+                RecipeItem::whereIn('id', $deletedIds)->delete();
+            }
+
+            Log::info('Menu item updated', [
+                'user_id' => Auth::id(),
+                'menu_item_id' => $menuItem->id,
+                'menu_item_name' => $menuItem->name,
+            ]);
+
+            return redirect()->route('management.menu-items.index')
+                ->with('success', "Menu item '{$menuItem->name}' updated successfully.");
         }
-
-        // Delete removed ingredients
-        $deletedIds = array_diff($existingRecipeIds, $processedIds);
-        if (!empty($deletedIds)) {
-            RecipeItem::whereIn('id', $deletedIds)->delete();
-        }
-
-        // Final recalculation
-        $this->updateMenuItemMaterialCost($menuItem->id);
-
-        return redirect()->route('management.menu-items.index')
-            ->with('success', "Menu item '{$menuItem->name}' updated successfully.");
 
     } catch (\Exception $e) {
         Log::error('Menu item update failed', [
@@ -745,68 +997,87 @@ public function updateMenuItem(Request $request, $id)
     /**
      * Get item recipe with full details for modal (AJAX)
      */
-    public function getMenuItemRecipe($id)
-    {
-        if (!$this->checkAuthorization()) {
-            return response()->json(['success' => false, 'message' => 'Unauthorized'], 403);
+public function getMenuItemRecipe($id)
+{
+    if (!$this->checkAuthorization()) {
+        return response()->json(['success' => false, 'message' => 'Unauthorized'], 403);
+    }
+
+    try {
+        $menuItem = MenuItem::findOrFail($id);
+        $recipeItems = RecipeItem::with(['inventoryItem', 'unitOfMeasure'])
+            ->where('menu_item_id', $id)
+            ->get();
+
+        $materialCost = 0;
+        $ingredients = [];
+
+        foreach ($recipeItems as $ri) {
+            if ($ri->inventoryItem) {
+                $cost = $ri->quantity_required * $ri->inventoryItem->unit_cost;
+                if ($ri->wastage_percentage > 0) {
+                    $cost *= (1 + $ri->wastage_percentage / 100);
+                }
+                $materialCost += $cost;
+
+                $ingredients[] = [
+                    'name' => $ri->inventoryItem->name,
+                    'quantity' => $ri->quantity_required,
+                    'unit' => $ri->inventoryItem->base_unit,
+                    'unit_cost' => $ri->inventoryItem->unit_cost,
+                    'total_cost' => $cost,
+                    'wastage_percentage' => $ri->wastage_percentage,
+                ];
+            }
         }
 
-        try {
-            $menuItem = MenuItem::findOrFail($id);
-            $recipeItems = RecipeItem::with(['inventoryItem', 'unitOfMeasure'])
-                ->where('menu_item_id', $id)
-                ->get();
-
-            $materialCost = 0;
-            $ingredients = [];
-
-            foreach ($recipeItems as $ri) {
-                if ($ri->inventoryItem) {
-                    $cost = $ri->quantity_required * $ri->inventoryItem->unit_cost;
-                    if ($ri->wastage_percentage > 0) {
-                        $cost *= (1 + $ri->wastage_percentage / 100);
-                    }
-                    $materialCost += $cost;
-
-                    $ingredients[] = [
-                        'name' => $ri->inventoryItem->name,
-                        'quantity' => $ri->quantity_required,
-                        'unit' => $ri->inventoryItem->base_unit,
-                        'unit_cost' => $ri->inventoryItem->unit_cost,
-                        'total_cost' => $cost,
-                        'wastage_percentage' => $ri->wastage_percentage,
-                    ];
-                }
-            }
-
+        // FIX: For items with no recipes (beverages), use stored m_cost and age_margins
+        if ($recipeItems->isEmpty()) {
+            $materialCost = $menuItem->m_cost ?? 0;
+            $margin = $menuItem->age_margins ?? 0;
+        } else {
             $commissionPct = 20;
             $glovoSellingPrice = $menuItem->glovo_selling_price ?? ($menuItem->selling_price * (1 + $commissionPct / 100));
             $glovoCommission = $menuItem->glovo_commission ?? ($glovoSellingPrice * ($commissionPct / 100));
             $finalMargin = $menuItem->final_margin ?? ($glovoSellingPrice - $materialCost - $glovoCommission);
-            $margin = ($menuItem->selling_price > 0 && $materialCost > 0)
-                ? (($menuItem->selling_price - $materialCost) / $menuItem->selling_price) * 100
-                : 0;
 
-            return response()->json([
-                'success' => true,
-                'item' => [
-                    'id' => $menuItem->id,
-                    'name' => $menuItem->name,
-                    'description' => $menuItem->description,
-                    'selling_price' => $menuItem->selling_price,
-                    'material_cost' => $materialCost,
-                    'margin' => $margin,
-                    'glovo_selling_price' => $glovoSellingPrice,
-                    'glovo_commission' => $glovoCommission,
-                    'final_margin' => $finalMargin,
-                    'allergen_info' => $menuItem->allergen_info,
-                ],
-                'ingredients' => $ingredients
-            ]);
-        } catch (\Exception $e) {
-            return response()->json(['success' => false, 'message' => 'Failed to load recipe: ' . $e->getMessage()], 500);
+            // Use net price for margin calculation if VAT inclusive
+            $netPriceForMargin = $menuItem->vat_inclusive && $menuItem->vat_rate > 0
+                ? $menuItem->selling_price / (1 + ($menuItem->vat_rate / 100))
+                : $menuItem->selling_price;
+
+            $margin = ($netPriceForMargin > 0 && $materialCost > 0)
+                ? (($netPriceForMargin - $materialCost) / $netPriceForMargin) * 100
+                : 0;
         }
+
+        return response()->json([
+            'success' => true,
+            'item' => [
+                'id' => $menuItem->id,
+                'name' => $menuItem->name,
+                'description' => $menuItem->description,
+                'selling_price' => $menuItem->selling_price,
+                'material_cost' => $materialCost,
+                'margin' => $margin,
+                'age_margins' => $menuItem->age_margins ?? $margin,
+                'glovo_selling_price' => $menuItem->glovo_selling_price ?? 0,
+                'glovo_commission' => $menuItem->glovo_commission ?? 0,
+                'final_margin' => $menuItem->final_margin ?? 0,
+                'allergen_info' => $menuItem->allergen_info,
+                'inventory_item_id' => $menuItem->inventory_item_id,
+                // VAT fields
+                'vat_rate' => $menuItem->vat_rate ?? 18,
+                'vat_amount' => $menuItem->vat_amount ?? 0,
+                'vat_inclusive' => $menuItem->vat_inclusive ?? true,
+                'net_price' => $menuItem->net_price ?? $menuItem->selling_price,
+            ],
+            'ingredients' => $ingredients
+        ]);
+    } catch (\Exception $e) {
+        return response()->json(['success' => false, 'message' => 'Failed to load recipe: ' . $e->getMessage()], 500);
     }
+}
 
     // =====================================================
     // RECIPE ITEMS MANAGEMENT (Helper Methods)
@@ -832,14 +1103,24 @@ public function updateMenuItem(Request $request, $id)
 
         $menuItem = MenuItem::find($menuItemId);
         if ($menuItem) {
+            // Use net price for margin calculation if VAT inclusive
+            $netPriceForMargin = $menuItem->vat_inclusive && $menuItem->vat_rate > 0 && $menuItem->selling_price > 0
+                ? $menuItem->selling_price / (1 + ($menuItem->vat_rate / 100))
+                : $menuItem->selling_price;
+
             $margin = 0;
-            if ($menuItem->selling_price > 0 && $materialCost > 0) {
-                $margin = (($menuItem->selling_price - $materialCost) / $menuItem->selling_price) * 100;
+            if ($netPriceForMargin > 0 && $materialCost > 0) {
+                $margin = (($netPriceForMargin - $materialCost) / $netPriceForMargin) * 100;
             }
+
+            $markUp = $netPriceForMargin - $materialCost;
+            $ageCost = ($netPriceForMargin > 0 && $materialCost > 0) ? ($materialCost / $netPriceForMargin) * 100 : 0;
 
             $menuItem->update([
                 'm_cost'      => round($materialCost, 2),
                 'age_margins' => round($margin, 2),
+                'mark_up'     => round($markUp, 2),
+                'age_cost'    => round($ageCost, 2),
             ]);
         }
     }

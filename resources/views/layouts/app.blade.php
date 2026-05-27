@@ -5,7 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>Patio Bella - Inventory System</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+   <!-- <script src="https://cdn.tailwindcss.com"></script> -->
+     @vite(['resources/css/app.css', 'resources/js/app.js'])
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <script>
         tailwind.config = {
@@ -23,171 +24,155 @@
         }
     </script>
     <style>
-        /* Sidebar — icon-only by default, expands on hover */
+        /* Sidebar — fully closed by default */
         #sidebar {
-            width: 68px;
-            transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            width: 0;
+            min-width: 0;
             overflow: hidden;
             flex-shrink: 0;
             background: #1e293b;
+            transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            position: fixed;
+            top: 0;
+            left: 0;
+            height: 100vh;
+            z-index: 100;
         }
 
-        #sidebar:hover {
+        #sidebar.open {
             width: 260px;
         }
 
-        /* Labels hidden until hover */
-        #sidebar .nav-label {
-            opacity: 0;
-            white-space: nowrap;
-            transition: opacity 0.2s ease 0.1s;
-            margin-left: 12px;
-        }
-
-        #sidebar:hover .nav-label {
-            opacity: 1;
-        }
-
-        /* Brand text */
-        #sidebar .brand-text {
-            opacity: 0;
-            max-width: 0;
-            overflow: hidden;
-            transition: opacity 0.2s ease, max-width 0.3s ease;
-            white-space: nowrap;
-        }
-
-        #sidebar:hover .brand-text {
-            opacity: 1;
-            max-width: 180px;
-        }
-
-        /* Logout label */
+        /* Labels hidden until sidebar opens */
+        #sidebar .nav-label,
+        #sidebar .brand-text,
         #sidebar .logout-label {
-            display: none;
-            margin-left: 8px;
-        }
-
-        #sidebar:hover .logout-label {
-            display: inline;
-        }
-
-        /* Logout button on hover */
-        #sidebar .logout-btn {
-            justify-content: center;
-        }
-
-        #sidebar:hover .logout-btn {
-            justify-content: flex-start;
-            padding-left: 18px;
-        }
-
-        /* Tooltip on collapsed icons - hidden on hover */
-        #sidebar:not(:hover) .nav-item {
-            position: relative;
-        }
-
-        #sidebar:not(:hover) .nav-item:hover::after {
-            content: attr(data-tooltip);
-            position: fixed;
-            left: 76px;
-            background: #f97316;
-            color: #fff;
-            font-size: 12px;
-            font-weight: 500;
-            padding: 6px 12px;
-            border-radius: 8px;
+            opacity: 0;
             white-space: nowrap;
-            z-index: 9999;
-            pointer-events: none;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-            letter-spacing: 0.5px;
+            transition: opacity 0.15s ease;
         }
 
-        /* Active nav item styling */
+        #sidebar.open .nav-label,
+        #sidebar.open .brand-text,
+        #sidebar.open .logout-label {
+            opacity: 1;
+            transition: opacity 0.2s ease 0.15s;
+        }
+
+        /* Backdrop overlay */
+        #sidebarOverlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.4);
+            z-index: 99;
+            backdrop-filter: blur(2px);
+        }
+
+        #sidebarOverlay.active {
+            display: block;
+        }
+
+        /* Active nav item */
         .nav-item.active {
             background: #f97316;
             color: white;
-            border-left: 3px solid #f97316;
         }
-
         .nav-item.active i {
             color: white;
         }
-
         .nav-item:not(.active):hover {
             background: #334155;
         }
-
-        /* Smooth transitions for all interactive elements */
         .nav-item {
             transition: all 0.2s ease;
+        }
+
+        /* Hamburger animation */
+        #toggleSidebar .bar {
+            display: block;
+            width: 20px;
+            height: 2px;
+            background: #374151;
+            border-radius: 2px;
+            transition: all 0.3s ease;
+            transform-origin: center;
+        }
+        #toggleSidebar.is-open .bar:nth-child(1) {
+            transform: translateY(6px) rotate(45deg);
+        }
+        #toggleSidebar.is-open .bar:nth-child(2) {
+            opacity: 0;
+            transform: scaleX(0);
+        }
+        #toggleSidebar.is-open .bar:nth-child(3) {
+            transform: translateY(-6px) rotate(-45deg);
         }
     </style>
 </head>
 <body class="bg-gray-100">
+
+    {{-- Backdrop — clicking this closes the sidebar --}}
+    <div id="sidebarOverlay"></div>
+
     <div class="flex min-h-screen">
 
         @auth
-        <!-- ===== SIDEBAR - HOVER TO EXPAND ===== -->
-        <div id="sidebar" class="min-h-screen flex flex-col z-50 shadow-xl">
+        <!-- ===== SIDEBAR ===== -->
+        <div id="sidebar" class="flex flex-col shadow-xl">
 
             <!-- Brand -->
-            <div class="flex items-center py-5 px-5 gap-3 border-b border-gray-700">
+            <div class="flex items-center py-5 px-5 gap-3 border-b border-gray-700 flex-shrink-0">
                 <div class="bg-primary rounded-lg p-2 flex-shrink-0">
                     <i class="fas fa-utensils text-white text-lg"></i>
                 </div>
-                <div class="brand-text">
+                <div class="brand-text flex-shrink-0">
                     <p class="text-white font-bold text-sm leading-tight">Patio Bella</p>
                     <p class="text-gray-400 text-xs">Inventory System</p>
                 </div>
             </div>
 
             <!-- Navigation Links -->
-            <nav class="mt-6 flex-1 px-2 space-y-1">
+            <nav class="mt-6 flex-1 px-2 space-y-1 overflow-hidden">
+
                 <a href="{{ route('dashboard') }}"
-                   data-tooltip="Dashboard"
-                   class="nav-item flex items-center px-3 py-3 gap-3 text-gray-300 hover:text-white rounded-lg transition-colors {{ request()->routeIs('dashboard') ? 'active' : '' }}">
+                   class="nav-link nav-item flex items-center px-3 py-3 gap-3 text-gray-300 hover:text-white rounded-lg {{ request()->routeIs('dashboard') ? 'active' : '' }}">
                     <i class="fas fa-tachometer-alt w-5 text-center flex-shrink-0 text-lg"></i>
                     <span class="nav-label text-sm font-medium">Dashboard</span>
                 </a>
 
                 <a href="{{ route('users.index') }}"
-                   data-tooltip="Users"
-                   class="nav-item flex items-center px-3 py-3 gap-3 text-gray-300 hover:text-white rounded-lg transition-colors {{ request()->routeIs('users.*') ? 'active' : '' }}">
+                   class="nav-link nav-item flex items-center px-3 py-3 gap-3 text-gray-300 hover:text-white rounded-lg {{ request()->routeIs('users.*') ? 'active' : '' }}">
                     <i class="fas fa-users w-5 text-center flex-shrink-0 text-lg"></i>
                     <span class="nav-label text-sm font-medium">Users</span>
                 </a>
 
                 <a href="{{ route('departments.index') }}"
-                   data-tooltip="Departments"
-                   class="nav-item flex items-center px-3 py-3 gap-3 text-gray-300 hover:text-white rounded-lg transition-colors {{ request()->routeIs('departments.*') ? 'active' : '' }}">
+                   class="nav-link nav-item flex items-center px-3 py-3 gap-3 text-gray-300 hover:text-white rounded-lg {{ request()->routeIs('departments.*') ? 'active' : '' }}">
                     <i class="fas fa-building w-5 text-center flex-shrink-0 text-lg"></i>
                     <span class="nav-label text-sm font-medium">Departments</span>
                 </a>
 
                 <a href="{{ route('roles.index') }}"
-                   data-tooltip="Roles"
-                   class="nav-item flex items-center px-3 py-3 gap-3 text-gray-300 hover:text-white rounded-lg transition-colors {{ request()->routeIs('roles.*') ? 'active' : '' }}">
+                   class="nav-link nav-item flex items-center px-3 py-3 gap-3 text-gray-300 hover:text-white rounded-lg {{ request()->routeIs('roles.*') ? 'active' : '' }}">
                     <i class="fas fa-user-tag w-5 text-center flex-shrink-0 text-lg"></i>
                     <span class="nav-label text-sm font-medium">Roles</span>
                 </a>
 
                 <a href="{{ route('permissions.index') }}"
-                   data-tooltip="Permissions"
-                   class="nav-item flex items-center px-3 py-3 gap-3 text-gray-300 hover:text-white rounded-lg transition-colors {{ request()->routeIs('permissions.*') ? 'active' : '' }}">
+                   class="nav-link nav-item flex items-center px-3 py-3 gap-3 text-gray-300 hover:text-white rounded-lg {{ request()->routeIs('permissions.*') ? 'active' : '' }}">
                     <i class="fas fa-key w-5 text-center flex-shrink-0 text-lg"></i>
                     <span class="nav-label text-sm font-medium">Permissions</span>
                 </a>
+
             </nav>
 
-            <!-- Logout Section -->
-            <div class="p-3 mb-4 border-t border-gray-700">
+            <!-- Logout -->
+            <div class="p-3 mb-4 border-t border-gray-700 flex-shrink-0">
                 <form method="POST" action="{{ route('logout') }}">
                     @csrf
                     <button type="submit"
-                            data-tooltip="Logout"
-                            class="logout-btn nav-item w-full bg-red-600 hover:bg-red-700 text-white px-3 py-3 rounded-lg transition flex items-center gap-3">
+                            class="nav-item w-full bg-red-600 hover:bg-red-700 text-white px-3 py-3 rounded-lg flex items-center gap-3">
                         <i class="fas fa-sign-out-alt w-5 text-center flex-shrink-0 text-lg"></i>
                         <span class="logout-label text-sm font-medium">Logout</span>
                     </button>
@@ -202,11 +187,21 @@
 
             <!-- Navbar -->
             <nav class="bg-white shadow-md border-b border-gray-200 sticky top-0 z-40">
-                <div class="px-6 py-4 flex items-center justify-between gap-4">
+                <div class="px-4 py-4 flex items-center justify-between gap-4">
 
-                    <!-- Left: page title -->
+                    <!-- Left: hamburger + page title -->
                     <div class="flex items-center gap-3">
-                        <h1 class="text-2xl font-bold bg-gradient-to-r from-orange-600 to-amber-600 bg-clip-text text-transparent">
+                        @auth
+                        <button id="toggleSidebar"
+                                class="flex flex-col gap-1.5 p-2 rounded-lg hover:bg-gray-100 transition-colors focus:outline-none"
+                                aria-label="Toggle sidebar">
+                            <span class="bar"></span>
+                            <span class="bar"></span>
+                            <span class="bar"></span>
+                        </button>
+                        @endauth
+
+                        <h1 class="text-xl font-bold bg-gradient-to-r from-orange-600 to-amber-600 bg-clip-text text-transparent">
                             @yield('title', 'Patio Bella')
                         </h1>
                     </div>
@@ -215,7 +210,7 @@
                     @auth
                     <div class="relative">
                         <button class="flex items-center text-gray-700 hover:text-primary focus:outline-none gap-3 px-3 py-2 rounded-lg hover:bg-gray-50 transition-colors" id="userMenuButton">
-                            <div class="bg-gradient-to-r from-orange-500 to-amber-500 rounded-full w-8 h-8 flex items-center justify-center">
+                            <div class="bg-gradient-to-r from-orange-500 to-amber-500 rounded-full w-8 h-8 flex items-center justify-center flex-shrink-0">
                                 <i class="fas fa-user text-white text-sm"></i>
                             </div>
                             <span class="hidden sm:inline text-sm font-medium">{{ Auth::user()->first_name }}</span>
@@ -279,7 +274,63 @@
     </div>
 
     <script>
-        // User menu dropdown
+        const sidebar   = document.getElementById('sidebar');
+        const toggleBtn = document.getElementById('toggleSidebar');
+        const overlay   = document.getElementById('sidebarOverlay');
+
+        function openSidebar() {
+            sidebar.classList.add('open');
+            toggleBtn && toggleBtn.classList.add('is-open');
+            overlay.classList.add('active');
+        }
+
+        function closeSidebar() {
+            sidebar.classList.remove('open');
+            toggleBtn && toggleBtn.classList.remove('is-open');
+            overlay.classList.remove('active');
+        }
+
+        // Hamburger toggle button
+        if (toggleBtn) {
+            toggleBtn.addEventListener('click', function (e) {
+                e.stopPropagation();
+                sidebar.classList.contains('open') ? closeSidebar() : openSidebar();
+            });
+        }
+
+        // Click on backdrop → close
+        overlay.addEventListener('click', closeSidebar);
+
+        // Click anywhere outside the sidebar → close
+        document.addEventListener('click', function (e) {
+            if (
+                sidebar.classList.contains('open') &&
+                !sidebar.contains(e.target) &&
+                toggleBtn && !toggleBtn.contains(e.target)
+            ) {
+                closeSidebar();
+            }
+        });
+
+        // Click on a nav link → close sidebar, then navigate
+        document.querySelectorAll('#sidebar .nav-link').forEach(function (link) {
+            link.addEventListener('click', function (e) {
+                e.preventDefault();
+                const href = this.getAttribute('href');
+                closeSidebar();
+                // Small delay so the close animation plays before navigating
+                setTimeout(function () {
+                    window.location.href = href;
+                }, 280);
+            });
+        });
+
+        // Escape key → close
+        document.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape') closeSidebar();
+        });
+
+        // ── User menu dropdown ──────────────────────────────────────────
         const userMenuBtn      = document.getElementById('userMenuButton');
         const userMenuDropdown = document.getElementById('userMenuDropdown');
 

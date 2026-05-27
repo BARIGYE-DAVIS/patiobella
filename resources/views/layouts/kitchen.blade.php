@@ -134,7 +134,7 @@
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
                 </svg>
             </button>
-            
+
         </div>
     </div>
 
@@ -165,11 +165,11 @@
 
 <!-- Add this inside the <nav> section, after existing links -->
 
-<a href="{{ route('kitchen.consumption.index') }}"
+<a href="{{ route('kitchen.order-tickets') }}"
    class="flex items-center px-4 py-3 text-sm hover:bg-orange-700 transition sidebar-nav-link
-          {{ request()->routeIs('kitchen.consumption.*') ? 'sidebar-active' : '' }}">
+          {{ request()->routeIs('kitchen.order-tickets') ? 'sidebar-active' : '' }}">
     <i class="fas fa-fire w-5 h-5 mr-3"></i>
-    <span>Record Consumption</span>
+    <span>Order Tickets</span>
 </a>
     </nav>
 

@@ -47,6 +47,10 @@ class MenuItem extends Model
         'created_at',
         'updated_at',
         'deleted_at',
+        'vat_rate',
+        'vat_amount',
+        'vat_inclusive',
+        'net_price',
     ];
 
     protected $casts = [
@@ -73,6 +77,11 @@ class MenuItem extends Model
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
         'deleted_at' => 'datetime',
+
+        'vat_rate' => 'decimal:2',
+        'vat_amount' => 'decimal:2',
+        'vat_inclusive' => 'boolean',
+        'net_price' => 'decimal:2',
     ];
 
     // =====================================================
@@ -112,6 +121,11 @@ class MenuItem extends Model
         return $this->belongsTo(User::class, 'updated_by');
     }
 
+
+    public function menuItemCategory()
+{
+    return $this->belongsTo(MenuItemCategory::class, 'menu_item_category_id');
+}
     // =====================================================
     // Scopes
     // =====================================================

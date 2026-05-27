@@ -212,4 +212,12 @@ class DepartmentRequisitionItem extends Model
     {
         return $query->where('quantity_approved', '>', 0);
     }
+
+
+    // In app/Models/DepartmentRequisitionItem.php
+public function requisition()
+{
+    return $this->belongsTo(DepartmentRequisition::class, 'department_requisition_id');
+}
+
 }

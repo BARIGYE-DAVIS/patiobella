@@ -14,10 +14,15 @@ class SalesOrder extends Model
 
     protected $fillable = [
         'order_number',
-        'cashier_id',
-        'department_id',      // ✅ already here - good
-        'customer_type',
+        'table_id',           // ✅ ADDED - was missing
         'table_number',
+        'waiter_id',          // ✅ ADDED - was missing
+        'cashier_id',
+        'department_id',
+        'customer_type',
+        'customer_name',
+        'customer_phone',
+        'notes',
         'subtotal',
         'tax_amount',
         'total_amount',
@@ -25,7 +30,7 @@ class SalesOrder extends Model
         'change_amount',
         'payment_method',
         'status',
-        'payment_status',     // ✅ was MISSING - now added
+        'payment_status',
         'created_by',
         'updated_by',
     ];
@@ -56,6 +61,20 @@ class SalesOrder extends Model
     const PAYMENT_CARD         = 'card';
     const PAYMENT_MOBILE_MONEY = 'mobile_money';
 
+    // =====================================================
+    // Relationships
+    // =====================================================
+
+    public function table()
+    {
+        return $this->belongsTo(RestaurantTable::class, 'table_id');
+    }
+
+    public function waiter()
+    {
+        return $this->belongsTo(User::class, 'waiter_id');
+    }
+
     public function cashier()
     {
         return $this->belongsTo(User::class, 'cashier_id');
@@ -81,6 +100,10 @@ class SalesOrder extends Model
         return $this->belongsTo(User::class, 'updated_by');
     }
 
+    // =====================================================
+    // Scopes
+    // =====================================================
+
     public function scopeCompleted($query)
     {
         return $query->where('status', self::STATUS_COMPLETED);
@@ -96,6 +119,20 @@ class SalesOrder extends Model
         return $query->whereDate('created_at', $date);
     }
 
+    public function scopeByWaiter($query, $waiterId)
+    {
+        return $query->where('waiter_id', $waiterId);
+    }
+
+    public function scopeUnpaid($query)
+    {
+        return $query->where('payment_status', self::PAYMENT_UNPAID);
+    }
+
+    // =====================================================
+    // Accessors
+    // =====================================================
+
     public function getFormattedTotalAttribute()
     {
         return 'UGX ' . number_format($this->total_amount, 2);
@@ -107,9 +144,16 @@ class SalesOrder extends Model
             self::STATUS_PENDING   => '<span class="badge-pending">Pending</span>',
             self::STATUS_COMPLETED => '<span class="badge-approved">Completed</span>',
             self::STATUS_CANCELLED => '<span class="badge-rejected">Cancelled</span>',
-            self::PAYMENT_UNPAID        => '<span class="badge-unpaid">Unpaid</span>',
-            self::PAYMENT_PAID         => '<span class="badge-paid">Paid</span>',
         ];
         return $badges[$this->status] ?? '<span class="badge-pending">' . $this->status . '</span>';
+    }
+
+    public function getPaymentBadgeAttribute()
+    {
+        $badges = [
+            self::PAYMENT_UNPAID => '<span class="badge-unpaid">Unpaid</span>',
+            self::PAYMENT_PAID   => '<span class="badge-paid">Paid</span>',
+        ];
+        return $badges[$this->payment_status] ?? '<span class="badge-unpaid">' . $this->payment_status . '</span>';
     }
 }

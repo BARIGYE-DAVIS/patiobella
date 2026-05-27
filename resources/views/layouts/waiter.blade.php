@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <title>@yield('title', 'Cashier Module') - {{ config('app.name') }}</title>
+    <title>@yield('title', 'Waiter Module') - {{ config('app.name') }}</title>
 
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -17,6 +17,9 @@
         }
         .sidebar-active {
             background-color: #ea580c;
+            color: white;
+        }
+        .sidebar-active svg {
             color: white;
         }
         .sidebar-active i {
@@ -101,6 +104,10 @@
             }
         }
 
+        .no-print {
+            print-color-adjust: exact;
+        }
+
         .toast-notification {
             animation: slideIn 0.3s ease;
         }
@@ -120,8 +127,8 @@
     <div class="p-4 border-b border-orange-700">
         <div class="flex justify-between items-center">
             <div>
-                <h2 class="text-xl font-bold">CASHIER</h2>
-                <p class="text-xs text-orange-300 mt-1">Payment Processing</p>
+                <h2 class="text-xl font-bold">WAITER</h2>
+                <p class="text-xs text-orange-300 mt-1">Food & Beverage Service</p>
             </div>
             <button id="closeSidebarBtn" class="text-white hover:text-gray-300 bg-transparent border-none cursor-pointer p-1 rounded">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -132,11 +139,25 @@
     </div>
 
     <nav class="mt-6">
-        <a href="{{ route('cashier.index') }}"
+        <a href="{{ route('waiter.dashboard') }}"
            class="flex items-center px-4 py-3 text-sm hover:bg-orange-700 transition sidebar-nav-link
-                  {{ request()->routeIs('cashier.index') ? 'sidebar-active' : '' }}">
-            <i class="fas fa-cash-register w-5 h-5 mr-3"></i>
-            Dashboard
+                  {{ request()->routeIs('waiter.dashboard') ? 'sidebar-active' : '' }}">
+            <i class="fas fa-concierge-bell w-5 h-5 mr-3"></i>
+            Take Order
+        </a>
+
+        <a href="{{ route('waiter.bills.index') }}"
+           class="flex items-center px-4 py-3 text-sm hover:bg-orange-700 transition sidebar-nav-link
+                  {{ request()->routeIs('waiter.bills.*') ? 'sidebar-active' : '' }}">
+            <i class="fas fa-receipt w-5 h-5 mr-3"></i>
+            Bills
+        </a>
+
+        <a href="{{ route('waiter.active-orders') }} "
+           class="flex items-center px-4 py-3 text-sm hover:bg-orange-700 transition sidebar-nav-link hidden
+                  {{ request()->routeIs('waiter.active-orders') ? 'sidebar-active' : '' }}">
+            <i class="fas fa-clipboard-list w-5 h-5 mr-3"></i>
+            Active Orders
         </a>
     </nav>
 
@@ -144,19 +165,21 @@
         <div class="flex items-center">
             <div class="w-8 h-8 rounded-full bg-orange-600 flex items-center justify-center flex-shrink-0">
                 <span class="text-sm font-bold">
-                    {{ substr(Auth::user()->first_name ?? 'C', 0, 1) }}{{ substr(Auth::user()->last_name ?? '', 0, 1) }}
+                    {{ substr(Auth::user()->first_name ?? 'W', 0, 1) }}{{ substr(Auth::user()->last_name ?? '', 0, 1) }}
                 </span>
             </div>
             <div class="ml-3 overflow-hidden">
                 <p class="text-sm font-medium truncate">{{ Auth::user()->first_name }} {{ Auth::user()->last_name }}</p>
-                <p class="text-xs text-orange-300">Cashier</p>
+                <p class="text-xs text-orange-300">Waiter</p>
             </div>
         </div>
 
         <a href="{{ route('logout') }}"
            onclick="event.preventDefault(); document.getElementById('logout-form').submit();"
            class="mt-3 flex items-center text-sm text-orange-300 hover:text-white transition">
-            <i class="fas fa-sign-out-alt w-4 h-4 mr-2"></i>
+            <svg class="w-4 h-4 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
+            </svg>
             Logout
         </a>
         <form id="logout-form" action="{{ route('logout') }}" method="POST" class="hidden">@csrf</form>
@@ -171,8 +194,8 @@
             </svg>
         </button>
         <div>
-            <div class="text-base font-semibold text-orange-900">Cashier Panel</div>
-            <div class="text-xs text-gray-500">Payment Processing</div>
+            <div class="text-base font-semibold text-orange-900">Waiter Panel</div>
+            <div class="text-xs text-gray-500">Order Management</div>
         </div>
     </div>
 
@@ -181,10 +204,18 @@
             <i class="fas fa-clock mr-1"></i>
             <span id="liveClock"></span>
         </div>
+
         <a href="{{ route('dashboard') }}" class="text-gray-600 hover:text-gray-800 text-sm hidden sm:inline-flex items-center gap-1">
             <i class="fas fa-tachometer-alt"></i>
             <span>Main Dashboard</span>
         </a>
+
+        <div class="relative">
+            <button id="notificationBell" class="relative text-gray-600 hover:text-gray-800 p-1" aria-label="Notifications">
+                <i class="fas fa-bell text-lg"></i>
+                <span id="notificationBadge" class="absolute -top-1 -right-1 bg-red-600 text-white text-xs rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1 hidden">0</span>
+            </button>
+        </div>
     </div>
 </div>
 
@@ -255,7 +286,7 @@
 
         toast.className = `toast-notification ${bgColor} text-white px-5 py-3 rounded-lg shadow-lg flex items-center gap-3 min-w-[250px]`;
         toast.innerHTML = `<i class="fas ${icon}"></i><span>${message}</span>`;
-        container.appendChild(toast);
+        document.getElementById('toastContainer').appendChild(toast);
 
         setTimeout(() => {
             toast.style.opacity = '0';
@@ -264,6 +295,26 @@
             setTimeout(() => toast.remove(), 300);
         }, 3000);
     }
+
+    function fetchActiveOrdersCount() {
+        fetch('{{ route("waiter.active-orders") }}')
+            .then(response => response.json())
+            .then(orders => {
+                const badge = document.getElementById('notificationBadge');
+                if (orders && orders.length > 0) {
+                    badge.textContent = orders.length;
+                    badge.classList.remove('hidden');
+                } else {
+                    badge.classList.add('hidden');
+                }
+            })
+            .catch(err => console.error('Error fetching orders:', err));
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        fetchActiveOrdersCount();
+        setInterval(fetchActiveOrdersCount, 30000);
+    });
 </script>
 
 @stack('scripts')

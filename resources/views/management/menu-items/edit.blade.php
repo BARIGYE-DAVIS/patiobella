@@ -1,5 +1,3 @@
-{{-- resources/views/management/menu-items/edit.blade.php --}}
-
 @extends('layouts.management')
 
 @section('title', 'Edit Menu Item')
@@ -73,7 +71,6 @@
 @section('content')
 <div class="max-w-5xl mx-auto px-4 pb-16">
 
-    {{-- Flash messages --}}
     @if(session('success'))
         <div class="mb-4 px-4 py-3 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl text-sm flex items-center gap-2">
             <i class="fas fa-check-circle text-emerald-500"></i> {{ session('success') }}
@@ -113,7 +110,11 @@
         @method('PUT')
         <input type="hidden" name="pricing_mode" id="pricing_mode_hidden" value="{{ old('pricing_mode', $menuItem->age_margins > 0 ? 'margin' : 'price') }}">
 
-        {{-- Section 1: Basic Information --}}
+        @php
+            $isBeverage = $menuItem->inventory_item_id && $menuItem->recipeItems->isEmpty();
+        @endphp
+        <input type="hidden" name="item_type" id="item_type_hidden" value="{{ $isBeverage ? 'beverage' : 'recipe' }}">
+
         <div class="bg-white rounded-2xl border border-gray-200 shadow-sm mb-6 overflow-hidden">
             <div class="flex items-center gap-3 px-6 py-4 border-b border-gray-100 bg-gray-50">
                 <span class="flex items-center justify-center w-7 h-7 rounded-full bg-orange-100 text-orange-600 text-xs font-bold">1</span>
@@ -186,11 +187,33 @@
                         </label>
                     </div>
                 </div>
+
+                {{-- Inventory Item field - only visible for beverages --}}
+                <div id="inventoryItemField" class="md:col-span-2 {{ $isBeverage ? '' : 'hidden' }}">
+                    <label class="block text-xs font-semibold text-gray-600 mb-1.5">
+                        Inventory Item <span class="text-red-500 {{ $isBeverage ? '' : 'hidden' }}">*</span>
+                    </label>
+                    <select name="inventory_item_id" id="inventory_item_id"
+                            class="w-full text-sm border border-gray-300 rounded-lg select2-inventory">
+                        <option value="">Select inventory item...</option>
+                        @foreach($inventoryItems as $item)
+                            <option value="{{ $item->id }}"
+                                    data-unit-cost="{{ $item->unit_cost }}"
+                                    data-base-unit="{{ $item->base_unit }}"
+                                    data-selling-price="{{ $item->selling_price }}"
+                                    {{ old('inventory_item_id', $menuItem->inventory_item_id) == $item->id ? 'selected' : '' }}>
+                                {{ $item->name }} ({{ $item->base_unit }} — {{ number_format($item->unit_cost, 2) }} UGX)
+                            </option>
+                        @endforeach
+                    </select>
+                    <p id="inventoryUnitCostDisplay" class="text-xs text-gray-500 mt-1"></p>
+                    @error('inventory_item_id')<p class="text-red-500 text-xs mt-1">{{ $message }}</p>@enderror
+                </div>
             </div>
         </div>
 
-        {{-- Section 2: Recipe Ingredients --}}
-        <div class="bg-white rounded-2xl border border-gray-200 shadow-sm mb-6 overflow-hidden">
+        {{-- Recipe Ingredients Section - only visible for recipe items --}}
+        <div id="recipeSection" class="bg-white rounded-2xl border border-gray-200 shadow-sm mb-6 overflow-hidden {{ $isBeverage ? 'hidden' : '' }}">
             <div class="flex items-center justify-between px-6 py-4 border-b border-gray-100 bg-gray-50">
                 <div class="flex items-center gap-3">
                     <span class="flex items-center justify-center w-7 h-7 rounded-full bg-orange-100 text-orange-600 text-xs font-bold">2</span>
@@ -262,7 +285,6 @@
                     @endforeach
                 </div>
 
-                {{-- Cost Summary --}}
                 <div class="mt-4 flex items-center justify-between px-3 py-2 bg-yellow-50 rounded-lg border border-yellow-100">
                     <span class="text-xs text-gray-600">
                         Material Cost: <strong id="materialCostDisplay" class="text-gray-900">{{ number_format($menuItem->m_cost ?? 0, 0) }} UGX</strong>
@@ -272,7 +294,6 @@
             </div>
         </div>
 
-        {{-- Section 3: Pricing --}}
         <div class="bg-white rounded-2xl border border-gray-200 shadow-sm mb-6 overflow-hidden">
             <div class="flex items-center justify-between px-6 py-4 border-b border-gray-100 bg-gray-50">
                 <div class="flex items-center gap-3">
@@ -293,36 +314,41 @@
             </div>
 
             <div class="p-6 space-y-4">
-                {{-- Price mode --}}
                 <div class="price-mode-field {{ old('pricing_mode', $menuItem->age_margins > 0 ? 'hidden' : '') }}">
                     <label class="block text-xs font-semibold text-gray-600 mb-1.5">Selling Price (UGX)</label>
                     <input type="number" name="selling_price" id="selling_price"
                            class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-100 transition"
                            placeholder="Enter selling price" step="0.01" min="0" value="{{ old('selling_price', $menuItem->selling_price) }}">
-                    <p class="text-xs text-gray-400 mt-1">Margin will be calculated automatically</p>
+                    <p class="text-xs text-gray-400 mt-1">Price customer pays (includes 18% VAT)</p>
                 </div>
 
-                {{-- Margin mode --}}
                 <div class="margin-mode-field {{ old('pricing_mode', $menuItem->age_margins > 0 ? '' : 'hidden') }}">
                     <label class="block text-xs font-semibold text-gray-600 mb-1.5">Desired Margin (%)</label>
                     <input type="number" name="desired_margin" id="desired_margin"
                            class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-100 transition"
                            placeholder="Enter desired margin %" step="0.1" min="0" max="99.9" value="{{ old('desired_margin', $menuItem->age_margins ?? '') }}">
-                    <p class="text-xs text-gray-400 mt-1">Selling price will be calculated automatically</p>
+                    <p class="text-xs text-gray-400 mt-1">Your target profit margin after VAT</p>
                 </div>
 
-                {{-- Calculated summary --}}
-                <div class="flex flex-wrap items-center gap-4 text-xs bg-gray-50 rounded-lg px-3 py-2">
-                    <span class="text-gray-600">Material Cost: <strong id="summaryMaterialCost" class="text-gray-900">{{ number_format($menuItem->m_cost ?? 0, 0) }} UGX</strong></span>
-                    <span class="text-gray-600">Margin: <strong id="summaryMargin" class="text-gray-900">{{ number_format($menuItem->age_margins ?? 0, 1) }}%</strong></span>
-                    <span class="text-gray-600">Mark Up: <strong id="summaryMarkUp" class="text-gray-900">{{ number_format($menuItem->mark_up ?? 0, 0) }} UGX</strong></span>
-                    <span class="text-gray-600">Cost %: <strong id="summaryCostPercent" class="text-gray-900">{{ number_format($menuItem->age_cost ?? 0, 1) }}%</strong></span>
+                <div class="grid grid-cols-3 gap-3 text-xs bg-gray-50 rounded-lg p-3">
+                    <div>
+                        <span class="text-gray-500">Material Cost</span>
+                        <p class="text-sm font-semibold text-gray-800" id="summaryMaterialCost">{{ number_format($menuItem->m_cost ?? 0, 0) }} UGX</p>
+                    </div>
+                    <div>
+                        <span class="text-gray-500">Markup (after VAT)</span>
+                        <p class="text-sm font-semibold text-emerald-600" id="summaryActualMarkup">{{ number_format($menuItem->mark_up ?? 0, 0) }} UGX</p>
+                    </div>
+                    <div>
+                        <span class="text-gray-500">VAT (18%)</span>
+                        <p class="text-sm font-semibold text-orange-600" id="summaryVatAmount">{{ number_format($menuItem->vat_amount ?? 0, 0) }} UGX</p>
+                    </div>
                 </div>
             </div>
         </div>
 
-        {{-- Section 4: Glovo / Delivery Platform --}}
-        <div class="bg-white rounded-2xl border border-gray-200 shadow-sm mb-6 overflow-hidden">
+        {{-- Glovo Section - only visible for recipe items --}}
+        <div id="glovoSection" class="bg-white rounded-2xl border border-gray-200 shadow-sm mb-6 overflow-hidden {{ $isBeverage ? 'hidden' : '' }}">
             <div class="flex items-center gap-3 px-6 py-4 border-b border-gray-100 bg-gray-50">
                 <span class="flex items-center justify-center w-7 h-7 rounded-full bg-orange-100 text-orange-600 text-xs font-bold">4</span>
                 <div>
@@ -337,29 +363,26 @@
                         Commission Rate (%) <span class="text-gray-400 font-normal">— charged by Glovo</span>
                     </label>
                     <input type="number" name="glovo_commission_percentage" id="glovo_commission_percentage"
-                           class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-100 transition"
-                           placeholder="e.g., 20" step="0.1" min="0" value="{{ old('glovo_commission_percentage', 20) }}">
+                           class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg bg-gray-100 cursor-not-allowed"
+                           value="20" readonly disabled>
+                    <p class="text-xs text-gray-400 mt-1">Glovo commission is fixed at 20% (non-editable)</p>
                 </div>
 
                 <div class="grid grid-cols-3 gap-3 bg-orange-50 rounded-lg px-3 py-2">
                     <div>
                         <span class="text-xs text-gray-500">Glovo Selling Price</span>
                         <p class="text-sm font-semibold text-orange-700" id="glovoPriceDisplay">{{ number_format($menuItem->glovo_selling_price ?? ($menuItem->selling_price * 1.2), 0) }} UGX</p>
-                        <p class="text-xs text-gray-400">Selling price + commission%</p>
                     </div>
                     <div>
                         <span class="text-xs text-gray-500">Glovo Commission</span>
                         <p class="text-sm font-semibold text-red-600" id="glovoCommissionDisplay">{{ number_format($menuItem->glovo_commission ?? 0, 0) }} UGX</p>
-                        <p class="text-xs text-gray-400">Commission% of Glovo price</p>
                     </div>
                     <div>
-                        <span class="text-xs text-gray-500">Final Margin</span>
+                        <span class="text-xs text-gray-500">Final Margin (Glovo)</span>
                         <p class="text-sm font-semibold text-emerald-600" id="finalMarginDisplay">{{ number_format($menuItem->final_margin ?? 0, 0) }} UGX</p>
-                        <p class="text-xs text-gray-400">Glovo price − cost − commission</p>
                     </div>
                 </div>
 
-                {{-- Hidden fields for storage --}}
                 <input type="hidden" name="glovo_selling_price" id="glovo_selling_price_hidden" value="{{ $menuItem->glovo_selling_price ?? 0 }}">
                 <input type="hidden" name="glovo_commission" id="glovo_commission_hidden" value="{{ $menuItem->glovo_commission ?? 0 }}">
                 <input type="hidden" name="final_margin" id="final_margin_hidden" value="{{ $menuItem->final_margin ?? 0 }}">
@@ -367,10 +390,11 @@
                 <input type="hidden" name="age_margins" id="age_margins_hidden" value="{{ $menuItem->age_margins ?? 0 }}">
                 <input type="hidden" name="age_cost" id="age_cost_hidden" value="{{ $menuItem->age_cost ?? 0 }}">
                 <input type="hidden" name="material_cost" id="material_cost_hidden" value="{{ $menuItem->m_cost ?? 0 }}">
+                <input type="hidden" name="vat_amount" id="vat_amount_hidden" value="{{ $menuItem->vat_amount ?? 0 }}">
+                <input type="hidden" name="net_price" id="net_price_hidden" value="{{ $menuItem->net_price ?? $menuItem->selling_price }}">
             </div>
         </div>
 
-        {{-- Form Actions --}}
         <div class="flex items-center justify-between">
             <button type="button" id="deleteMenuItemBtn"
                     class="inline-flex items-center gap-2 px-5 py-2.5 text-sm font-medium text-white bg-red-500 border border-red-500 rounded-lg hover:bg-red-600 transition-colors">
@@ -434,11 +458,29 @@
                 <div>
                     <label class="block text-xs font-semibold text-gray-600 mb-1.5">Unit</label>
                     <select id="ingredient_unit" class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-100 transition">
-                        <option value="g">g (grams)</option>
-                        <option value="ml">ml (millilitres)</option>
-                        <option value="kg">kg (kilograms)</option>
-                        <option value="litre">litre</option>
-                        <option value="piece">piece</option>
+                        <optgroup label="Weight">
+                            <option value="g">g (grams)</option>
+                            <option value="kg">kg (kilograms)</option>
+                        </optgroup>
+                        <optgroup label="Volume">
+                            <option value="ml">ml (milliliters)</option>
+                            <option value="litre">litre (liters)</option>
+                        </optgroup>
+                        <optgroup label="Count">
+                            <option value="piece">piece</option>
+                            <option value="dozen">dozen (12 pieces)</option>
+                            <option value="half_dozen">half dozen (6 pieces)</option>
+                        </optgroup>
+                        <optgroup label="Portion">
+                            <option value="portion">portion</option>
+                            <option value="serving">serving</option>
+                        </optgroup>
+                        <optgroup label="Liquid">
+                            <option value="cup">cup</option>
+                            <option value="tablespoon">tablespoon (tbsp)</option>
+                            <option value="teaspoon">teaspoon (tsp)</option>
+                            <option value="fluid_ounce">fluid ounce (fl oz)</option>
+                        </optgroup>
                     </select>
                 </div>
                 <div>
@@ -466,7 +508,6 @@
     </div>
 </div>
 
-{{-- Delete Confirmation Modal --}}
 <div id="deleteModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden items-center justify-center p-4">
     <div class="bg-white rounded-2xl max-w-md w-full overflow-hidden shadow-xl">
         <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 bg-gradient-to-r from-red-50 to-red-100">
@@ -517,18 +558,135 @@ $(document).ready(function () {
 
     let ingredientCounter = {{ $menuItem->recipeItems->count() }};
     let currentMaterialCost = parseFloat($('#material_cost_hidden').val()) || 0;
+    let isBeverage = {{ $isBeverage ? 'true' : 'false' }};
+    let selectedInventoryCost = parseFloat($('#inventory_item_id option:selected').data('unit-cost')) || 0;
+
+    $('.select2-inventory').select2({
+        placeholder: 'Search inventory item...',
+        allowClear: true,
+        width: '100%'
+    });
+
+    function formatMoney(amount) {
+        return Math.round(parseFloat(amount) || 0).toLocaleString('en-UG') + ' UGX';
+    }
 
     function fmtUGX(n) {
-        return Number(n || 0).toLocaleString('en-UG', { maximumFractionDigits: 0 }) + ' UGX';
+        return formatMoney(n);
     }
 
     function convertToBaseUnit(qty, fromUnit, toBaseUnit) {
         let v = parseFloat(qty);
         if (isNaN(v)) return 0;
-        if (toBaseUnit === 'kg')    { if (fromUnit === 'g') return v / 1000;  if (fromUnit === 'kg')    return v; }
-        if (toBaseUnit === 'litre') { if (fromUnit === 'ml') return v / 1000; if (fromUnit === 'litre') return v; }
-        if (toBaseUnit === 'piece') { if (fromUnit === 'piece') return v; }
+
+        if (fromUnit === 'dozen') v = v * 12;
+        if (fromUnit === 'half_dozen') v = v * 6;
+        if (fromUnit === 'portion' || fromUnit === 'serving') {
+            fromUnit = 'piece';
+        }
+
+        if (toBaseUnit === 'litre') {
+            if (fromUnit === 'cup') return v * 0.236588;
+            if (fromUnit === 'tablespoon') return v * 0.0147868;
+            if (fromUnit === 'teaspoon') return v * 0.00492892;
+            if (fromUnit === 'fluid_ounce') return v * 0.0295735;
+        }
+
+        if (toBaseUnit === 'kg') {
+            if (fromUnit === 'g') return v / 1000;
+            if (fromUnit === 'kg') return v;
+        }
+        if (toBaseUnit === 'litre') {
+            if (fromUnit === 'ml') return v / 1000;
+            if (fromUnit === 'litre') return v;
+        }
+        if (toBaseUnit === 'piece') {
+            if (fromUnit === 'piece') return v;
+        }
         return v;
+    }
+
+    function updateBeveragePricing() {
+        let sellingPrice = parseFloat($('#selling_price').val()) || 0;
+        let pricingMode = $('.pricing-mode-toggle.active').data('mode');
+        let desiredMargin = parseFloat($('#desired_margin').val()) || 0;
+        let unitCost = selectedInventoryCost;
+
+        if (pricingMode === 'margin' && desiredMargin > 0 && desiredMargin < 100 && unitCost > 0) {
+            let targetNetPrice = unitCost / (1 - desiredMargin / 100);
+            sellingPrice = targetNetPrice / (1 - (18 / 118));
+            $('#selling_price').val(sellingPrice.toFixed(2));
+        }
+
+        let vatAmount = sellingPrice * (18 / 118);
+        let netPrice = sellingPrice - vatAmount;
+        let markup = netPrice - unitCost;
+        let marginPercent = netPrice > 0 ? (markup / netPrice) * 100 : 0;
+
+        $('#summaryMaterialCost').text(formatMoney(unitCost));
+        $('#summaryActualMarkup').text(formatMoney(markup));
+        $('#summaryVatAmount').text(formatMoney(vatAmount));
+
+        $('#material_cost_hidden').val(unitCost.toFixed(2));
+        $('#mark_up_hidden').val(markup.toFixed(2));
+        $('#age_margins_hidden').val(marginPercent.toFixed(2));
+        $('#vat_amount_hidden').val(vatAmount.toFixed(2));
+        $('#net_price_hidden').val(netPrice.toFixed(2));
+    }
+
+    function updateRecipePricing() {
+        let sellingPrice = parseFloat($('#selling_price').val()) || 0;
+        let pricingMode = $('.pricing-mode-toggle.active').data('mode');
+        let desiredMargin = parseFloat($('#desired_margin').val()) || 0;
+
+        if (currentMaterialCost > 0) {
+            if (pricingMode === 'margin' && desiredMargin > 0 && desiredMargin < 100) {
+                let targetNetPrice = currentMaterialCost / (1 - desiredMargin / 100);
+                sellingPrice = targetNetPrice / (1 - (18 / 118));
+                $('#selling_price').val(sellingPrice.toFixed(2));
+            } else if (pricingMode === 'price' && sellingPrice > 0) {
+                let vatAmount = sellingPrice * (18 / 118);
+                let netPrice = sellingPrice - vatAmount;
+                let actualMarkup = netPrice - currentMaterialCost;
+                desiredMargin = (actualMarkup / netPrice) * 100;
+                $('#desired_margin').val(desiredMargin.toFixed(2));
+            }
+        }
+
+        let vatAmount = sellingPrice * (18 / 118);
+        let netPrice = sellingPrice - vatAmount;
+        let actualMarkup = netPrice - currentMaterialCost;
+        let marginPercent = netPrice > 0 ? (actualMarkup / netPrice) * 100 : 0;
+
+        $('#summaryMaterialCost').text(formatMoney(currentMaterialCost));
+        $('#summaryActualMarkup').text(formatMoney(actualMarkup));
+        $('#summaryVatAmount').text(formatMoney(vatAmount));
+
+        $('#material_cost_hidden').val(currentMaterialCost.toFixed(2));
+        $('#mark_up_hidden').val(actualMarkup.toFixed(2));
+        $('#age_margins_hidden').val(marginPercent.toFixed(2));
+        $('#vat_amount_hidden').val(vatAmount.toFixed(2));
+        $('#net_price_hidden').val(netPrice.toFixed(2));
+
+        let commissionPct = 20;
+        let glovoPrice = sellingPrice * (1 + commissionPct / 100);
+        let commission = glovoPrice * (commissionPct / 100);
+        let finalMargin = glovoPrice - currentMaterialCost - commission;
+
+        $('#glovoPriceDisplay').text(formatMoney(glovoPrice));
+        $('#glovoCommissionDisplay').text(formatMoney(commission));
+        $('#finalMarginDisplay').text(formatMoney(finalMargin));
+        $('#glovo_selling_price_hidden').val(glovoPrice.toFixed(2));
+        $('#glovo_commission_hidden').val(commission.toFixed(2));
+        $('#final_margin_hidden').val(finalMargin.toFixed(2));
+    }
+
+    function updatePricing() {
+        if (isBeverage) {
+            updateBeveragePricing();
+        } else {
+            updateRecipePricing();
+        }
     }
 
     function calculateTotalMaterialCost() {
@@ -541,50 +699,23 @@ $(document).ready(function () {
         currentMaterialCost = total;
         $('#materialCostDisplay, #summaryMaterialCost').text(fmtUGX(total));
         $('#material_cost_hidden').val(total.toFixed(2));
-        updatePricing();
+        if (!isBeverage) {
+            updateRecipePricing();
+        }
         return total;
     }
 
-    function updatePricing() {
-        let pricingMode = $('.pricing-mode-toggle.active').data('mode');
-        let sellingPrice = parseFloat($('#selling_price').val()) || 0;
-        let desiredMargin = parseFloat($('#desired_margin').val()) || 0;
+    $('#inventory_item_id').on('change', function() {
+        let selectedOption = $(this).find('option:selected');
+        let unitCost = parseFloat(selectedOption.data('unit-cost')) || 0;
 
-        if (currentMaterialCost > 0) {
-            if (pricingMode === 'margin' && desiredMargin > 0 && desiredMargin < 100) {
-                sellingPrice = currentMaterialCost / (1 - desiredMargin / 100);
-                $('#selling_price').val(sellingPrice.toFixed(2));
-            } else if (pricingMode === 'price' && sellingPrice > 0) {
-                desiredMargin = ((sellingPrice - currentMaterialCost) / sellingPrice) * 100;
-                $('#desired_margin').val(desiredMargin.toFixed(2));
-            }
+        selectedInventoryCost = unitCost;
+
+        if (unitCost > 0 && isBeverage) {
+            updateBeveragePricing();
         }
+    });
 
-        let margin = (sellingPrice > 0 && currentMaterialCost > 0) ? ((sellingPrice - currentMaterialCost) / sellingPrice) * 100 : 0;
-        let markUp = sellingPrice > currentMaterialCost ? sellingPrice - currentMaterialCost : 0;
-        let costPercent = (sellingPrice > 0 && currentMaterialCost > 0) ? (currentMaterialCost / sellingPrice) * 100 : 0;
-
-        $('#summaryMargin').text(margin.toFixed(1) + '%');
-        $('#summaryMarkUp').text(fmtUGX(markUp));
-        $('#summaryCostPercent').text(costPercent.toFixed(1) + '%');
-        $('#mark_up_hidden').val(markUp.toFixed(2));
-        $('#age_margins_hidden').val(margin.toFixed(2));
-        $('#age_cost_hidden').val(costPercent.toFixed(2));
-
-        let commissionPct = parseFloat($('#glovo_commission_percentage').val()) || 0;
-        let glovoPrice = sellingPrice * (1 + commissionPct / 100);
-        let commission = glovoPrice * (commissionPct / 100);
-        let finalMargin = glovoPrice - currentMaterialCost - commission;
-
-        $('#glovoPriceDisplay').text(fmtUGX(glovoPrice));
-        $('#glovoCommissionDisplay').text(fmtUGX(commission));
-        $('#finalMarginDisplay').text(fmtUGX(finalMargin));
-        $('#glovo_selling_price_hidden').val(glovoPrice.toFixed(2));
-        $('#glovo_commission_hidden').val(commission.toFixed(2));
-        $('#final_margin_hidden').val(finalMargin.toFixed(2));
-    }
-
-    // Add ingredient modal handlers
     $('#addIngredientBtn').on('click', function() {
         $('#ingredient_select').val('').trigger('change');
         $('#ingredient_quantity').val('');
@@ -673,7 +804,7 @@ $(document).ready(function () {
     $(document).on('click', '.remove-ingredient', function() {
         if (confirm('Remove this ingredient from the recipe?')) {
             let row = $(this).closest('.ingredient-row');
-            let recipeId = row.data('recipe-id');
+            let recipeId = row.find('.ingredient-recipe-id').val();
             if (recipeId) {
                 if ($('#deleteRecipeItems').length === 0) {
                     $('<input>').attr({type: 'hidden', id: 'deleteRecipeItems', name: 'delete_recipe_items'}).val('').appendTo('#mainForm');
@@ -689,7 +820,6 @@ $(document).ready(function () {
         }
     });
 
-    // FIXED: Pricing mode toggle - Manage required attributes properly
     $('.pricing-mode-toggle').on('click', function() {
         let mode = $(this).data('mode');
         if ($(this).hasClass('active')) return;
@@ -697,19 +827,16 @@ $(document).ready(function () {
         $('.pricing-mode-toggle').removeClass('active');
         $(this).addClass('active');
 
-        // Update hidden field for backend
         $('#pricing_mode_hidden').val(mode);
 
         if (mode === 'price') {
             $('.price-mode-field').removeClass('hidden');
             $('.margin-mode-field').addClass('hidden');
-            // FIX: Remove required from margin input when hidden
             $('#desired_margin').removeAttr('required');
             $('#selling_price').attr('required', 'required');
         } else {
             $('.price-mode-field').addClass('hidden');
             $('.margin-mode-field').removeClass('hidden');
-            // FIX: Remove required from price input when hidden
             $('#selling_price').removeAttr('required');
             $('#desired_margin').attr('required', 'required');
         }
@@ -734,10 +861,6 @@ $(document).ready(function () {
         if (pricingMode === 'margin') {
             updatePricing();
         }
-    });
-
-    $('#glovo_commission_percentage').on('change keyup', function() {
-        updatePricing();
     });
 
     $('.closeModal').on('click', function() {
@@ -788,29 +911,38 @@ $(document).ready(function () {
             return false;
         }
 
-        let hasIngredients = $('.ingredient-row').length > 0;
         let sellingPrice = parseFloat($('#selling_price').val()) || 0;
         let desiredMargin = parseFloat($('#desired_margin').val()) || 0;
         let pricingMode = $('.pricing-mode-toggle.active').data('mode');
 
-        if (hasIngredients) {
-            if (pricingMode === 'price' && sellingPrice <= 0) {
-                alert('This item has ingredients. Please enter a selling price.');
-                e.preventDefault();
-                return false;
-            }
-            if (pricingMode === 'margin' && desiredMargin <= 0) {
-                alert('This item has ingredients. Please enter a desired margin percentage.');
+        if (!isBeverage) {
+            let hasIngredients = $('.ingredient-row').length > 0;
+            if (!hasIngredients) {
+                alert('Please add at least one ingredient for this recipe item.');
                 e.preventDefault();
                 return false;
             }
         }
 
+        if (pricingMode === 'price' && sellingPrice <= 0) {
+            alert('Please enter a selling price.');
+            e.preventDefault();
+            return false;
+        }
+        if (pricingMode === 'margin' && desiredMargin <= 0) {
+            alert('Please enter a desired margin percentage.');
+            e.preventDefault();
+            return false;
+        }
+
         return true;
     });
 
-    // Initial calculation
-    calculateTotalMaterialCost();
+    if (isBeverage && selectedInventoryCost > 0) {
+        updateBeveragePricing();
+    } else {
+        calculateTotalMaterialCost();
+    }
 
 });
 </script>

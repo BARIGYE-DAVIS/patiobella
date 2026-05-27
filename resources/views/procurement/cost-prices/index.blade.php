@@ -117,9 +117,21 @@
         border-radius: 50%;
         animation: spin 0.6s linear infinite;
         margin-left: 0.5rem;
+        vertical-align: middle;
     }
     @keyframes spin {
         to { transform: rotate(360deg); }
+    }
+    .active-search-banner {
+        background: #ecfdf5;
+        border: 1px solid #6ee7b7;
+        border-radius: 8px;
+        padding: 0.5rem 1rem;
+        font-size: 0.75rem;
+        color: #065f46;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
     }
 </style>
 
@@ -142,53 +154,92 @@
     <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div class="stat-card stat-total">
             <h3><i class="fas fa-boxes mr-1"></i> Total Items</h3>
-            <div class="value" id="totalItemsCount">{{ $items->total() }}</div>
-            <p class="text-xs text-gray-500 mt-1">Active inventory items</p>
+            <div class="value">{{ $items->total() }}</div>
+            <p class="text-xs text-gray-500 mt-1">
+                @if(request('search') || request('category_id'))
+                    Matching your search
+                @else
+                    Active inventory items
+                @endif
+            </p>
         </div>
         <div class="stat-card stat-cost">
             <h3><i class="fas fa-chart-line mr-1"></i> Avg Unit Cost</h3>
-            <div class="value">UGX {{ number_format($items->avg('unit_cost') ?? 0, 2) }}</div>
+            <div class="value">UGX {{ number_format($avgCost ?? 0, 2) }}</div>
             <p class="text-xs text-gray-500 mt-1">Average across all items</p>
         </div>
         <div class="stat-card stat-updated">
             <h3><i class="fas fa-history mr-1"></i> Last Updated</h3>
-            <div class="value">{{ $items->max('updated_at') ? $items->max('updated_at')->diffForHumans() : 'Never' }}</div>
+            <div class="value">{{ $lastUpdated ?? 'Never' }}</div>
             <p class="text-xs text-gray-500 mt-1">Most recent cost update</p>
         </div>
     </div>
 
-    {{-- Filters with Live Search --}}
+    {{-- Active Search Banner --}}
+    @if(request('search') || request('category_id'))
+    <div class="active-search-banner">
+        <i class="fas fa-filter"></i>
+        <span>
+            Showing <strong>{{ $items->total() }}</strong> result(s)
+            @if(request('search'))
+                for <strong>"{{ request('search') }}"</strong>
+            @endif
+            @if(request('category_id') && isset($selectedCategoryName))
+                in category <strong>{{ $selectedCategoryName }}</strong>
+            @endif
+            &mdash; across all pages.
+        </span>
+        <a href="{{ route('procurement.cost-prices.index') }}" class="ml-auto text-emerald-700 hover:underline font-medium">
+            <i class="fas fa-times mr-1"></i> Clear filters
+        </a>
+    </div>
+    @endif
+
+    {{-- Filters --}}
     <div class="filter-card">
-        <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
-            <div>
-                <label class="block text-xs font-medium text-gray-700 mb-1">Live Search</label>
-                <input type="text" id="liveSearch" class="filter-input" placeholder=" Search by name or code...">
-                <span id="searchResultCount" class="result-badge"></span>
-                <div id="loadingIndicator" class="loading-spinner" style="display: none;"></div>
-            </div>
-            <div>
-                <label class="block text-xs font-medium text-gray-700 mb-1">Category Filter</label>
-                <select id="categoryFilter" class="filter-input">
-                    <option value="">All Categories</option>
-                    @foreach($categories as $cat)
-                        <option value="{{ $cat->id }}">{{ $cat->name }}</option>
-                    @endforeach
-                </select>
-            </div>
-            <div class="flex items-end">
-                <div class="flex gap-2">
-                    <button id="applyFiltersBtn" class="bg-emerald-600 text-white px-3 py-2 rounded-lg text-xs hover:bg-emerald-700">
-                        <i class="fas fa-search mr-1"></i> Apply Filters
-                    </button>
-                    <button id="clearFiltersBtn" class="bg-gray-300 text-gray-700 px-3 py-2 rounded-lg text-xs hover:bg-gray-400">
-                        <i class="fas fa-times mr-1"></i> Clear
-                    </button>
+        <form method="GET" action="{{ route('procurement.cost-prices.index') }}" id="filterForm">
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
+                <div>
+                    <label class="block text-xs font-medium text-gray-700 mb-1">
+                        Search
+                        <span id="loadingIndicator" class="loading-spinner" style="display: none;"></span>
+                    </label>
+                    <input
+                        type="text"
+                        name="search"
+                        id="liveSearch"
+                        class="filter-input"
+                        placeholder="Search by name or code..."
+                        value="{{ request('search') }}"
+                        autocomplete="off"
+                    >
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-gray-700 mb-1">Category Filter</label>
+                    <select name="category_id" id="categoryFilter" class="filter-input">
+                        <option value="">All Categories</option>
+                        @foreach($categories as $cat)
+                            <option value="{{ $cat->id }}" {{ request('category_id') == $cat->id ? 'selected' : '' }}>
+                                {{ $cat->name }}
+                            </option>
+                        @endforeach
+                    </select>
+                </div>
+                <div class="flex items-end">
+                    <div class="flex gap-2">
+                        <button type="submit" class="bg-emerald-600 text-white px-3 py-2 rounded-lg text-xs hover:bg-emerald-700">
+                            <i class="fas fa-search mr-1"></i> Search
+                        </button>
+                        <a href="{{ route('procurement.cost-prices.index') }}" class="bg-gray-300 text-gray-700 px-3 py-2 rounded-lg text-xs hover:bg-gray-400">
+                            <i class="fas fa-times mr-1"></i> Clear
+                        </a>
+                    </div>
                 </div>
             </div>
-        </div>
+        </form>
     </div>
 
-    {{-- Items Table with Live Search --}}
+    {{-- Items Table --}}
     <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
         <div class="overflow-x-auto">
             <table class="data-table" id="itemsTable">
@@ -205,27 +256,45 @@
                     </tr>
                 </thead>
                 <tbody id="tableBody">
-                    @php $counter = 1; @endphp
+                    @php $counter = $items->firstItem() ?? 1; @endphp
                     @forelse($items as $item)
-                    <tr data-id="{{ $item->id }}"
-                        data-name="{{ strtolower($item->name) }}"
-                        data-code="{{ strtolower($item->item_code ?? '') }}"
-                        data-category="{{ $item->category_id }}"
-                        data-category-name="{{ strtolower($item->category->name ?? '') }}">
-                        <td class="text-center counter-cell">{{ $counter++ }}</td>
-                        <td class="font-medium text-gray-800 name-cell">
-                            {{ $item->name }}
+                    <tr>
+                        <td class="text-center">{{ $counter++ }}</td>
+                        <td class="font-medium text-gray-800">
+                            {{-- Highlight search term in name --}}
+                            @if(request('search'))
+                                {!! preg_replace(
+                                    '/(' . preg_quote(e(request('search')), '/') . ')/i',
+                                    '<span class="highlight">$1</span>',
+                                    e($item->name)
+                                ) !!}
+                            @else
+                                {{ $item->name }}
+                            @endif
                             @if($item->default_unit_of_measure_id && in_array($item->default_unit_of_measure_id, ['carton', 'crate', 'box', 'dozen', 'pack']))
                                 <span class="badge-bulk ml-2"><i class="fas fa-cubes mr-1"></i> Bulk Item</span>
                             @endif
                         </td>
-                        <td class="text-gray-500 code-cell">{{ $item->item_code ?? '—' }}</td>
-                        <td class="category-cell">{{ $item->category->name ?? '—' }}</td>
+                        <td class="text-gray-500">
+                            {{-- Highlight search term in code --}}
+                            @if(request('search') && $item->item_code)
+                                {!! preg_replace(
+                                    '/(' . preg_quote(e(request('search')), '/') . ')/i',
+                                    '<span class="highlight">$1</span>',
+                                    e($item->item_code)
+                                ) !!}
+                            @else
+                                {{ $item->item_code ?? '—' }}
+                            @endif
+                        </td>
+                        <td>{{ $item->category->name ?? '—' }}</td>
                         <td class="text-gray-500">{{ $item->base_unit ?? 'piece' }}</td>
-                        <td class="text-right font-semibold text-emerald-600 cost-cell">
+                        <td class="text-right font-semibold text-emerald-600">
                             UGX {{ number_format($item->unit_cost ?? 0, 2) }}
                         </td>
-                        <td class="text-gray-500 text-xs">{{ $item->updated_at ? $item->updated_at->diffForHumans() : 'Never' }}</td>
+                        <td class="text-gray-500 text-xs">
+                            {{ $item->updated_at ? $item->updated_at->diffForHumans() : 'Never' }}
+                        </td>
                         <td class="text-center">
                             <a href="{{ route('procurement.cost-prices.edit', $item->id) }}" class="btn-edit">
                                 <i class="fas fa-edit mr-1"></i> Edit Cost
@@ -233,231 +302,60 @@
                         </td>
                     </tr>
                     @empty
-                    <tr id="noResultsRow">
+                    <tr>
                         <td colspan="8" class="text-center text-gray-500 py-8">
-                            <i class="fas fa-boxes text-4xl mb-2 block"></i>
-                            No inventory items found.
+                            <i class="fas fa-search text-4xl mb-2 block"></i>
+                            @if(request('search') || request('category_id'))
+                                No items match your search. <a href="{{ route('procurement.cost-prices.index') }}" class="text-emerald-600 underline">Clear filters</a>
+                            @else
+                                No inventory items found.
+                            @endif
                         </td>
                     </tr>
                     @endforelse
                 </tbody>
             </table>
         </div>
-        <div id="paginationLinks" class="px-4 py-3 border-t border-gray-200">
+
+        {{-- Pagination — appends search params so pagination links carry the search query --}}
+        <div class="px-4 py-3 border-t border-gray-200">
             {{ $items->appends(request()->query())->links() }}
         </div>
     </div>
 </div>
 
 <script>
-    document.addEventListener('DOMContentLoaded', function() {
+    document.addEventListener('DOMContentLoaded', function () {
         const liveSearch = document.getElementById('liveSearch');
         const categoryFilter = document.getElementById('categoryFilter');
-        const applyFiltersBtn = document.getElementById('applyFiltersBtn');
-        const clearFiltersBtn = document.getElementById('clearFiltersBtn');
-        const tableBody = document.getElementById('tableBody');
-        const searchResultCount = document.getElementById('searchResultCount');
+        const filterForm = document.getElementById('filterForm');
         const loadingIndicator = document.getElementById('loadingIndicator');
-        const totalItemsCount = document.getElementById('totalItemsCount');
 
         let searchTimeout;
-        let currentRows = [];
 
-        // Store original rows data
-        function storeOriginalRows() {
-            currentRows = [];
-            const rows = tableBody.querySelectorAll('tr[data-id]');
-            rows.forEach(row => {
-                currentRows.push({
-                    element: row,
-                    id: row.dataset.id,
-                    name: row.dataset.name || '',
-                    code: row.dataset.code || '',
-                    category: row.dataset.category || '',
-                    categoryName: row.dataset.categoryName || '',
-                    visible: true
-                });
-            });
-        }
-        storeOriginalRows();
-
-        // Perform live search and filter
-        function performSearch() {
-            const searchTerm = liveSearch.value.toLowerCase();
-            const selectedCategory = categoryFilter.value;
-
-            let visibleCount = 0;
-
-            currentRows.forEach(row => {
-                const matchesSearch = searchTerm === '' ||
-                    row.name.includes(searchTerm) ||
-                    row.code.includes(searchTerm) ||
-                    row.categoryName.includes(searchTerm);
-
-                const matchesCategory = selectedCategory === '' || row.category === selectedCategory;
-
-                if (matchesSearch && matchesCategory) {
-                    row.element.style.display = '';
-                    visibleCount++;
-                    if (searchTerm !== '') {
-                        highlightText(row.element, searchTerm);
-                    } else {
-                        removeHighlight(row.element);
-                    }
-                } else {
-                    row.element.style.display = 'none';
-                }
-            });
-
-            // Update counter numbers
-            updateRowNumbers();
-
-            // Update result count
-            searchResultCount.textContent = `${visibleCount} results found`;
-
-            // Update total items count display
-            if (totalItemsCount) {
-                totalItemsCount.textContent = visibleCount;
-            }
-
-            // Show/hide no results message
-            let noResultsRow = document.getElementById('noResultsRow');
-            if (visibleCount === 0 && currentRows.length > 0) {
-                if (!noResultsRow) {
-                    noResultsRow = document.createElement('tr');
-                    noResultsRow.id = 'noResultsRow';
-                    noResultsRow.innerHTML = '<td colspan="8" class="text-center text-gray-500 py-8"><i class="fas fa-search text-4xl mb-2 block"></i>No items match your search.</td>';
-                    tableBody.appendChild(noResultsRow);
-                }
-                noResultsRow.style.display = '';
-            } else if (noResultsRow) {
-                noResultsRow.style.display = 'none';
-            }
-        }
-
-        // Update row numbers after filtering
-        function updateRowNumbers() {
-            let counter = 1;
-            const visibleRows = tableBody.querySelectorAll('tr[data-id]:not([style*="display: none"])');
-            visibleRows.forEach(row => {
-                const counterCell = row.querySelector('.counter-cell');
-                if (counterCell) {
-                    counterCell.textContent = counter++;
-                }
-            });
-        }
-
-        // Highlight matching text
-        function highlightText(row, term) {
-            const nameCell = row.querySelector('.name-cell');
-            const codeCell = row.querySelector('.code-cell');
-            const categoryCell = row.querySelector('.category-cell');
-
-            // Highlight item name
-            if (nameCell) {
-                const originalName = nameCell.getAttribute('data-original-name');
-                if (!originalName) {
-                    nameCell.setAttribute('data-original-name', nameCell.innerHTML);
-                }
-                const text = nameCell.getAttribute('data-original-name');
-                if (text && term) {
-                    const regex = new RegExp(`(${term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
-                    nameCell.innerHTML = text.replace(regex, '<span class="highlight">$1</span>');
-                }
-            }
-
-            // Highlight item code
-            if (codeCell) {
-                const originalCode = codeCell.getAttribute('data-original-code');
-                if (!originalCode) {
-                    codeCell.setAttribute('data-original-code', codeCell.innerHTML);
-                }
-                const text = codeCell.getAttribute('data-original-code');
-                if (text && term && text !== '—') {
-                    const regex = new RegExp(`(${term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
-                    codeCell.innerHTML = text.replace(regex, '<span class="highlight">$1</span>');
-                }
-            }
-        }
-
-        function removeHighlight(row) {
-            const nameCell = row.querySelector('.name-cell');
-            const codeCell = row.querySelector('.code-cell');
-
-            if (nameCell) {
-                const original = nameCell.getAttribute('data-original-name');
-                if (original) {
-                    nameCell.innerHTML = original;
-                    nameCell.removeAttribute('data-original-name');
-                }
-            }
-
-            if (codeCell) {
-                const original = codeCell.getAttribute('data-original-code');
-                if (original) {
-                    codeCell.innerHTML = original;
-                    codeCell.removeAttribute('data-original-code');
-                }
-            }
-        }
-
-        // Reset all filters
-        function resetFilters() {
-            liveSearch.value = '';
-            categoryFilter.value = '';
-            performSearch();
-        }
-
-        // Apply filters (full page reload with GET parameters)
-        function applyFilters() {
-            const params = new URLSearchParams();
-            if (liveSearch.value) {
-                params.append('search', liveSearch.value);
-            }
-            if (categoryFilter.value) {
-                params.append('category_id', categoryFilter.value);
-            }
-            window.location.href = '{{ route("procurement.cost-prices.index") }}?' + params.toString();
-        }
-
-        // Event listeners for live search
-        liveSearch.addEventListener('input', function() {
+        // Submit form after user stops typing (debounced — 500ms)
+        // This hits the server so ALL pages are searched, not just current DOM rows
+        liveSearch.addEventListener('input', function () {
             clearTimeout(searchTimeout);
             loadingIndicator.style.display = 'inline-block';
-            searchTimeout = setTimeout(() => {
-                performSearch();
-                loadingIndicator.style.display = 'none';
-            }, 300);
+            searchTimeout = setTimeout(function () {
+                filterForm.submit();
+            }, 500);
         });
 
-        // Category filter change
-        categoryFilter.addEventListener('change', function() {
-            performSearch();
+        // Submit immediately on category change
+        categoryFilter.addEventListener('change', function () {
+            loadingIndicator.style.display = 'inline-block';
+            filterForm.submit();
         });
 
-        // Apply filters button
-        applyFiltersBtn.addEventListener('click', applyFilters);
-
-        // Clear filters button
-        clearFiltersBtn.addEventListener('click', function() {
-            resetFilters();
-        });
-
-        // Enter key in search
-        liveSearch.addEventListener('keypress', function(e) {
+        // Show spinner on Enter key
+        liveSearch.addEventListener('keypress', function (e) {
             if (e.key === 'Enter') {
                 clearTimeout(searchTimeout);
-                performSearch();
-                loadingIndicator.style.display = 'none';
+                loadingIndicator.style.display = 'inline-block';
+                filterForm.submit();
             }
-        });
-
-        // Initialize stored data for highlighting
-        document.querySelectorAll('#tableBody tr[data-id]').forEach(row => {
-            const nameCell = row.querySelector('.name-cell');
-            const codeCell = row.querySelector('.code-cell');
-            if (nameCell) nameCell.setAttribute('data-original-name', nameCell.innerHTML);
-            if (codeCell) codeCell.setAttribute('data-original-code', codeCell.innerHTML);
         });
     });
 </script>

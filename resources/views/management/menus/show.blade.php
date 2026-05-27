@@ -1,5 +1,3 @@
-{{-- resources/views/management/menus/show.blade.php --}}
-
 @extends('layouts.management')
 
 @section('title', 'Menu Details')
@@ -191,7 +189,6 @@
         font-size: 0.75rem;
     }
 
-    /* Compact Menu Information Card */
     .compact-info-card {
         background: white;
         border-radius: 12px;
@@ -240,7 +237,6 @@
         font-size: 0.7rem;
     }
 
-    /* Search and filter bar for items */
     .items-toolbar {
         padding: 0.75rem 1.25rem;
         background: #fafbfc;
@@ -285,7 +281,6 @@
         border-radius: 20px;
     }
 
-    /* Modal for viewing menu item details */
     .item-modal {
         position: fixed;
         inset: 0;
@@ -349,7 +344,6 @@
         font-size: 0.8rem;
     }
 
-    /* Recipe table styling */
     .recipe-table {
         width: 100%;
         border-collapse: collapse;
@@ -369,7 +363,6 @@
         color: #374151;
     }
 
-    /* Empty state styling */
     .empty-state {
         text-align: center;
         padding: 2rem;
@@ -415,9 +408,22 @@
         background-color: #fff7ed;
         transform: scale(1.05);
     }
+
+    .margin-high {
+        color: #065f46;
+        font-weight: 600;
+    }
+    .margin-medium {
+        color: #92400e;
+        font-weight: 600;
+    }
+    .margin-low {
+        color: #991b1b;
+        font-weight: 600;
+    }
 </style>
 
-<div class="mb-5 flex justify-between items-center flex-wrap gap-3">
+<div class="mb-5 flex justify-between items-center flex-wrap gap-3 hidden">
     <a href="{{ route('management.menus.index') }}" class="btn-back">
         <i class="fas fa-arrow-left"></i> Back to Menus
     </a>
@@ -427,7 +433,6 @@
 </div>
 
 <div class="grid grid-cols-1 lg:grid-cols-3 gap-5 mb-5">
-    {{-- Menu Information - Compact Design with Nice Border --}}
     <div class="lg:col-span-2">
         <div class="compact-info-card">
             <div class="compact-info-header">
@@ -493,7 +498,6 @@
         </div>
     </div>
 
-    {{-- Statistics Cards --}}
     <div>
         <div class="info-card">
             <div class="info-header">
@@ -519,7 +523,6 @@
     </div>
 </div>
 
-{{-- Menu Items Table --}}
 <div class="info-card">
     <div class="info-header">
         <i class="fas fa-boxes mr-2" style="color: #f97316;"></i> Menu Items
@@ -543,7 +546,7 @@
                     <th style="width: 35%">Item Name</th>
                     <th style="width: 20%">Category</th>
                     <th style="width: 20%">Price</th>
-                    <th style="width: 10%">Status</th>
+                    <th style="width: 10%">Margin</th>
                     <th style="width: 10%">Action</th>
                 </tr>
             </thead>
@@ -575,11 +578,13 @@
                         </span>
                     </td>
                     <td>
-                        @if($item->is_active)
-                            <span class="status-badge status-active">Active</span>
-                        @else
-                            <span class="status-badge status-inactive">Inactive</span>
-                        @endif
+                        @php
+                            $margin = $item->age_margins ?? 0;
+                            $marginClass = $margin >= 50 ? 'margin-high' : ($margin >= 30 ? 'margin-medium' : 'margin-low');
+                        @endphp
+                        <span class="{{ $marginClass }}">
+                            {{ number_format($margin, 1) }}%
+                        </span>
                     </td>
                     <td>
                         <button type="button" class="view-item-btn" data-item-id="{{ $item->id }}" data-item-name="{{ $item->name }}">
@@ -605,7 +610,6 @@
     </div>
 </div>
 
-{{-- Item Details Modal --}}
 <div id="viewRecipeModal" class="item-modal">
     <div class="item-modal-content">
         <div class="item-modal-header">
@@ -614,7 +618,7 @@
                     <i class="fas fa-utensils text-white text-xs"></i>
                 </div>
                 <div>
-                    <h3 class="text-base font-semibold text-gray-800">Recipe Details</h3>
+                    <h3 class="text-base font-semibold text-gray-800">Item Details</h3>
                     <p id="modalItemName" class="text-xs text-gray-500"></p>
                 </div>
             </div>
@@ -625,7 +629,7 @@
         <div class="item-modal-body" id="recipeContent">
             <div class="text-center text-gray-500 py-6">
                 <div class="spinner mb-2"></div>
-                <p class="text-sm">Loading recipe details...</p>
+                <p class="text-sm">Loading details...</p>
             </div>
         </div>
         <div class="px-5 py-3 border-t border-gray-200 bg-gray-50 flex justify-end">
@@ -639,7 +643,7 @@
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     function formatMoney(amount) {
-        return 'UGX ' + Math.round(amount || 0).toLocaleString('en-UG');
+        return 'UGX ' + Math.round(parseFloat(amount) || 0).toLocaleString('en-UG');
     }
 
     function escapeHtml(text) {
@@ -680,7 +684,7 @@ document.addEventListener('DOMContentLoaded', function() {
         searchInput.addEventListener('keyup', filterItems);
     }
 
-    // View recipe modal
+    // View details modal
     const modal = document.getElementById('viewRecipeModal');
     const modalItemName = document.getElementById('modalItemName');
     const recipeContent = document.getElementById('recipeContent');
@@ -695,7 +699,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const itemName = this.getAttribute('data-item-name');
 
             modalItemName.textContent = itemName;
-            recipeContent.innerHTML = '<div class="text-center text-gray-500 py-6"><div class="spinner mb-2"></div><p class="text-sm">Loading recipe details...</p></div>';
+            recipeContent.innerHTML = '<div class="text-center text-gray-500 py-6"><div class="spinner mb-2"></div><p class="text-sm">Loading details...</p></div>';
             modal.classList.add('active');
 
             const url = '/management/menu-items/' + itemId + '/recipe';
@@ -713,6 +717,27 @@ document.addEventListener('DOMContentLoaded', function() {
                     const item = response.item;
                     const ingredients = response.ingredients || [];
 
+                    // Parse values as numbers
+                    let sellingPrice = parseFloat(item.selling_price) || 0;
+                    let materialCost = parseFloat(item.material_cost) || 0;
+                    let vatRate = parseFloat(item.vat_rate) || 18;
+                    let vatInclusive = item.vat_inclusive !== false;
+
+                    // Use stored margin from database
+                    let displayMargin = parseFloat(item.age_margins) || parseFloat(item.margin) || 0;
+
+                    // Calculate VAT and Net Price
+                    let vatAmount = 0;
+                    let netPrice = sellingPrice;
+
+                    if (vatInclusive && vatRate > 0 && sellingPrice > 0) {
+                        vatAmount = sellingPrice * (vatRate / (100 + vatRate));
+                        netPrice = sellingPrice - vatAmount;
+                    }
+
+                    let markupAfterVat = netPrice - materialCost;
+                    let marginClass = displayMargin >= 50 ? 'margin-high' : (displayMargin >= 30 ? 'margin-medium' : 'margin-low');
+
                     let html = `
                         <div class="space-y-4">
                             <div class="bg-gray-50 rounded-lg p-3">
@@ -723,37 +748,56 @@ document.addEventListener('DOMContentLoaded', function() {
                                         <span class="item-detail-value">${escapeHtml(item.name)}</span>
                                     </div>
                                     <div class="item-detail-row">
-                                        <span class="item-detail-label">Selling Price:</span>
-                                        <span class="item-detail-value font-bold text-emerald-600">${formatMoney(item.selling_price)}</span>
-                                    </div>
-                                    <div class="item-detail-row">
-                                        <span class="item-detail-label">Material Cost:</span>
-                                        <span class="item-detail-value">${formatMoney(item.material_cost)}</span>
-                                    </div>
-                                    <div class="item-detail-row">
-                                        <span class="item-detail-label">Margin:</span>
-                                        <span class="item-detail-value">${item.margin.toFixed(1)}%</span>
-                                    </div>
-                                    <div class="item-detail-row">
-                                        <span class="item-detail-label">Description:</span>
-                                        <span class="item-detail-value">${escapeHtml(item.description) || 'No description'}</span>
-                                    </div>
-                                    <div class="item-detail-row">
-                                        <span class="item-detail-label">Allergens:</span>
+                                        <span class="item-detail-label">Allergen Info:</span>
                                         <span class="item-detail-value">${escapeHtml(item.allergen_info) || 'None specified'}</span>
                                     </div>
                                 </div>
                             </div>
 
+                            <div class="bg-emerald-50 rounded-lg p-3">
+                                <h4 class="font-semibold text-gray-800 text-sm mb-2 border-b pb-1">💰 Pricing Breakdown (VAT ${vatRate}%)</h4>
+                                <div class="grid grid-cols-2 md:grid-cols-3 gap-2 text-sm">
+                                    <div class="item-detail-row">
+                                        <span class="item-detail-label">Selling Price:</span>
+                                        <span class="item-detail-value font-bold text-emerald-700">${formatMoney(sellingPrice)}</span>
+                                    </div>
+                                    <div class="item-detail-row">
+                                        <span class="item-detail-label">VAT Amount:</span>
+                                        <span class="item-detail-value text-orange-600">${formatMoney(vatAmount)}</span>
+                                    </div>
+                                    <div class="item-detail-row">
+                                        <span class="item-detail-label">Net Price:</span>
+                                        <span class="item-detail-value">${formatMoney(netPrice)}</span>
+                                    </div>
+                                    <div class="item-detail-row">
+                                        <span class="item-detail-label">Material Cost:</span>
+                                        <span class="item-detail-value">${formatMoney(materialCost)}</span>
+                                    </div>
+                                    <div class="item-detail-row">
+                                        <span class="item-detail-label">Markup (after VAT):</span>
+                                        <span class="item-detail-value font-bold text-emerald-600">${formatMoney(markupAfterVat)}</span>
+                                    </div>
+                                    <div class="item-detail-row">
+                                        <span class="item-detail-label">Actual Margin:</span>
+                                        <span class="item-detail-value font-bold ${marginClass}">${displayMargin.toFixed(1)}%</span>
+                                    </div>
+                                </div>
+                            </div>
+                    `;
+
+                    // Only show Glovo section if it's a recipe item (has glovo_selling_price > 0)
+                    let glovoPrice = parseFloat(item.glovo_selling_price) || 0;
+                    if (glovoPrice > 0) {
+                        html += `
                             <div class="bg-orange-50 rounded-lg p-3">
-                                <h4 class="font-semibold text-gray-800 text-sm mb-2 border-b pb-1">🛵 Delivery Pricing (Glovo)</h4>
+                                <h4 class="font-semibold text-gray-800 text-sm mb-2 border-b pb-1">🛵 Delivery Platform Pricing (Glovo - 20% Commission)</h4>
                                 <div class="grid grid-cols-3 gap-2 text-center">
                                     <div>
-                                        <p class="text-gray-500 text-xs">Selling Price</p>
+                                        <p class="text-gray-500 text-xs">Glovo Selling Price</p>
                                         <p class="font-bold text-orange-600 text-sm">${formatMoney(item.glovo_selling_price)}</p>
                                     </div>
                                     <div>
-                                        <p class="text-gray-500 text-xs">Commission</p>
+                                        <p class="text-gray-500 text-xs">Glovo Commission</p>
                                         <p class="font-bold text-red-600 text-sm">${formatMoney(item.glovo_commission)}</p>
                                     </div>
                                     <div>
@@ -762,7 +806,8 @@ document.addEventListener('DOMContentLoaded', function() {
                                     </div>
                                 </div>
                             </div>
-                    `;
+                        `;
+                    }
 
                     if (ingredients.length > 0) {
                         html += `
@@ -804,11 +849,20 @@ document.addEventListener('DOMContentLoaded', function() {
                                 </table>
                             </div>
                         `;
+                    } else if (item.inventory_item_id && item.inventory_item_id > 0) {
+                        html += `
+                            <div class="bg-blue-50 rounded-lg p-3">
+                                <h4 class="font-semibold text-gray-800 text-sm mb-2 border-b pb-1">🥤 Beverage Item</h4>
+                                <p class="text-sm text-gray-600">This is a ready-to-serve beverage item. No recipe ingredients required.</p>
+                                <p class="text-xs text-gray-500 mt-2">Stock is deducted directly from inventory.</p>
+                            </div>
+                        `;
                     } else {
                         html += `
                             <div class="bg-gray-50 rounded-lg p-3 text-center">
                                 <i class="fas fa-pepper-hot text-2xl text-gray-300 mb-1 block"></i>
-                                <p class="text-gray-500 text-xs">No ingredients added yet</p>
+                                <p class="text-gray-500 text-sm">No ingredients added yet</p>
+                                <p class="text-xs text-gray-400">This item may be a beverage or needs ingredients added.</p>
                             </div>
                         `;
                     }
@@ -816,12 +870,12 @@ document.addEventListener('DOMContentLoaded', function() {
                     html += `</div>`;
                     recipeContent.innerHTML = html;
                 } else {
-                    recipeContent.innerHTML = '<div class="text-center text-red-500 py-6">Failed to load recipe details</div>';
+                    recipeContent.innerHTML = '<div class="text-center text-red-500 py-6">Failed to load details</div>';
                 }
             })
             .catch(error => {
                 console.error('Error:', error);
-                recipeContent.innerHTML = '<div class="text-center text-red-500 py-6">Error loading recipe details</div>';
+                recipeContent.innerHTML = '<div class="text-center text-red-500 py-6">Error loading details</div>';
             });
         });
     });

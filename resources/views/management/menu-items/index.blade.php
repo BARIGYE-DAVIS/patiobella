@@ -1,5 +1,3 @@
-{{-- resources/views/management/menu-items/index.blade.php --}}
-
 @extends('layouts.management')
 
 @section('title', 'Menu Items')
@@ -19,7 +17,6 @@
         border-color: #f97316;
     }
 
-    /* List View Styles */
     .menu-item-list {
         transition: all 0.2s ease;
         border: 1px solid #e5e7eb;
@@ -90,8 +87,11 @@
     .info-row {
         display: flex;
         justify-content: space-between;
-        padding: 10px 0;
+        padding: 8px 0;
         border-bottom: 1px solid #e5e7eb;
+    }
+    .info-row:last-child {
+        border-bottom: none;
     }
     .info-label {
         font-weight: 600;
@@ -100,8 +100,6 @@
     .info-value {
         color: #1f2937;
     }
-
-    /* View toggle buttons */
     .view-toggle-btn {
         transition: all 0.2s ease;
     }
@@ -117,12 +115,9 @@
         background-color: #fff7ed;
         border-color: #fed7aa;
     }
-
-    /* List view specific */
     .list-view-container .menu-item-list {
         animation: fadeInUp 0.3s ease;
     }
-
     @keyframes fadeInUp {
         from {
             opacity: 0;
@@ -133,8 +128,6 @@
             transform: translateY(0);
         }
     }
-
-    /* Status indicator */
     .status-indicator {
         display: inline-block;
         width: 8px;
@@ -155,7 +148,6 @@
 @section('content')
 <div class="max-w-7xl mx-auto px-4 pb-12">
 
-    {{-- Header --}}
     <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6 gap-4">
         <div>
             <h1 class="text-2xl font-bold text-gray-900">Menu Items</h1>
@@ -181,7 +173,6 @@
                 @endforeach
             </select>
 
-            {{-- View Toggle Buttons --}}
             <div class="flex items-center gap-1 bg-gray-100 rounded-lg p-1">
                 <button type="button" id="gridViewBtn" class="view-toggle-btn px-3 py-2 rounded-lg text-sm font-medium transition-all active">
                     <i class="fas fa-th-large mr-1"></i> Grid
@@ -197,7 +188,6 @@
         </div>
     </div>
 
-    {{-- Flash Messages --}}
     @if(session('success'))
         <div class="mb-4 px-4 py-3 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl text-sm flex items-center gap-2">
             <i class="fas fa-check-circle text-emerald-500"></i> {{ session('success') }}
@@ -209,9 +199,7 @@
         </div>
     @endif
 
-    {{-- Items Container --}}
     <div id="itemsContainer">
-        {{-- Grid View (Default) --}}
         <div id="gridView" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             @foreach($menuItems as $item)
                 <div class="menu-item-card bg-white rounded-xl overflow-hidden shadow-sm"
@@ -220,7 +208,6 @@
                      data-category-id="{{ $item->menu_item_category_id }}"
                      data-menu-id="{{ $item->menu_id }}">
 
-                    {{-- Card Header with Gradient --}}
                     <div class="gradient-bg px-4 py-3 flex items-center justify-between">
                         <div class="flex items-center gap-2">
                             <div class="w-8 h-8 rounded-lg bg-white/80 flex items-center justify-center">
@@ -244,7 +231,6 @@
                         </div>
                     </div>
 
-                    {{-- Card Body --}}
                     <div class="p-4 space-y-3">
                         <div class="flex items-center justify-between">
                             <span class="text-xs text-gray-500">
@@ -281,7 +267,7 @@
                                     class="view-item flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 bg-blue-50 hover:bg-blue-100 text-blue-600 text-xs font-medium rounded-lg transition-colors"
                                     data-id="{{ $item->id }}"
                                     data-name="{{ $item->name }}">
-                                <i class="fas fa-eye text-xs"></i> View Recipe
+                                <i class="fas fa-eye text-xs"></i> View Details
                             </button>
                             <a href="{{ route('management.menu-items.edit', $item->id) }}"
                                class="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 bg-amber-50 hover:bg-amber-100 text-amber-600 text-xs font-medium rounded-lg transition-colors">
@@ -293,7 +279,6 @@
             @endforeach
         </div>
 
-        {{-- List View (Hidden by default) --}}
         <div id="listView" class="list-view-container hidden space-y-3">
             @foreach($menuItems as $item)
                 <div class="menu-item-list bg-white rounded-xl p-4 cursor-pointer"
@@ -371,7 +356,6 @@
         </div>
     </div>
 
-    {{-- Empty State --}}
     @if($menuItems->isEmpty())
         <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-12 text-center">
             <div class="w-20 h-20 rounded-full bg-gray-100 flex items-center justify-center mx-auto mb-4">
@@ -386,7 +370,6 @@
     @endif
 </div>
 
-{{-- View Recipe Modal (Complete Details) --}}
 <div id="viewRecipeModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden items-center justify-center p-4">
     <div class="bg-white rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden shadow-xl modal-enter">
         <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 bg-gradient-to-r from-orange-50 to-amber-50">
@@ -395,7 +378,7 @@
                     <i class="fas fa-utensils text-white text-sm"></i>
                 </div>
                 <div>
-                    <h3 class="text-lg font-semibold text-gray-800">Recipe & Pricing Details</h3>
+                    <h3 class="text-lg font-semibold text-gray-800">Pricing & Details</h3>
                     <p id="modalItemName" class="text-sm text-gray-500"></p>
                 </div>
             </div>
@@ -407,7 +390,7 @@
         <div class="p-6 overflow-y-auto max-h-[75vh]" id="recipeContent">
             <div class="text-center text-gray-500 py-8">
                 <div class="spinner mb-3"></div>
-                Loading recipe details...
+                Loading details...
             </div>
         </div>
 
@@ -415,6 +398,9 @@
             <button type="button" class="closeRecipeModal px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-lg text-sm font-medium transition-colors">
                 Close
             </button>
+            <a href="#" id="editFromModalBtn" class="px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white text-sm font-semibold rounded-lg transition-colors">
+                <i class="fas fa-edit mr-1"></i> Edit Item
+            </a>
         </div>
     </div>
 </div>
@@ -425,9 +411,8 @@
 <script>
 $(document).ready(function() {
 
-    // ── Format Money ──────────────────────────────────────────────────
     function formatMoney(amount) {
-        return Math.round(amount || 0).toLocaleString('en-UG') + ' UGX';
+        return Math.round(parseFloat(amount) || 0).toLocaleString('en-UG') + ' UGX';
     }
 
     function escapeHtml(text) {
@@ -439,7 +424,6 @@ $(document).ready(function() {
                    .replace(/'/g, '&#39;');
     }
 
-    // ── View Toggle Functionality ─────────────────────────────────────
     let currentView = 'grid';
 
     $('#gridViewBtn').on('click', function() {
@@ -462,19 +446,16 @@ $(document).ready(function() {
         localStorage.setItem('menuItemsView', 'list');
     });
 
-    // Load saved view preference
     const savedView = localStorage.getItem('menuItemsView');
     if (savedView === 'list') {
         $('#listViewBtn').trigger('click');
     }
 
-    // ── Filter Items (Search, Category, Menu) ────────────────────────
     function filterItems() {
         let search = $('#searchInput').val().toLowerCase();
         let categoryId = $('#categoryFilter').val();
         let menuId = $('#menuFilter').val();
 
-        // Filter Grid Items
         $('#gridView .menu-item-card').each(function() {
             let card = $(this);
             let itemName = card.data('item-name').toLowerCase();
@@ -492,7 +473,6 @@ $(document).ready(function() {
             }
         });
 
-        // Filter List Items
         $('#listView .menu-item-list').each(function() {
             let item = $(this);
             let itemName = item.data('item-name').toLowerCase();
@@ -522,11 +502,12 @@ $(document).ready(function() {
 
     $('#searchInput, #categoryFilter, #menuFilter').on('change keyup', filterItems);
 
-    // ── View Complete Recipe Modal (Shared function) ─────────────────
     window.viewItemDetails = function(itemId, itemName) {
         $('#modalItemName').text(itemName);
-        $('#recipeContent').html('<div class="text-center text-gray-500 py-8"><div class="spinner mb-3"></div>Loading recipe details...</div>');
+        $('#recipeContent').html('<div class="text-center text-gray-500 py-8"><div class="spinner mb-3"></div>Loading details...</div>');
         $('#viewRecipeModal').removeClass('hidden').addClass('flex');
+
+        $('#editFromModalBtn').attr('href', '/management/menu-items/' + itemId + '/edit');
 
         let url = '/management/menu-items/' + itemId + '/recipe';
 
@@ -538,9 +519,26 @@ $(document).ready(function() {
                     let item = response.item;
                     let ingredients = response.ingredients || [];
 
+                    let sellingPrice = parseFloat(item.selling_price) || 0;
+                    let vatRate = parseFloat(item.vat_rate) || 18;
+                    let vatInclusive = item.vat_inclusive !== false;
+                    let materialCost = parseFloat(item.material_cost) || 0;
+
+                    let displayMargin = parseFloat(item.age_margins) || parseFloat(item.margin) || 0;
+
+                    let vatAmount = 0;
+                    let netPrice = sellingPrice;
+
+                    if (vatInclusive && vatRate > 0 && sellingPrice > 0) {
+                        vatAmount = sellingPrice * (vatRate / (100 + vatRate));
+                        netPrice = sellingPrice - vatAmount;
+                    }
+
+                    let markupAfterVat = netPrice - materialCost;
+                    let marginClass = displayMargin >= 50 ? 'text-emerald-600' : (displayMargin >= 30 ? 'text-amber-600' : 'text-red-600');
+
                     let html = `
                         <div class="space-y-6">
-                            {{-- Item Details Section --}}
                             <div class="bg-gray-50 rounded-lg p-4">
                                 <h4 class="font-semibold text-gray-800 mb-3 border-b pb-2">📋 Item Information</h4>
                                 <div class="grid grid-cols-2 gap-3 text-sm">
@@ -549,31 +547,48 @@ $(document).ready(function() {
                                         <span class="info-value">${escapeHtml(item.name)}</span>
                                     </div>
                                     <div class="info-row">
-                                        <span class="info-label">Selling Price:</span>
-                                        <span class="info-value font-bold text-emerald-600">${formatMoney(item.selling_price)}</span>
-                                    </div>
-                                    <div class="info-row">
-                                        <span class="info-label">Material Cost:</span>
-                                        <span class="info-value">${formatMoney(item.material_cost)}</span>
-                                    </div>
-                                    <div class="info-row">
-                                        <span class="info-label">Margin Percentage:</span>
-                                        <span class="info-value">${item.margin.toFixed(1)}%</span>
-                                    </div>
-                                    <div class="info-row">
-                                        <span class="info-label">Description:</span>
-                                        <span class="info-value">${escapeHtml(item.description) || 'No description'}</span>
-                                    </div>
-                                    <div class="info-row">
                                         <span class="info-label">Allergen Info:</span>
                                         <span class="info-value">${escapeHtml(item.allergen_info) || 'None specified'}</span>
                                     </div>
                                 </div>
                             </div>
 
-                            {{-- Glovo/Delivery Pricing Section --}}
+                            <div class="bg-emerald-50 rounded-lg p-4">
+                                <h4 class="font-semibold text-gray-800 mb-3 border-b pb-2">💰 Pricing Breakdown (VAT ${vatRate}%)</h4>
+                                <div class="grid grid-cols-2 md:grid-cols-3 gap-3 text-sm">
+                                    <div class="info-row">
+                                        <span class="info-label">Selling Price (incl. VAT):</span>
+                                        <span class="info-value font-bold text-emerald-700">${formatMoney(sellingPrice)}</span>
+                                    </div>
+                                    <div class="info-row">
+                                        <span class="info-label">VAT Amount (${vatRate}%):</span>
+                                        <span class="info-value text-orange-600">${formatMoney(vatAmount)}</span>
+                                    </div>
+                                    <div class="info-row">
+                                        <span class="info-label">Net Price (excl. VAT):</span>
+                                        <span class="info-value">${formatMoney(netPrice)}</span>
+                                    </div>
+                                    <div class="info-row">
+                                        <span class="info-label">Material Cost:</span>
+                                        <span class="info-value">${formatMoney(materialCost)}</span>
+                                    </div>
+                                    <div class="info-row">
+                                        <span class="info-label">Markup (after VAT):</span>
+                                        <span class="info-value font-bold text-emerald-600">${formatMoney(markupAfterVat)}</span>
+                                    </div>
+                                    <div class="info-row">
+                                        <span class="info-label">Actual Margin:</span>
+                                        <span class="info-value font-bold ${marginClass}">${displayMargin.toFixed(1)}%</span>
+                                    </div>
+                                </div>
+                            </div>
+                    `;
+
+                    let glovoPrice = parseFloat(item.glovo_selling_price) || 0;
+                    if (glovoPrice > 0) {
+                        html += `
                             <div class="bg-orange-50 rounded-lg p-4">
-                                <h4 class="font-semibold text-gray-800 mb-3 border-b pb-2">🛵 Delivery Platform Pricing (Glovo)</h4>
+                                <h4 class="font-semibold text-gray-800 mb-3 border-b pb-2">🛵 Delivery Platform Pricing (Glovo - 20% Commission)</h4>
                                 <div class="grid grid-cols-3 gap-3 text-sm">
                                     <div class="text-center">
                                         <p class="text-gray-500 text-xs">Glovo Selling Price</p>
@@ -589,70 +604,40 @@ $(document).ready(function() {
                                     </div>
                                 </div>
                             </div>
-                    `;
+                        `;
+                    }
 
-                    // Ingredients Section
                     if (ingredients.length > 0) {
                         html += `
                             <div class="bg-white border border-gray-200 rounded-lg p-4">
                                 <h4 class="font-semibold text-gray-800 mb-3 border-b pb-2">🥕 Recipe Ingredients</h4>
                                 <table class="recipe-table">
                                     <thead>
-                                        <tr>
-                                            <th>Ingredient</th>
-                                            <th class="text-right">Quantity</th>
-                                            <th class="text-right">Unit Cost</th>
-                                            <th class="text-right">Wastage</th>
-                                            <th class="text-right">Total Cost</th>
-                                        </tr>
+                                        <tr><th>Ingredient</th><th class="text-right">Quantity</th><th class="text-right">Unit Cost</th><th class="text-right">Wastage</th><th class="text-right">Total Cost</th></tr>
                                     </thead>
                                     <tbody>
                         `;
-
                         let totalCost = 0;
                         $.each(ingredients, function(i, ing) {
                             totalCost += ing.total_cost;
-                            html += `
-                                <tr>
-                                    <td class="text-gray-800">${escapeHtml(ing.name)}</td>
-                                    <td class="text-right">${parseFloat(ing.quantity).toFixed(3)} ${ing.unit}</td>
-                                    <td class="text-right">${formatMoney(ing.unit_cost)}</td>
-                                    <td class="text-right">${ing.wastage_percentage || 0}%</td>
-                                    <td class="text-right font-semibold">${formatMoney(ing.total_cost)}</td>
-                                </tr>
-                            `;
+                            html += `<tr><td class="text-gray-800">${escapeHtml(ing.name)}</td><td class="text-right">${parseFloat(ing.quantity).toFixed(3)} ${ing.unit}</td><td class="text-right">${formatMoney(ing.unit_cost)}</td><td class="text-right">${ing.wastage_percentage || 0}%</td><td class="text-right font-semibold">${formatMoney(ing.total_cost)}</td></tr>`;
                         });
-
-                        html += `
-                                    </tbody>
-                                    <tfoot>
-                                        <tr class="bg-yellow-50">
-                                            <td colspan="4" class="text-right font-bold">Total Material Cost:</td>
-                                            <td class="text-right font-bold text-emerald-600">${formatMoney(totalCost)}</td>
-                                        </tr>
-                                    </tfoot>
-                                </table>
-                            </div>
-                        `;
+                        html += `</tbody><tfoot><tr class="bg-yellow-50"><td colspan="4" class="text-right font-bold">Total Material Cost:</td><td class="text-right font-bold text-emerald-600">${formatMoney(totalCost)}</td></tr></tfoot></table></div>`;
+                    } else if (item.inventory_item_id && item.inventory_item_id > 0) {
+                        html += `<div class="bg-blue-50 rounded-lg p-4"><h4 class="font-semibold text-gray-800 mb-3 border-b pb-2">🥤 Beverage Item</h4><p class="text-sm text-gray-600">This is a ready-to-serve beverage item. No recipe ingredients required.</p><p class="text-xs text-gray-500 mt-2">Stock is deducted directly from inventory.</p></div>`;
                     } else {
-                        html += `
-                            <div class="bg-gray-50 rounded-lg p-4 text-center">
-                                <i class="fas fa-pepper-hot text-3xl text-gray-300 mb-2 block"></i>
-                                <p class="text-gray-500">No ingredients added yet for this menu item.</p>
-                                <p class="text-xs text-gray-400">Add ingredients when editing the menu.</p>
-                            </div>
-                        `;
+                        html += `<div class="bg-gray-50 rounded-lg p-4 text-center"><i class="fas fa-pepper-hot text-3xl text-gray-300 mb-2 block"></i><p class="text-gray-500">No ingredients added yet for this menu item.</p></div>`;
                     }
 
                     html += `</div>`;
                     $('#recipeContent').html(html);
                 } else {
-                    $('#recipeContent').html('<div class="text-center text-red-500 py-8">Failed to load recipe details.</div>');
+                    $('#recipeContent').html('<div class="text-center text-red-500 py-8">Failed to load details.</div>');
                 }
             },
             error: function(xhr) {
                 console.error('Error:', xhr);
-                let errorMsg = 'Failed to load recipe details.';
+                let errorMsg = 'Failed to load details.';
                 if (xhr.responseJSON && xhr.responseJSON.message) {
                     errorMsg = xhr.responseJSON.message;
                 }
@@ -661,8 +646,6 @@ $(document).ready(function() {
         });
     };
 
-    // ── View Item Click Handlers ─────────────────────────────────────
-    // Grid view buttons
     $('.view-item').on('click', function(e) {
         e.stopPropagation();
         let itemId = $(this).data('id');
@@ -670,7 +653,6 @@ $(document).ready(function() {
         viewItemDetails(itemId, itemName);
     });
 
-    // List view buttons (already handled by onclick, but also bind for jQuery)
     $(document).on('click', '.view-item-list', function(e) {
         e.stopPropagation();
         let itemId = $(this).data('id');
@@ -678,7 +660,6 @@ $(document).ready(function() {
         viewItemDetails(itemId, itemName);
     });
 
-    // ── Close Modal ──────────────────────────────────────────────────
     $('.closeRecipeModal').on('click', function() {
         $('#viewRecipeModal').addClass('hidden').removeClass('flex');
     });
