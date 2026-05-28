@@ -31,7 +31,8 @@
                         <th class="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Customer</th>
                         <th class="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Items</th>
                         <th class="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Total</th>
-                        <th class="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</th>
+                        <th class="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Print Status</th>
+                        <th class="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider hidden">Payment Status</th>
                         <th class="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Date</th>
                         <th class="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Action</th>
                     </tr>
@@ -57,6 +58,17 @@
                             UGX {{ number_format($order->total_amount, 0) }}
                         </td>
                         <td class="px-6 py-4">
+                            @if($order->is_printed)
+                                <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                    <i class="fas fa-print mr-1 text-xs"></i> Printed
+                                </span>
+                            @else
+                                <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-600">
+                                    <i class="fas fa-file-alt mr-1 text-xs"></i> Not Printed
+                                </span>
+                            @endif
+                        </td>
+                        <td class="px-6 py-4 hidden">
                             @if($order->payment_status === 'paid')
                                 <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
                                     <i class="fas fa-check-circle mr-1 text-xs"></i> Paid
@@ -71,15 +83,22 @@
                             {{ $order->created_at->format('d/m/Y H:i') }}
                         </td>
                         <td class="px-6 py-4">
-                            <button onclick="printBill({{ $order->id }})"
-                                    class="inline-flex items-center gap-1 px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-600 text-xs font-medium rounded-lg transition">
-                                <i class="fas fa-print"></i> Print
-                            </button>
+                            @if(!$order->is_printed)
+                                <button onclick="printBill({{ $order->id }})"
+                                        class="inline-flex items-center gap-1 px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-600 text-xs font-medium rounded-lg transition">
+                                    <i class="fas fa-print"></i> Print
+                                </button>
+                            @else
+                                <button onclick="viewBill({{ $order->id }})"
+                                        class="inline-flex items-center gap-1 px-3 py-1.5 bg-gray-50 hover:bg-gray-100 text-gray-600 text-xs font-medium rounded-lg transition">
+                                    <i class="fas fa-eye"></i> View
+                                </button>
+                            @endif
                         </td>
-                    </tr>
+                    </td>
                     @empty
                     <tr>
-                        <td colspan="8" class="px-6 py-12 text-center text-gray-400">
+                        <td colspan="9" class="px-6 py-12 text-center text-gray-400">
                             <i class="fas fa-receipt text-4xl mb-3 block opacity-30"></i>
                             <p class="text-sm">No bills found</p>
                             <p class="text-xs mt-1">Orders you take will appear here</p>
@@ -121,6 +140,10 @@
     }
 
     function printBill(orderId) {
+        window.open('/waiter/bills/' + orderId + '/print', '_blank', 'width=400,height=600');
+    }
+
+    function viewBill(orderId) {
         window.open('/waiter/bills/' + orderId + '/print', '_blank', 'width=400,height=600');
     }
 </script>

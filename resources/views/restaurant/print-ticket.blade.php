@@ -39,12 +39,28 @@
             color: #ea580c;
             font-size: 10px;
             margin-left: 4px;
+            margin-top: 2px;
         }
         .comment {
             color: #666;
             font-size: 10px;
             font-style: italic;
             margin-left: 8px;
+            margin-top: 2px;
+        }
+        .ingredients {
+            color: #4b5563;
+            font-size: 9px;
+            margin-top: 4px;
+            margin-left: 4px;
+            padding-left: 8px;
+            border-left: 2px solid #ea580c;
+        }
+        .ingredient-item {
+            margin-top: 2px;
+        }
+        .item-name {
+            font-weight: bold;
         }
         @media print {
             body {
@@ -72,6 +88,18 @@
         .print-btn:hover {
             background: #c2410c;
         }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        td {
+            padding: 4px 0;
+            vertical-align: top;
+        }
+        .qty-col {
+            text-align: center;
+            width: 40px;
+        }
     </style>
 </head>
 <body>
@@ -90,29 +118,29 @@
             <hr>
         </div>
 
-        <table style="width: 100%; border-collapse: collapse;">
-            <thead>
-                <tr>
-                    <th class="text-left">Item</th>
-                    <th class="text-center">Qty</th>
-                </tr>
-            </thead>
-            <tbody>
-                @foreach($items as $item)
-                <tr>
-                    <td class="text-left">
-                        {{ $item['item_name'] }}
-                        @if(!empty($item['supplement']))
-                        <div class="supplement">+ {{ $item['supplement'] }}</div>
-                        @endif
-                        @if(!empty($item['comments']))
-                        <div class="comment">※ {{ $item['comments'] }}</div>
-                        @endif
-                    </td>
-                    <td class="text-center">{{ $item['quantity'] }}</td>
-                </tr>
-                @endforeach
-            </tbody>
+        <table>
+            @foreach($items as $item)
+            <tr>
+                <td class="text-left">
+                    <div class="item-name">{{ $item['quantity'] }}x {{ $item['item_name'] }}</div>
+                    @if(!empty($item['supplement']))
+                    <div class="supplement">➕ {{ $item['supplement'] }}</div>
+                    @endif
+                    @if(!empty($item['ingredients']) && count($item['ingredients']) > 0)
+                    <div class="ingredients">
+                        <div>📋 Ingredients:</div>
+                        @foreach($item['ingredients'] as $ingredient)
+                        <div class="ingredient-item">• {{ number_format($ingredient['quantity'], 2) }} {{ $ingredient['unit'] }} {{ $ingredient['name'] }}</div>
+                        @endforeach
+                    </div>
+                    @endif
+                    @if(!empty($item['comments']))
+                    <div class="comment">💬 {{ $item['comments'] }}</div>
+                    @endif
+                </td>
+                <td class="qty-col">{{ $item['quantity'] }}</td>
+            </tr>
+            @endforeach
         </table>
 
         <hr>

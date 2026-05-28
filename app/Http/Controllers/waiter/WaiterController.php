@@ -21,25 +21,30 @@ class WaiterController extends Controller
     /**
      * Display waiter dashboard.
      */
-    public function index()
-    {
-        $tables = RestaurantTable::where('is_active', true)
-            ->orderBy('table_number')
-            ->get();
+public function index()
+{
+    $tables = RestaurantTable::where('is_active', true)
+        ->orderBy('table_number')
+        ->get();
 
-        // Get all active menus
-        $menus = \App\Models\Menu::where('is_active', true)
-            ->with('department')
-            ->orderBy('name')
-            ->get();
+    // Get unpaid orders with printed status for each table
+    $orders = SalesOrder::where('payment_status', 'unpaid')
+        ->where('status', '!=', 'cancelled')
+        ->get()
+        ->keyBy('table_id');
 
-        $categories = MenuItemCategory::where('is_active', true)
-            ->orderBy('sort_order')
-            ->get();
+    // Get all active menus
+    $menus = \App\Models\Menu::where('is_active', true)
+        ->with('department')
+        ->orderBy('name')
+        ->get();
 
-        return view('waiter.index', compact('tables', 'categories', 'menus'));
-    }
+    $categories = MenuItemCategory::where('is_active', true)
+        ->orderBy('sort_order')
+        ->get();
 
+    return view('waiter.index', compact('tables', 'categories', 'menus', 'orders'));
+}
     /**
      * Get products by category (AJAX).
      */
@@ -159,262 +164,281 @@ private function updateDepartmentConsumption($departmentId, $inventoryItemId, $c
     }
 }
 
-    /**
-     * Place order (AJAX).
-     */
-    public function placeOrder(Request $request)
-    {
-        $request->validate([
-            'table_id' => 'required|exists:restaurant_tables,id',
-            'items' => 'required|array|min:1',
-            'items.*.id' => 'required|exists:menu_items,id',
-            'items.*.quantity' => 'required|integer|min:1',
-            'items.*.price' => 'required|numeric',
-            'items.*.comments' => 'nullable|string',
-            'items.*.supplement' => 'nullable|string',
-            'notes' => 'nullable|string',
-        ]);
+/**
+ * Place order (AJAX).
+ */
+public function placeOrder(Request $request)
+{
+    $request->validate([
+        'table_id' => 'required|exists:restaurant_tables,id',
+        'items' => 'required|array|min:1',
+        'items.*.id' => 'required|exists:menu_items,id',
+        'items.*.quantity' => 'required|integer|min:1',
+        'items.*.price' => 'required|numeric',
+        'items.*.comments' => 'nullable|string',
+        'items.*.supplement' => 'nullable|string',
+        'notes' => 'nullable|string',
+    ]);
 
-        DB::beginTransaction();
+    DB::beginTransaction();
 
-        try {
-            $total = 0;
-            $stockWarnings = [];
-            $departmentConsumptions = [];
+    try {
+        $total = 0;
+        $stockWarnings = [];
+        $departmentConsumptions = [];
 
-            // First, check stock for all items and collect warnings
-            foreach ($request->items as $itemData) {
-                $menuItem = MenuItem::find($itemData['id']);
-                $quantity = $itemData['quantity'];
-                $total += $itemData['price'] * $quantity;
+        // First, check stock for all items and collect warnings
+        foreach ($request->items as $itemData) {
+            $menuItem = MenuItem::find($itemData['id']);
+            $quantity = $itemData['quantity'];
+            $total += $itemData['price'] * $quantity;
 
-                // Get department from menu
-                $departmentId = $menuItem->menu->department_id ?? null;
-                $departmentName = $menuItem->menu->department->name ?? 'Unknown';
+            // Get department from menu
+            $departmentId = $menuItem->menu->department_id ?? null;
+            $departmentName = $menuItem->menu->department->name ?? 'Unknown';
 
-                if (!$departmentId) {
-                    continue;
-                }
+            if (!$departmentId) {
+                continue;
+            }
 
-                // Get all ingredients for this menu item (recipe items)
-                $recipeItems = RecipeItem::where('menu_item_id', $menuItem->id)
-                    ->with('inventoryItem')
-                    ->get();
+            // Get all ingredients for this menu item (recipe items)
+            $recipeItems = RecipeItem::where('menu_item_id', $menuItem->id)
+                ->with('inventoryItem')
+                ->get();
 
-                if ($recipeItems->isNotEmpty()) {
-                    // This is a recipe item (food that needs preparation)
-                    foreach ($recipeItems as $recipeItem) {
-                        $inventoryItem = $recipeItem->inventoryItem;
-                        if (!$inventoryItem) continue;
+            if ($recipeItems->isNotEmpty()) {
+                // This is a recipe item (food that needs preparation)
+                foreach ($recipeItems as $recipeItem) {
+                    $inventoryItem = $recipeItem->inventoryItem;
+                    if (!$inventoryItem) continue;
 
-                        $requiredQty = $recipeItem->quantity_required * $quantity;
-                        $requiredQtyWithWastage = $requiredQty * (1 + ($recipeItem->wastage_percentage / 100));
+                    $requiredQty = $recipeItem->quantity_required * $quantity;
+                    $requiredQtyWithWastage = $requiredQty * (1 + ($recipeItem->wastage_percentage / 100));
 
-                        $availableQty = $this->checkDepartmentStock($departmentId, $inventoryItem->id, $requiredQtyWithWastage);
+                    $availableQty = $this->checkDepartmentStock($departmentId, $inventoryItem->id, $requiredQtyWithWastage);
 
-                        if ($availableQty < $requiredQtyWithWastage) {
-                            $stockWarnings[] = [
-                                'department' => $departmentName,
-                                'item_name' => $menuItem->name,
-                                'ingredient' => $inventoryItem->name,
-                                'required' => round($requiredQtyWithWastage, 2),
-                                'available' => round($availableQty, 2),
-                                'unit' => $inventoryItem->base_unit,
-                                'type' => 'recipe'
-                            ];
-                        }
-
-                        // Track consumption
-                        $key = $departmentId . '_' . $inventoryItem->id;
-                        if (!isset($departmentConsumptions[$key])) {
-                            $departmentConsumptions[$key] = [
-                                'department_id' => $departmentId,
-                                'inventory_item_id' => $inventoryItem->id,
-                                'quantity' => 0
-                            ];
-                        }
-                        $departmentConsumptions[$key]['quantity'] += $requiredQtyWithWastage;
-                    }
-                } else if ($menuItem->inventory_item_id) {
-                    // This is a direct sale item (beverage)
-                    $inventoryItemId = $menuItem->inventory_item_id;
-                    $inventoryItem = $menuItem->inventoryItem;
-                    $requiredQty = $quantity;
-
-                    $availableQty = $this->checkDepartmentStock($departmentId, $inventoryItemId, $requiredQty);
-
-                    if ($availableQty < $requiredQty) {
+                    if ($availableQty < $requiredQtyWithWastage) {
                         $stockWarnings[] = [
                             'department' => $departmentName,
                             'item_name' => $menuItem->name,
-                            'ingredient' => $inventoryItem->name ?? $menuItem->name,
-                            'required' => $requiredQty,
+                            'ingredient' => $inventoryItem->name,
+                            'required' => round($requiredQtyWithWastage, 2),
                             'available' => round($availableQty, 2),
-                            'unit' => $inventoryItem->base_unit ?? 'piece',
-                            'type' => 'direct'
+                            'unit' => $inventoryItem->base_unit,
+                            'type' => 'recipe'
                         ];
                     }
 
-                    // Track consumption for direct sale items
-                    $key = $departmentId . '_' . $inventoryItemId;
+                    // Track consumption
+                    $key = $departmentId . '_' . $inventoryItem->id;
                     if (!isset($departmentConsumptions[$key])) {
                         $departmentConsumptions[$key] = [
                             'department_id' => $departmentId,
-                            'inventory_item_id' => $inventoryItemId,
+                            'inventory_item_id' => $inventoryItem->id,
                             'quantity' => 0
                         ];
                     }
-                    $departmentConsumptions[$key]['quantity'] += $requiredQty;
+                    $departmentConsumptions[$key]['quantity'] += $requiredQtyWithWastage;
                 }
-            }
+            } else if ($menuItem->inventory_item_id) {
+                // This is a direct sale item (beverage)
+                $inventoryItemId = $menuItem->inventory_item_id;
+                $inventoryItem = $menuItem->inventoryItem;
+                $requiredQty = $quantity;
 
-            // Get table number
-            $table = RestaurantTable::find($request->table_id);
+                $availableQty = $this->checkDepartmentStock($departmentId, $inventoryItemId, $requiredQty);
 
-            // Create sales order
-            $orderNumber = $this->generateOrderNumber();
-
-            $order = SalesOrder::create([
-                'order_number' => $orderNumber,
-                'table_id' => $request->table_id,
-                'table_number' => $table->table_number,
-                'waiter_id' => Auth::id(),
-                'notes' => $request->notes,
-                'subtotal' => $total,
-                'tax_amount' => 0,
-                'total_amount' => $total,
-                'status' => 'pending',
-                'payment_status' => 'unpaid',
-                'customer_type' => 'dine_in',
-                'created_by' => Auth::id(),
-            ]);
-
-            // Create order items and group by department for tickets
-            $kitchenItems = [];
-            $barItems = [];
-            $cafeItems = [];
-
-            foreach ($request->items as $itemData) {
-                $menuItem = MenuItem::find($itemData['id']);
-
-                // Create order item
-                SalesOrderItem::create([
-                    'sales_order_id' => $order->id,
-                    'menu_item_id' => $itemData['id'],
-                    'item_name' => $itemData['name'],
-                    'quantity' => $itemData['quantity'],
-                    'unit_price' => $itemData['price'],
-                    'total_price' => $itemData['price'] * $itemData['quantity'],
-                    'notes' => $itemData['comments'] ?? null,
-                ]);
-
-                // Determine department based on menu's department
-                $department = $this->getDepartmentForMenuItem($menuItem);
-
-                $itemWithDetails = [
-                    'menu_item_id' => $menuItem->id,
-                    'item_name' => $menuItem->name,
-                    'quantity' => $itemData['quantity'],
-                    'comments' => $itemData['comments'] ?? null,
-                    'supplement' => $itemData['supplement'] ?? null,
-                ];
-
-                if ($department === 'kitchen') {
-                    $kitchenItems[] = $itemWithDetails;
-                } elseif ($department === 'bar') {
-                    $barItems[] = $itemWithDetails;
-                } elseif ($department === 'cafe') {
-                    $cafeItems[] = $itemWithDetails;
-                }
-            }
-
-            // Create tickets for each department
-            $waiterName = Auth::user()->first_name . ' ' . Auth::user()->last_name;
-
-            if (!empty($kitchenItems)) {
-                $this->createTicket('kitchen', $order->id, $table->table_number, $waiterName, $kitchenItems);
-            }
-
-            if (!empty($barItems)) {
-                $this->createTicket('bar', $order->id, $table->table_number, $waiterName, $barItems);
-            }
-
-            if (!empty($cafeItems)) {
-                $this->createTicket('cafe', $order->id, $table->table_number, $waiterName, $cafeItems);
-            }
-
-            // Update department consumption
-            foreach ($departmentConsumptions as $consumption) {
-                $this->updateDepartmentConsumption(
-                    $consumption['department_id'],
-                    $consumption['inventory_item_id'],
-                    $consumption['quantity']
-                );
-            }
-
-            // Mark table as occupied
-            RestaurantTable::where('id', $request->table_id)->update(['is_occupied' => true]);
-
-            DB::commit();
-
-            // Build warning message
-            $warningMessage = null;
-            if (!empty($stockWarnings)) {
-                $warningMessage = "⚠️ STOCK ALERT:\n";
-                $groupedWarnings = [];
-                foreach ($stockWarnings as $warning) {
-                    $key = $warning['department'] . ' - ' . $warning['item_name'];
-                    if (!isset($groupedWarnings[$key])) {
-                        $groupedWarnings[$key] = [];
-                    }
-                    $groupedWarnings[$key][] = $warning;
+                if ($availableQty < $requiredQty) {
+                    $stockWarnings[] = [
+                        'department' => $departmentName,
+                        'item_name' => $menuItem->name,
+                        'ingredient' => $inventoryItem->name ?? $menuItem->name,
+                        'required' => $requiredQty,
+                        'available' => round($availableQty, 2),
+                        'unit' => $inventoryItem->base_unit ?? 'piece',
+                        'type' => 'direct'
+                    ];
                 }
 
-                foreach ($groupedWarnings as $itemKey => $warnings) {
-                    $warningMessage .= "\n📌 " . $itemKey . ":\n";
-                    foreach ($warnings as $warning) {
-                        if ($warning['type'] === 'recipe') {
-                            $warningMessage .= "   • Missing {$warning['ingredient']}: Need {$warning['required']} {$warning['unit']}, Only {$warning['available']} {$warning['unit']} available in {$warning['department']}\n";
-                        } else {
-                            $warningMessage .= "   • Low stock: Need {$warning['required']} {$warning['unit']}(s), Only {$warning['available']} {$warning['unit']}(s) available in {$warning['department']}\n";
-                        }
-                    }
-                    $warningMessage .= "     → Order will still be processed. Items will be restocked soon.\n";
+                // Track consumption for direct sale items
+                $key = $departmentId . '_' . $inventoryItemId;
+                if (!isset($departmentConsumptions[$key])) {
+                    $departmentConsumptions[$key] = [
+                        'department_id' => $departmentId,
+                        'inventory_item_id' => $inventoryItemId,
+                        'quantity' => 0
+                    ];
                 }
+                $departmentConsumptions[$key]['quantity'] += $requiredQty;
             }
-
-            Log::info('Order placed', [
-                'order_id' => $order->id,
-                'order_number' => $order->order_number,
-                'waiter_id' => Auth::id(),
-                'table_id' => $request->table_id,
-                'total' => $total,
-                'kitchen_items' => count($kitchenItems),
-                'bar_items' => count($barItems),
-                'cafe_items' => count($cafeItems),
-                'warnings' => count($stockWarnings)
-            ]);
-
-            return response()->json([
-                'success' => true,
-                'message' => 'Order placed successfully',
-                'order_id' => $order->id,
-                'order_number' => $order->order_number,
-                'total' => $total,
-                'warnings' => $stockWarnings,
-                'warning_message' => $warningMessage
-            ]);
-
-        } catch (\Exception $e) {
-            DB::rollBack();
-            Log::error('Order placement failed: ' . $e->getMessage());
-
-            return response()->json([
-                'success' => false,
-                'message' => 'Failed to place order: ' . $e->getMessage()
-            ], 500);
         }
+
+        // Get table number
+        $table = RestaurantTable::find($request->table_id);
+
+        // Create sales order
+        $orderNumber = $this->generateOrderNumber();
+
+        $order = SalesOrder::create([
+            'order_number' => $orderNumber,
+            'table_id' => $request->table_id,
+            'table_number' => $table->table_number,
+            'waiter_id' => Auth::id(),
+            'notes' => $request->notes,
+            'subtotal' => $total,
+            'tax_amount' => 0,
+            'total_amount' => $total,
+            'status' => 'pending',
+            'payment_status' => 'unpaid',
+            'customer_type' => 'dine_in',
+            'created_by' => Auth::id(),
+        ]);
+
+        // Create order items and group by department for tickets
+        $kitchenItems = [];
+        $barItems = [];
+        $cafeItems = [];
+
+        foreach ($request->items as $itemData) {
+            $menuItem = MenuItem::find($itemData['id']);
+            $quantity = $itemData['quantity'];
+
+            // Create order item
+            SalesOrderItem::create([
+                'sales_order_id' => $order->id,
+                'menu_item_id' => $itemData['id'],
+                'item_name' => $itemData['name'],
+                'quantity' => $quantity,
+                'unit_price' => $itemData['price'],
+                'total_price' => $itemData['price'] * $quantity,
+                'notes' => $itemData['comments'] ?? null,
+            ]);
+
+            // Determine department based on menu's department
+            $department = $this->getDepartmentForMenuItem($menuItem);
+
+            // Get ingredients for this menu item
+            $recipeItems = RecipeItem::where('menu_item_id', $menuItem->id)
+                ->with('inventoryItem')
+                ->get();
+
+            $ingredientsList = [];
+            foreach ($recipeItems as $recipeItem) {
+                if ($recipeItem->inventoryItem) {
+                    $ingredientsList[] = [
+                        'name' => $recipeItem->inventoryItem->name,
+                        'quantity' => $recipeItem->quantity_required * $quantity,
+                        'unit' => $recipeItem->inventoryItem->base_unit,
+                        'wastage' => $recipeItem->wastage_percentage ?? 0
+                    ];
+                }
+            }
+
+            $itemWithDetails = [
+                'menu_item_id' => $menuItem->id,
+                'item_name' => $menuItem->name,
+                'quantity' => $quantity,
+                'comments' => $itemData['comments'] ?? null,
+                'supplement' => $itemData['supplement'] ?? null,
+                'ingredients' => $ingredientsList  // ADD INGREDIENTS HERE
+            ];
+
+            if ($department === 'kitchen') {
+                $kitchenItems[] = $itemWithDetails;
+            } elseif ($department === 'bar') {
+                $barItems[] = $itemWithDetails;
+            } elseif ($department === 'cafe') {
+                $cafeItems[] = $itemWithDetails;
+            }
+        }
+
+        // Create tickets for each department
+        $waiterName = Auth::user()->first_name . ' ' . Auth::user()->last_name;
+
+        if (!empty($kitchenItems)) {
+            $this->createTicket('kitchen', $order->id, $table->table_number, $waiterName, $kitchenItems);
+        }
+
+        if (!empty($barItems)) {
+            $this->createTicket('bar', $order->id, $table->table_number, $waiterName, $barItems);
+        }
+
+        if (!empty($cafeItems)) {
+            $this->createTicket('cafe', $order->id, $table->table_number, $waiterName, $cafeItems);
+        }
+
+        // Update department consumption
+        foreach ($departmentConsumptions as $consumption) {
+            $this->updateDepartmentConsumption(
+                $consumption['department_id'],
+                $consumption['inventory_item_id'],
+                $consumption['quantity']
+            );
+        }
+
+        // Mark table as occupied
+        RestaurantTable::where('id', $request->table_id)->update(['is_occupied' => true]);
+
+        DB::commit();
+
+        // Build warning message
+        $warningMessage = null;
+        if (!empty($stockWarnings)) {
+            $warningMessage = "⚠️ STOCK ALERT:\n";
+            $groupedWarnings = [];
+            foreach ($stockWarnings as $warning) {
+                $key = $warning['department'] . ' - ' . $warning['item_name'];
+                if (!isset($groupedWarnings[$key])) {
+                    $groupedWarnings[$key] = [];
+                }
+                $groupedWarnings[$key][] = $warning;
+            }
+
+            foreach ($groupedWarnings as $itemKey => $warnings) {
+                $warningMessage .= "\n📌 " . $itemKey . ":\n";
+                foreach ($warnings as $warning) {
+                    if ($warning['type'] === 'recipe') {
+                        $warningMessage .= "   • Missing {$warning['ingredient']}: Need {$warning['required']} {$warning['unit']}, Only {$warning['available']} {$warning['unit']} available in {$warning['department']}\n";
+                    } else {
+                        $warningMessage .= "   • Low stock: Need {$warning['required']} {$warning['unit']}(s), Only {$warning['available']} {$warning['unit']}(s) available in {$warning['department']}\n";
+                    }
+                }
+                $warningMessage .= "     → Order will still be processed. Items will be restocked soon.\n";
+            }
+        }
+
+        Log::info('Order placed', [
+            'order_id' => $order->id,
+            'order_number' => $order->order_number,
+            'waiter_id' => Auth::id(),
+            'table_id' => $request->table_id,
+            'total' => $total,
+            'kitchen_items' => count($kitchenItems),
+            'bar_items' => count($barItems),
+            'cafe_items' => count($cafeItems),
+            'warnings' => count($stockWarnings)
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Order placed successfully',
+            'order_id' => $order->id,
+            'order_number' => $order->order_number,
+            'total' => $total,
+            'warnings' => $stockWarnings,
+            'warning_message' => $warningMessage
+        ]);
+
+    } catch (\Exception $e) {
+        DB::rollBack();
+        Log::error('Order placement failed: ' . $e->getMessage());
+
+        return response()->json([
+            'success' => false,
+            'message' => 'Failed to place order: ' . $e->getMessage()
+        ], 500);
     }
+}
 
     /**
      * Determine which department handles a menu item based on menu's department.
@@ -547,36 +571,39 @@ private function updateDepartmentConsumption($departmentId, $inventoryItemId, $c
     /**
      * Print a specific bill
      */
-    public function printBill($orderId)
-    {
-        $order = SalesOrder::with(['items.menuItem', 'table', 'waiter'])->findOrFail($orderId);
+public function printBill($orderId)
+{
+    $order = SalesOrder::with(['items.menuItem', 'table', 'waiter'])->findOrFail($orderId);
 
-        // Only waiter who created the order or admin can view
-        if ($order->waiter_id != Auth::id() && !Auth::user()->is_super_admin) {
-            abort(403, 'Unauthorized access');
-        }
-
-        // Calculate totals using stored VAT from each menu item
-        $totalSellingPrice = 0;
-        $totalVatAmount = 0;
-        $totalNetPrice = 0;
-
-        foreach ($order->items as $item) {
-            $menuItem = $item->menuItem;
-            $quantity = $item->quantity;
-
-            $itemVat = ($menuItem->vat_amount ?? 0) * $quantity;
-            $itemNet = ($menuItem->net_price ?? $menuItem->selling_price) * $quantity;
-            $itemSelling = $menuItem->selling_price * $quantity;
-
-            $totalSellingPrice += $itemSelling;
-            $totalVatAmount += $itemVat;
-            $totalNetPrice += $itemNet;
-        }
-
-        return view('waiter.bills.print', compact('order', 'totalSellingPrice', 'totalVatAmount', 'totalNetPrice'));
+    // Only waiter who created the order or admin can view
+    if ($order->waiter_id != Auth::id() && !Auth::user()->is_super_admin) {
+        abort(403, 'Unauthorized access');
     }
 
+    // Mark order as printed in database
+    $order->is_printed = 1;
+    $order->save();
+
+    // Calculate totals using stored VAT from each menu item
+    $totalSellingPrice = 0;
+    $totalVatAmount = 0;
+    $totalNetPrice = 0;
+
+    foreach ($order->items as $item) {
+        $menuItem = $item->menuItem;
+        $quantity = $item->quantity;
+
+        $itemVat = ($menuItem->vat_amount ?? 0) * $quantity;
+        $itemNet = ($menuItem->net_price ?? $menuItem->selling_price) * $quantity;
+        $itemSelling = $menuItem->selling_price * $quantity;
+
+        $totalSellingPrice += $itemSelling;
+        $totalVatAmount += $itemVat;
+        $totalNetPrice += $itemNet;
+    }
+
+    return view('waiter.bills.print', compact('order', 'totalSellingPrice', 'totalVatAmount', 'totalNetPrice'));
+}
     /**
      * Get order bill for printing (legacy).
      */

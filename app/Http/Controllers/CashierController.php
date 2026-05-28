@@ -17,7 +17,89 @@ class CashierController extends Controller
             ->orderBy('table_number')
             ->get();
 
-        return view('cashier.index', compact('tables'));
+        $orders = SalesOrder::where('payment_status', 'unpaid')
+            ->where('status', '!=', 'cancelled')
+            ->get()
+            ->keyBy('table_id');
+
+        return view('cashier.index', compact('tables', 'orders'));
+    }
+
+    public function bills()
+    {
+        $printedBills = SalesOrder::where('payment_status', 'unpaid')
+            ->where('status', 'pending')
+            ->where('is_printed', 1)
+            ->with('table', 'waiter')
+            ->orderBy('created_at', 'desc')
+            ->get();
+
+        $notPrintedBills = SalesOrder::where('payment_status', 'unpaid')
+            ->where('status', 'pending')
+            ->where('is_printed', 0)
+            ->with('table', 'waiter')
+            ->orderBy('created_at', 'desc')
+            ->get();
+
+        $settledBills = SalesOrder::where('payment_status', 'paid')
+            ->with('table', 'waiter', 'cashier')
+            ->orderBy('created_at', 'desc')
+            ->limit(50)
+            ->get();
+
+        return view('cashier.bills', compact('printedBills', 'notPrintedBills', 'settledBills'));
+    }
+
+    public function markAsPaid(Request $request, $id)
+    {
+        $request->validate([
+            'payment_method' => 'required|in:cash,card,mobile_money'
+        ]);
+
+        DB::beginTransaction();
+
+        try {
+            $order = SalesOrder::findOrFail($id);
+
+            $order->payment_method = $request->payment_method;
+            $order->payment_status = 'paid';
+            $order->status = 'completed';
+            $order->cashier_id = Auth::id();
+            $order->updated_by = Auth::id();
+            $order->save();
+
+            if ($order->table_id) {
+                RestaurantTable::where('id', $order->table_id)->update(['is_occupied' => 0]);
+            }
+
+            DB::commit();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Payment processed successfully'
+            ]);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('Payment failed: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Database error: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    public function printReceipt($id)
+    {
+        $order = SalesOrder::with(['items.menuItem', 'table', 'waiter', 'cashier'])->findOrFail($id);
+
+        $totalVat = 0;
+        foreach ($order->items as $item) {
+            $menuItem = $item->menuItem;
+            $totalVat += ($menuItem->vat_amount ?? 0) * $item->quantity;
+        }
+
+        return view('cashier.receipt', compact('order', 'totalVat'));
     }
 
     public function getOrderByTable($tableId)
@@ -70,9 +152,15 @@ class CashierController extends Controller
             Log::error('Error getting order: ' . $e->getMessage());
             return response()->json([
                 'success' => false,
-                'message' => $e->getMessage()
+                'message' => 'Error: ' . $e->getMessage()
             ], 500);
         }
+    }
+
+    public function getInvoice($id)
+    {
+        $order = SalesOrder::with(['items.menuItem', 'table', 'waiter', 'cashier'])->findOrFail($id);
+        return view('cashier.invoice', compact('order'));
     }
 
     public function processPayment(Request $request, $id)
@@ -127,21 +215,8 @@ class CashierController extends Controller
             Log::error('Payment failed: ' . $e->getMessage());
             return response()->json([
                 'success' => false,
-                'message' => $e->getMessage()
+                'message' => 'Database error: ' . $e->getMessage()
             ], 500);
         }
-    }
-
-    public function printReceipt($id)
-    {
-        $order = SalesOrder::with(['items.menuItem', 'table', 'waiter'])->findOrFail($id);
-
-        $totalVat = 0;
-        foreach ($order->items as $item) {
-            $menuItem = $item->menuItem;
-            $totalVat += ($menuItem->vat_amount ?? 0) * $item->quantity;
-        }
-
-        return view('cashier.receipt', compact('order', 'totalVat'));
     }
 }

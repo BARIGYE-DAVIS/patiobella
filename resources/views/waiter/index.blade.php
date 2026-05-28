@@ -6,8 +6,6 @@
 <style>
     .toast { animation: slideIn 0.2s ease; }
     @keyframes slideIn { from { opacity:0; transform:translateX(16px); } to { opacity:1; transform:translateX(0); } }
-    .table-row-item:hover:not(.occupied) { border-color:#EA580C; background:#FFF7ED; }
-    .table-row-item.occupied { background:#FFFBEB; border-color:#FCD34D; cursor:not-allowed; }
     .cat-btn.active { background:#EA580C; color:#fff; border-color:#EA580C; }
     .product-row:hover { border-color:#EA580C; background:#FFF7ED; }
     .qty-btn:hover { border-color:#EA580C; color:#EA580C; }
@@ -31,6 +29,18 @@
     @keyframes fadeIn {
         from { opacity: 0; transform: scale(0.95); }
         to { opacity: 1; transform: scale(1); }
+    }
+    .table-card {
+        transition: all 0.2s ease;
+        cursor: pointer;
+    }
+    .table-card.available:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+    .table-card.available:hover {
+        border-color: #EA580C;
+        background: #FFF7ED;
     }
 </style>
 
@@ -69,7 +79,7 @@
 <div class="min-h-screen bg-gray-50">
 
     {{-- HEADER --}}
-    <div class="bg-white border-b border-gray-200 sticky top-0 z-40 px-6 h-16 flex items-center justify-between">
+    <div class="bg-white border-b border-gray-200 sticky top-0 z-40 px-6 h-16 flex items-center justify-between hidden">
         <div class="flex items-center gap-3">
             <div class="w-9 h-9 bg-orange-600 rounded-lg flex items-center justify-center">
                 <i class="fas fa-concierge-bell text-white"></i>
@@ -93,9 +103,9 @@
 
     <div class="p-6">
 
-        {{-- TABLE VIEW --}}
-        <div id="tableView" class="max-w-lg mx-auto">
-            <div class="flex items-center justify-between gap-3 mb-4">
+        {{-- TABLE VIEW (Card Layout) --}}
+        <div id="tableView" class="max-w-7xl mx-auto">
+            <div class="flex items-center justify-between gap-3 mb-4 flex-wrap">
                 <div>
                     <h2 class="text-lg font-bold text-gray-800">Select Table</h2>
                     <p class="text-xs text-gray-400">Choose an available table to begin</p>
@@ -103,7 +113,7 @@
                 <div class="relative">
                     <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs pointer-events-none"></i>
                     <input type="text" id="tableSearchInput" placeholder="Search tables..."
-                           class="pl-8 pr-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:border-orange-500 w-44"
+                           class="pl-8 pr-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:border-orange-500 w-64"
                            oninput="filterTables(this.value)">
                 </div>
             </div>
@@ -111,41 +121,56 @@
             <div class="flex gap-2 mb-4 flex-wrap">
                 <span class="flex items-center gap-1.5 text-xs px-3 py-1.5 bg-white border border-gray-200 rounded-full text-gray-500">
                     <span class="w-2 h-2 rounded-full bg-green-500 inline-block"></span>
-                    Free: <strong id="freeCount" class="text-gray-800">0</strong>
+                    Available: <strong id="freeCount" class="text-gray-800">0</strong>
+                </span>
+                <span class="flex items-center gap-1.5 text-xs px-3 py-1.5 bg-white border border-gray-200 rounded-full text-gray-500">
+                    <span class="w-2 h-2 rounded-full bg-blue-500 inline-block"></span>
+                    Reserved: <strong id="reservedCount" class="text-gray-800">0</strong>
                 </span>
                 <span class="flex items-center gap-1.5 text-xs px-3 py-1.5 bg-white border border-gray-200 rounded-full text-gray-500">
                     <span class="w-2 h-2 rounded-full bg-yellow-500 inline-block"></span>
                     Occupied: <strong id="busyCount" class="text-gray-800">0</strong>
                 </span>
                 <span class="flex items-center gap-1.5 text-xs px-3 py-1.5 bg-white border border-gray-200 rounded-full text-gray-500">
+                    <span class="w-2 h-2 rounded-full bg-red-500 inline-block"></span>
+                    Awaiting Payment: <strong id="awaitingCount" class="text-gray-800">0</strong>
+                </span>
+                <span class="flex items-center gap-1.5 text-xs px-3 py-1.5 bg-white border border-gray-200 rounded-full text-gray-500">
                     Total: <strong id="totalCount" class="text-gray-800">0</strong>
                 </span>
             </div>
 
-            <div class="flex flex-col gap-2" id="tablesListContainer">
-                @foreach($tables as $table)
-                <div class="table-row-item {{ $table->is_occupied ? 'occupied' : '' }} flex items-center gap-3 p-3 bg-white border-2 border-gray-200 rounded-xl cursor-pointer transition"
-                     data-table-id="{{ $table->id }}"
-                     data-table-number="{{ $table->table_number }}"
-                     data-table-occupied="{{ $table->is_occupied ? 'true' : 'false' }}"
-                     onclick="selectTable(this)">
-                    <div class="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 {{ $table->is_occupied ? 'bg-yellow-100 text-yellow-600' : 'bg-green-100 text-green-600' }}">
-                        <i class="fas fa-chair"></i>
-                    </div>
-                    <div class="flex-1 min-w-0">
-                        <p class="font-semibold text-sm text-gray-800">Table {{ $table->table_number }}</p>
-                        <p class="text-xs text-gray-400"><i class="fas fa-users mr-1"></i>{{ $table->capacity }} seats</p>
-                    </div>
-                    <span class="table-status-badge text-xs font-semibold px-2.5 py-1 rounded-full flex-shrink-0
-                        {{ $table->is_occupied ? 'bg-yellow-100 text-yellow-700' : 'bg-green-100 text-green-700' }}">
-                        {{ $table->is_occupied ? 'Occupied' : 'Available' }}
-                    </span>
-                    <i class="fas fa-chevron-right text-gray-300 text-xs table-arrow {{ $table->is_occupied ? 'invisible' : '' }}"></i>
-                </div>
-                @endforeach
-            </div>
+<div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4" id="tablesGrid">
+    @foreach($tables as $table)
+    @php
+        $order = $orders[$table->id] ?? null;
+        $isAwaitingPayment = $table->is_occupied && $order && $order->is_printed == 1 && $order->payment_status == 'unpaid';
+        $isOccupiedNoPrint = $table->is_occupied && !$isAwaitingPayment;
+    @endphp
+    <div class="table-card rounded-xl border-2 p-3 text-center transition-all
+               {{ $isAwaitingPayment ? 'border-red-500 bg-red-50' : ($isOccupiedNoPrint ? 'border-yellow-500 bg-yellow-50' : ($table->is_reserved ? 'border-blue-500 bg-blue-50' : ($table->is_active ? 'border-gray-200 bg-white cursor-pointer' : 'border-gray-300 bg-gray-100'))) }}"
+         data-table-id="{{ $table->id }}"
+         data-table-number="{{ $table->table_number }}"
+         data-table-occupied="{{ $table->is_occupied ? 'true' : 'false' }}"
+         data-table-reserved="{{ $table->is_reserved ? 'true' : 'false' }}"
+         data-awaiting-payment="{{ $isAwaitingPayment ? 'true' : 'false' }}"
+         data-table-active="{{ $table->is_active ? 'true' : 'false' }}"
+         onclick="selectTable(this)">
+        <div class="w-12 h-12 mx-auto rounded-full flex items-center justify-center mb-2
+                    {{ $isAwaitingPayment ? 'bg-red-100 text-red-600' : ($isOccupiedNoPrint ? 'bg-yellow-100 text-yellow-600' : ($table->is_reserved ? 'bg-blue-100 text-blue-600' : ($table->is_active ? 'bg-green-100 text-green-600' : 'bg-gray-100 text-gray-500'))) }}">
+            <i class="fas fa-chair text-xl"></i>
+        </div>
+        <p class="font-bold text-gray-800">Table {{ $table->table_number }}</p>
+        <p class="text-xs text-gray-500 mt-1">{{ $table->capacity }} seats</p>
+        <span class="inline-block mt-2 px-2 py-0.5 text-xs rounded-full
+                    {{ $isAwaitingPayment ? 'bg-red-200 text-red-700' : ($isOccupiedNoPrint ? 'bg-yellow-200 text-yellow-700' : ($table->is_reserved ? 'bg-blue-200 text-blue-700' : ($table->is_active ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-600'))) }}">
+            {{ $isAwaitingPayment ? 'Awaiting Payment' : ($isOccupiedNoPrint ? 'Occupied' : ($table->is_reserved ? 'Reserved' : ($table->is_active ? 'Available' : 'Inactive'))) }}
+        </span>
+    </div>
+    @endforeach
+</div>
 
-            <div id="noTablesFound" class="hidden text-center py-12 text-gray-400">
+            <div id="noTablesFound" class="hidden text-center py-12 text-gray-400 mt-4">
                 <i class="fas fa-search text-3xl mb-3 block opacity-30"></i>
                 <p class="text-sm">No tables match your search</p>
             </div>
@@ -187,11 +212,7 @@
             {{-- Categories and Items Section (Hidden until menu selected) --}}
             <div id="menuContentSection" class="hidden-section hidden">
                 <div class="flex gap-5 items-start">
-
-                    {{-- LEFT: Menu --}}
                     <div class="flex-1 min-w-0 flex flex-col gap-4">
-
-                        {{-- Categories --}}
                         <div class="bg-white border border-gray-200 rounded-xl p-3">
                             <div class="flex gap-2 overflow-x-auto pb-1 scrollbar-hide" id="categoriesContainer">
                                 <button class="cat-btn text-xs px-3 py-1.5 rounded-full border-2 border-gray-200 text-gray-600 whitespace-nowrap transition font-medium" data-category="all" onclick="filterByCategory('all')">All</button>
@@ -201,7 +222,6 @@
                             </div>
                         </div>
 
-                        {{-- Products --}}
                         <div class="bg-white border border-gray-200 rounded-xl overflow-hidden">
                             <div class="flex items-center justify-between px-4 py-3 border-b border-gray-100">
                                 <span class="font-semibold text-sm text-gray-700">Menu Items</span>
@@ -220,7 +240,6 @@
                         </div>
                     </div>
 
-                    {{-- RIGHT: Cart --}}
                     <div class="w-80 flex-shrink-0 bg-white border border-gray-200 rounded-xl overflow-hidden sticky top-20 flex flex-col" style="max-height:calc(100vh - 100px)">
                         <div class="bg-orange-600 px-4 py-3 text-white">
                             <p class="font-bold text-sm"><i class="fas fa-receipt mr-2"></i>Current Order</p>
@@ -252,11 +271,9 @@
                             </div>
                         </div>
                     </div>
-
                 </div>
             </div>
         </div>
-
     </div>
 </div>
 
@@ -298,54 +315,62 @@
     let cart = [], currentCategory = 'all', currentProduct = null, modalQuantity = 1;
     let pendingOrderCallback = null;
 
-    // Clock
     function updateClock() {
         document.getElementById('liveClock').textContent = new Date().toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'});
     }
     updateClock(); setInterval(updateClock, 10000);
 
-    // Table stats
     function updateTableStats() {
-        const rows = document.querySelectorAll('.table-row-item');
-        let free = 0, busy = 0;
-        rows.forEach(r => r.getAttribute('data-table-occupied') === 'true' ? busy++ : free++);
-        document.getElementById('freeCount').textContent = free;
-        document.getElementById('busyCount').textContent = busy;
-        document.getElementById('totalCount').textContent = rows.length;
-    }
-    updateTableStats();
+        const cards = document.querySelectorAll('.table-card');
+        let free = 0, reserved = 0, busy = 0, awaiting = 0;
+        cards.forEach(card => {
+            const isOccupied = card.getAttribute('data-table-occupied') === 'true';
+            const isReserved = card.getAttribute('data-table-reserved') === 'true';
+            const isAwaiting = card.getAttribute('data-awaiting-payment') === 'true';
 
-    // Table search
+            if (isAwaiting) {
+                awaiting++;
+            } else if (isOccupied) {
+                busy++;
+            } else if (isReserved) {
+                reserved++;
+            } else {
+                free++;
+            }
+        });
+        document.getElementById('freeCount').textContent = free;
+        document.getElementById('reservedCount').textContent = reserved;
+        document.getElementById('busyCount').textContent = busy;
+        document.getElementById('awaitingCount').textContent = awaiting;
+        document.getElementById('totalCount').textContent = cards.length;
+    }
+
     function filterTables(query) {
         const q = query.toLowerCase().trim();
         let visible = 0;
-        document.querySelectorAll('.table-row-item').forEach(row => {
-            const match = !q || row.getAttribute('data-table-number').toLowerCase().includes(q);
-            row.style.display = match ? '' : 'none';
+        const cards = document.querySelectorAll('.table-card');
+        cards.forEach(card => {
+            const tableNumber = card.getAttribute('data-table-number');
+            const match = !q || tableNumber.toLowerCase().includes(q);
+            card.style.display = match ? '' : 'none';
             if (match) visible++;
         });
         document.getElementById('noTablesFound').classList.toggle('hidden', visible > 0);
     }
 
-    // Warning Modal functions
     let pendingOrderData = null;
 
     function showWarningModal(warningMessage, warnings, orderData) {
         pendingOrderData = orderData;
-
         const modal = document.getElementById('warningModal');
         const content = document.getElementById('warningModalContent');
-
         let html = '<div class="space-y-3 text-sm">';
-
-        // Group warnings by department and item
         let grouped = {};
         warnings.forEach(w => {
             let key = `${w.department} - ${w.item_name}`;
             if (!grouped[key]) grouped[key] = [];
             grouped[key].push(w);
         });
-
         for (let [itemKey, items] of Object.entries(grouped)) {
             html += `<div class="border-l-4 border-yellow-400 pl-3 py-2">`;
             html += `<div class="font-semibold text-gray-800 mb-1">📌 ${itemKey}</div>`;
@@ -367,10 +392,8 @@
             html += `<div class="text-xs text-yellow-600 mt-1 ml-2">→ Order will still be processed. Items will be restocked soon.</div>`;
             html += `</div>`;
         }
-
         html += '</div>';
         content.innerHTML = html;
-
         modal.classList.remove('hidden');
         modal.classList.add('flex');
     }
@@ -389,51 +412,41 @@
     }
 
     function finalizeOrder(data) {
-        // Clear cart and reset UI
         cart = [];
         document.getElementById('orderNotes').value = '';
         renderCart();
-
         document.getElementById('orderView').classList.add('hidden');
         document.getElementById('tableView').classList.remove('hidden');
-
-        const row = document.querySelector(`.table-row-item[data-table-id="${selectedTableId}"]`);
-        if (row) {
-            row.setAttribute('data-table-occupied','true');
-            row.classList.add('occupied');
-            row.querySelector('.table-status-badge').textContent = 'Occupied';
-            row.querySelector('.table-status-badge').className = 'table-status-badge text-xs font-semibold px-2.5 py-1 rounded-full flex-shrink-0 bg-yellow-100 text-yellow-700';
-            row.querySelector('.table-arrow')?.classList.add('invisible');
-            const icon = row.querySelector('.w-10');
-            if (icon) {
-                icon.className = 'w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 bg-yellow-100 text-yellow-600';
-            }
+        const card = document.querySelector(`.table-card[data-table-id="${selectedTableId}"]`);
+        if (card) {
+            card.setAttribute('data-table-occupied', 'true');
+            card.setAttribute('data-awaiting-payment', 'false');
+            card.classList.remove('border-gray-200', 'bg-white', 'cursor-pointer');
+            card.classList.add('border-yellow-500', 'bg-yellow-50');
+            card.querySelector('.w-12').classList.remove('bg-green-100', 'text-green-600');
+            card.querySelector('.w-12').classList.add('bg-yellow-100', 'text-yellow-600');
+            const badge = card.querySelector('span:last-child');
+            badge.textContent = 'Occupied';
+            badge.classList.remove('bg-green-100', 'text-green-700');
+            badge.classList.add('bg-yellow-200', 'text-yellow-700');
         }
-
         selectedTableId = selectedTableNumber = null;
         selectedMenuId = selectedMenuName = null;
         updateTableStats();
         fetchActiveOrders();
-
-        // Reset menu UI
         document.querySelectorAll('.menu-selector').forEach(btn => {
             btn.classList.remove('active', 'bg-orange-600', 'text-white', 'border-orange-600');
             btn.classList.add('bg-white', 'text-gray-700', 'border-gray-200');
         });
-
         const menuContentSection = document.getElementById('menuContentSection');
         menuContentSection.classList.add('hidden-section', 'hidden');
         menuContentSection.classList.remove('block');
-
         showToast(data.message || `Order #${data.order_number} placed! UGX ${data.total.toLocaleString()}`, 'success');
     }
 
-    // Menu selection
     function selectMenu(menuId, menuName) {
         selectedMenuId = menuId;
         selectedMenuName = menuName;
-
-        // Update UI for menu buttons
         document.querySelectorAll('.menu-selector').forEach(btn => {
             btn.classList.remove('active', 'bg-orange-600', 'text-white', 'border-orange-600');
             btn.classList.add('bg-white', 'text-gray-700', 'border-gray-200');
@@ -441,22 +454,16 @@
         const activeBtn = document.querySelector(`.menu-selector[data-menu-id="${menuId}"]`);
         activeBtn.classList.add('active', 'bg-orange-600', 'text-white', 'border-orange-600');
         activeBtn.classList.remove('bg-white', 'text-gray-700', 'border-gray-200');
-
-        // Show the menu content section (categories and items)
         const menuContentSection = document.getElementById('menuContentSection');
         menuContentSection.classList.remove('hidden-section', 'hidden');
         menuContentSection.classList.add('block');
-
-        // Reset category to 'all' and load products
         currentCategory = 'all';
         document.querySelectorAll('.cat-btn').forEach(btn => {
             btn.classList.toggle('active', btn.getAttribute('data-category') == 'all');
         });
-
         loadProductsByCategory('all');
     }
 
-    // Load products by category with selected menu filter
     function loadProductsByCategory(categoryId) {
         if (!selectedMenuId) {
             document.getElementById('productsContainer').innerHTML = `
@@ -466,9 +473,7 @@
                 </div>`;
             return;
         }
-
         let url = '{{ url("waiter/products/category") }}/' + categoryId + '?menu_id=' + selectedMenuId;
-
         fetch(url)
             .then(response => {
                 if (!response.ok) throw new Error(`HTTP ${response.status}`);
@@ -485,10 +490,22 @@
             });
     }
 
-    // Select table
     function selectTable(el) {
+        const isInactive = el.getAttribute('data-table-active') === 'false';
+        if (isInactive) {
+            showToast('Table is inactive. Please contact administrator.', 'error');
+            return;
+        }
         if (el.getAttribute('data-table-occupied') === 'true') {
             showToast('Table is occupied. Choose a free table.', 'error');
+            return;
+        }
+        if (el.getAttribute('data-table-reserved') === 'true') {
+            showToast('Table is reserved. Cannot take order for reserved tables.', 'error');
+            return;
+        }
+        if (el.getAttribute('data-awaiting-payment') === 'true') {
+            showToast('Table is awaiting payment. Please ask customer to settle bill first.', 'error');
             return;
         }
         selectedTableId = el.getAttribute('data-table-id');
@@ -497,20 +514,15 @@
         document.getElementById('cartTableNumber').textContent = selectedTableNumber;
         document.getElementById('tableView').classList.add('hidden');
         document.getElementById('orderView').classList.remove('hidden');
-
-        // Reset menu selection when entering order view
         selectedMenuId = null;
         selectedMenuName = null;
         document.querySelectorAll('.menu-selector').forEach(btn => {
             btn.classList.remove('active', 'bg-orange-600', 'text-white', 'border-orange-600');
             btn.classList.add('bg-white', 'text-gray-700', 'border-gray-200');
         });
-
-        // Hide menu content section
         const menuContentSection = document.getElementById('menuContentSection');
         menuContentSection.classList.add('hidden-section', 'hidden');
         menuContentSection.classList.remove('block');
-
         document.getElementById('productsContainer').innerHTML = `
             <div class="text-center py-8 text-gray-400 text-sm">
                 <i class="fas fa-utensils text-2xl mb-2 block opacity-30"></i>
@@ -529,19 +541,15 @@
         document.getElementById('tableSearchInput').value = '';
         filterTables('');
         selectedTableId = selectedTableNumber = null;
-
-        // Reset menu UI
         document.querySelectorAll('.menu-selector').forEach(btn => {
             btn.classList.remove('active', 'bg-orange-600', 'text-white', 'border-orange-600');
             btn.classList.add('bg-white', 'text-gray-700', 'border-gray-200');
         });
-
         const menuContentSection = document.getElementById('menuContentSection');
         menuContentSection.classList.add('hidden-section', 'hidden');
         menuContentSection.classList.remove('block');
     }
 
-    // Modal
     function openItemModal(el) {
         currentProduct = {
             id: el.getAttribute('data-product-id'),
@@ -555,6 +563,7 @@
         document.getElementById('itemModal').classList.remove('hidden');
         document.getElementById('itemModal').classList.add('flex');
     }
+
     function increaseQuantity() { document.getElementById('modalQuantity').textContent = ++modalQuantity; }
     function decreaseQuantity() { if (modalQuantity > 1) document.getElementById('modalQuantity').textContent = --modalQuantity; }
     function closeModal() { document.getElementById('itemModal').classList.add('hidden'); document.getElementById('itemModal').classList.remove('flex'); }
@@ -570,7 +579,6 @@
         closeModal();
     }
 
-    // Render cart
     function renderCart() {
         const container = document.getElementById('cartContainer');
         const totalEl = document.getElementById('cartTotal');
@@ -604,13 +612,11 @@
     function removeItem(i) { cart.splice(i,1); renderCart(); showToast('Item removed','info'); }
     function clearCart() { if (!cart.length) return; if (confirm('Clear all items?')) { cart=[]; renderCart(); showToast('Cart cleared','info'); } }
 
-    // Submit order
     function submitOrder() {
         if (!cart.length) { showToast('Add items first.', 'error'); return; }
         const btn = document.getElementById('placeOrderBtn');
         btn.disabled = true;
         btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i>Placing...';
-
         fetch('{{ route("waiter.place-order") }}', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content') },
@@ -619,29 +625,19 @@
         .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
         .then(data => {
             if (data.success) {
-                // Check if there are stock warnings
                 if (data.warnings && data.warnings.length > 0) {
-                    // Show warning modal with details, then proceed after confirmation
                     showWarningModal(data.warning_message, data.warnings, data);
                 } else {
-                    // No warnings, proceed directly
                     finalizeOrder(data);
                 }
             } else {
                 showToast(data.message || 'Failed to place order.', 'error');
             }
         })
-        .catch(e => {
-            console.error(e);
-            showToast('Something went wrong.', 'error');
-        })
-        .finally(() => {
-            btn.disabled = false;
-            btn.innerHTML = '<i class="fas fa-paper-plane mr-1"></i>Place Order';
-        });
+        .catch(e => { console.error(e); showToast('Something went wrong.', 'error'); })
+        .finally(() => { btn.disabled = false; btn.innerHTML = '<i class="fas fa-paper-plane mr-1"></i>Place Order'; });
     }
 
-    // Products
     function filterByCategory(categoryId) {
         currentCategory = categoryId;
         document.querySelectorAll('.cat-btn').forEach(btn => {
@@ -670,7 +666,6 @@
             </div>`).join('');
     }
 
-    // Search
     document.getElementById('searchInput').addEventListener('input', function() {
         const s = this.value.trim();
         if (s.length < 2) {
@@ -684,7 +679,6 @@
             .then(renderProducts).catch(console.error);
     });
 
-    // Active orders
     function fetchActiveOrders() {
         fetch('{{ route("waiter.active-orders") }}')
             .then(r => r.json())
@@ -703,7 +697,6 @@
     fetchActiveOrders();
     setInterval(fetchActiveOrders, 30000);
 
-    // Toast
     function showToast(msg, type='info') {
         const colors = { success:'border-green-500 text-green-700', error:'border-red-500 text-red-700', info:'border-blue-500 text-blue-700' };
         const icons = { success:'fa-check-circle', error:'fa-exclamation-circle', info:'fa-info-circle' };
@@ -722,5 +715,7 @@
                    .replace(/"/g, '&quot;')
                    .replace(/'/g, '&#39;');
     }
+
+    setTimeout(() => { updateTableStats(); }, 100);
 </script>
 @endsection

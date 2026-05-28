@@ -32,15 +32,15 @@
         </div>
 
         {{-- Stats Cards --}}
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-            <div class="bg-white rounded-xl shadow-md p-4 border-l-4 border-orange-500">
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
+            <div class="bg-white rounded-xl shadow-md p-4 border-l-4 border-blue-500">
                 <div class="flex items-center justify-between">
                     <div>
                         <p class="text-gray-500 text-sm">Total Tables</p>
                         <p class="text-2xl font-bold text-gray-800" id="totalTables">{{ $tables->total() }}</p>
                     </div>
-                    <div class="bg-orange-100 rounded-lg p-2">
-                        <svg class="w-6 h-6 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <div class="bg-blue-100 rounded-lg p-2">
+                        <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/>
                         </svg>
                     </div>
@@ -49,7 +49,7 @@
             <div class="bg-white rounded-xl shadow-md p-4 border-l-4 border-green-500">
                 <div class="flex items-center justify-between">
                     <div>
-                        <p class="text-gray-500 text-sm">Available Tables</p>
+                        <p class="text-gray-500 text-sm">Available</p>
                         <p class="text-2xl font-bold text-green-600" id="availableCount">0</p>
                     </div>
                     <div class="bg-green-100 rounded-lg p-2">
@@ -59,28 +59,41 @@
                     </div>
                 </div>
             </div>
-            <div class="bg-white rounded-xl shadow-md p-4 border-l-4 border-orange-500">
+            <div class="bg-white rounded-xl shadow-md p-4 border-l-4 border-yellow-500">
                 <div class="flex items-center justify-between">
                     <div>
-                        <p class="text-gray-500 text-sm">Reserved Tables</p>
-                        <p class="text-2xl font-bold text-orange-600" id="reservedCount">0</p>
+                        <p class="text-gray-500 text-sm">Reserved</p>
+                        <p class="text-2xl font-bold text-yellow-600" id="reservedCount">0</p>
                     </div>
-                    <div class="bg-orange-100 rounded-lg p-2">
-                        <svg class="w-6 h-6 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <div class="bg-yellow-100 rounded-lg p-2">
+                        <svg class="w-6 h-6 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
                         </svg>
                     </div>
                 </div>
             </div>
-            <div class="bg-white rounded-xl shadow-md p-4 border-l-4 border-purple-500">
+            <div class="bg-white rounded-xl shadow-md p-4 border-l-4 border-orange-500">
                 <div class="flex items-center justify-between">
                     <div>
-                        <p class="text-gray-500 text-sm">Active Tables</p>
-                        <p class="text-2xl font-bold text-purple-600" id="activeCount">0</p>
+                        <p class="text-gray-500 text-sm">Occupied</p>
+                        <p class="text-2xl font-bold text-orange-600" id="occupiedCount">0</p>
                     </div>
-                    <div class="bg-purple-100 rounded-lg p-2">
-                        <svg class="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                    <div class="bg-orange-100 rounded-lg p-2">
+                        <svg class="w-6 h-6 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                        </svg>
+                    </div>
+                </div>
+            </div>
+            <div class="bg-white rounded-xl shadow-md p-4 border-l-4 border-red-500">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-gray-500 text-sm">Awaiting Payment</p>
+                        <p class="text-2xl font-bold text-red-600" id="paymentCount">0</p>
+                    </div>
+                    <div class="bg-red-100 rounded-lg p-2">
+                        <svg class="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
                         </svg>
                     </div>
                 </div>
@@ -98,7 +111,6 @@
                         <h3 class="text-white font-semibold">Filter Tables</h3>
                     </div>
                     <div class="flex items-center space-x-2">
-                        {{-- Layout Toggle Buttons --}}
                         <button id="gridViewBtn" onclick="setView('grid')"
                                 class="px-3 py-1 rounded-lg bg-white/20 text-white hover:bg-white/30 transition-all">
                             <svg class="w-5 h-5 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -118,7 +130,7 @@
             </div>
             <div class="p-6">
                 <div class="grid grid-cols-1 md:grid-cols-12 gap-4">
-                    <div class="md:col-span-4 relative">
+                    <div class="md:col-span-3 relative">
                         <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                             <svg class="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
@@ -144,11 +156,14 @@
                             @endforeach
                         </select>
                     </div>
-                    <div class="md:col-span-2">
+                    <div class="md:col-span-3">
                         <select id="statusFilter" class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:outline-none focus:border-orange-400 focus:ring-4 focus:ring-orange-100 transition-all duration-200">
                             <option value="">All Status</option>
-                            <option value="0">Available</option>
-                            <option value="1">Reserved</option>
+                            <option value="available">Available</option>
+                            <option value="reserved">Reserved</option>
+                            <option value="occupied">Occupied (Bill Not Printed)</option>
+                            <option value="payment">Awaiting Payment (Bill Printed)</option>
+                            <option value="inactive">Inactive</option>
                         </select>
                     </div>
                     <div class="md:col-span-2">
@@ -172,10 +187,9 @@
 
         {{-- Tables Grid/List View Container --}}
         <div id="tablesContainer" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {{-- Tables will be dynamically loaded here --}}
         </div>
 
-        {{-- List View Container (hidden by default) --}}
+        {{-- List View Container --}}
         <div id="listViewContainer" class="hidden bg-white rounded-xl shadow-lg overflow-hidden">
             <div class="overflow-x-auto">
                 <table class="w-full">
@@ -191,7 +205,7 @@
                     </thead>
                     <tbody id="listViewBody" class="divide-y divide-gray-200">
                     </tbody>
-                建成
+                </table>
             </div>
         </div>
 
@@ -209,8 +223,8 @@
 <script>
     let currentView = localStorage.getItem('tableView') || 'grid';
     let allTables = @json($tables->items());
+    let ordersData = @json($orders ?? []);
 
-    // Apply initial view
     function initView() {
         if (currentView === 'list') {
             document.getElementById('gridViewBtn').classList.remove('bg-white/30');
@@ -237,7 +251,6 @@
             showGridView();
         }
 
-        // Re-apply filters when changing view
         filterTables();
     }
 
@@ -251,7 +264,27 @@
         document.getElementById('listViewContainer').classList.remove('hidden');
     }
 
-    // Live filter function
+    function getTableStatus(table) {
+        if (!table.is_active) {
+            return { status: 'inactive', label: 'Inactive', color: 'gray', badgeClass: 'bg-gray-100 text-gray-600', icon: '⭕' };
+        }
+        if (table.is_occupied) {
+            const order = ordersData[table.id];
+            if (order && order.is_printed == 1 && order.payment_status === 'unpaid') {
+                return { status: 'payment', label: 'Awaiting Payment', color: 'red', badgeClass: 'bg-red-100 text-red-800', icon: '💰' };
+            }
+            return { status: 'occupied', label: 'Occupied', color: 'orange', badgeClass: 'bg-orange-100 text-orange-800', icon: '🪑' };
+        }
+        if (table.is_reserved) {
+            return { status: 'reserved', label: 'Reserved', color: 'yellow', badgeClass: 'bg-yellow-100 text-yellow-800', icon: '🕒' };
+        }
+        return { status: 'available', label: 'Available', color: 'green', badgeClass: 'bg-green-100 text-green-800', icon: '✅' };
+    }
+
+    function isEditLocked(status) {
+        return ['occupied', 'payment'].includes(status.status);
+    }
+
     function filterTables() {
         const searchTerm = document.getElementById('liveSearch').value.toLowerCase();
         const locationValue = document.getElementById('locationFilter').value;
@@ -260,37 +293,26 @@
 
         let filteredTables = allTables.filter(table => {
             let show = true;
+            const status = getTableStatus(table);
 
-            // Search by table number
             if (searchTerm && !table.table_number.toLowerCase().includes(searchTerm)) {
                 show = false;
             }
-
-            // Location filter
             if (show && locationValue && table.location !== locationValue) {
                 show = false;
             }
-
-            // Capacity filter
             if (show && capacityValue && table.capacity != capacityValue) {
                 show = false;
             }
-
-            // Status filter (0 = available, 1 = reserved)
-            if (show && statusValue !== '' && table.is_reserved != statusValue) {
+            if (show && statusValue && status.status !== statusValue) {
                 show = false;
             }
-
             return show;
         });
 
-        // Update stats
         updateStats(filteredTables);
-
-        // Update result summary
         updateResultSummary(filteredTables);
 
-        // Render tables based on current view
         if (currentView === 'list') {
             renderListView(filteredTables);
         } else {
@@ -299,14 +321,20 @@
     }
 
     function updateStats(tables) {
-        const total = tables.length;
-        const available = tables.filter(t => !t.is_reserved && t.is_active).length;
-        const reserved = tables.filter(t => t.is_reserved && t.is_active).length;
-        const active = tables.filter(t => t.is_active).length;
+        let available = 0, reserved = 0, occupied = 0, payment = 0;
+
+        tables.forEach(table => {
+            const status = getTableStatus(table);
+            if (status.status === 'available') available++;
+            else if (status.status === 'reserved') reserved++;
+            else if (status.status === 'occupied') occupied++;
+            else if (status.status === 'payment') payment++;
+        });
 
         document.getElementById('availableCount').textContent = available;
         document.getElementById('reservedCount').textContent = reserved;
-        document.getElementById('activeCount').textContent = active;
+        document.getElementById('occupiedCount').textContent = occupied;
+        document.getElementById('paymentCount').textContent = payment;
     }
 
     function updateResultSummary(tables) {
@@ -333,8 +361,34 @@
             return;
         }
 
-        container.innerHTML = tables.map(table => `
-            <div class="border-2 rounded-xl overflow-hidden transition-all duration-200 hover:shadow-xl transform hover:-translate-y-1 ${table.is_active ? (table.is_reserved ? 'border-orange-300 bg-gradient-to-br from-orange-50 to-amber-50' : 'border-green-300 bg-gradient-to-br from-green-50 to-emerald-50') : 'border-gray-300 bg-gray-100 opacity-75'}">
+        container.innerHTML = tables.map(table => {
+            const status = getTableStatus(table);
+            const locked = isEditLocked(status);
+
+            const borderColor = {
+                green: 'border-green-300',
+                red: 'border-red-300',
+                orange: 'border-orange-300',
+                yellow: 'border-yellow-300',
+                gray: 'border-gray-300',
+            }[status.color] ?? 'border-gray-300';
+
+            const editBtn = locked
+                ? `<span
+                       class="flex-1 text-center bg-gray-100 text-gray-400 px-3 py-2 rounded-lg text-sm font-medium cursor-not-allowed select-none flex items-center justify-center gap-1"
+                       title="Cannot edit while table is ${status.label}">
+                       <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+                       </svg>
+                       Locked
+                   </span>`
+                : `<a href="/management/tables/${table.id}/edit"
+                       class="flex-1 text-center bg-orange-600 text-white px-3 py-2 rounded-lg hover:bg-orange-700 transition text-sm font-medium">
+                       Edit
+                   </a>`;
+
+            return `
+            <div class="border-2 rounded-xl overflow-hidden transition-all duration-200 hover:shadow-xl transform hover:-translate-y-1 bg-white ${borderColor}">
                 <div class="p-4">
                     <div class="flex justify-between items-start mb-3">
                         <div>
@@ -348,7 +402,9 @@
                             </p>
                         </div>
                         <div class="text-right">
-                            ${getStatusBadge(table)}
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${status.badgeClass}">
+                                ${status.icon} ${status.label}
+                            </span>
                         </div>
                     </div>
 
@@ -365,27 +421,18 @@
                             </svg>
                             <span class="text-gray-700">Size: <strong>${getSizeLabel(table.size)}</strong></span>
                         </div>
-                        ${table.description ? `
-                        <div class="flex items-start text-sm">
-                            <svg class="w-5 h-5 text-gray-500 mr-2 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                            </svg>
-                            <span class="text-gray-600 text-sm">${escapeHtml(table.description.substring(0, 80))}${table.description.length > 80 ? '...' : ''}</span>
-                        </div>
-                        ` : ''}
                     </div>
 
                     <div class="flex gap-2 mt-4 pt-3 border-t border-gray-200">
-                        <a href="/management/tables/${table.id}" class="flex-1 text-center bg-blue-600 text-white px-3 py-2 rounded-lg hover:bg-blue-700 transition text-sm font-medium">
+                        <a href="/management/tables/${table.id}"
+                           class="flex-1 text-center bg-blue-600 text-white px-3 py-2 rounded-lg hover:bg-blue-700 transition text-sm font-medium">
                             View Details
                         </a>
-                        <a href="/management/tables/${table.id}/edit" class="flex-1 text-center bg-orange-600 text-white px-3 py-2 rounded-lg hover:bg-orange-700 transition text-sm font-medium">
-                            Edit
-                        </a>
+                        ${editBtn}
                     </div>
                 </div>
             </div>
-        `).join('');
+        `}).join('');
     }
 
     function renderListView(tables) {
@@ -396,7 +443,28 @@
             return;
         }
 
-        tbody.innerHTML = tables.map(table => `
+        tbody.innerHTML = tables.map(table => {
+            const status = getTableStatus(table);
+            const locked = isEditLocked(status);
+
+            const editAction = locked
+                ? `<span
+                       class="inline-flex items-center text-gray-400 cursor-not-allowed select-none"
+                       title="Cannot edit while table is ${status.label}">
+                       <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+                       </svg>
+                       Locked
+                   </span>`
+                : `<a href="/management/tables/${table.id}/edit"
+                       class="inline-flex items-center text-amber-600 hover:text-amber-800 transition-colors">
+                       <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                       </svg>
+                       Edit
+                   </a>`;
+
+            return `
             <tr class="hover:bg-gradient-to-r hover:from-orange-50 hover:to-transparent transition-all duration-200">
                 <td class="px-6 py-4">
                     <div class="font-medium text-gray-900 text-lg">Table ${escapeHtml(table.table_number)}</div>
@@ -421,35 +489,23 @@
                     </span>
                 </td>
                 <td class="px-6 py-4 text-center">
-                    ${getStatusBadge(table)}
+                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${status.badgeClass}">
+                        ${status.icon} ${status.label}
+                    </span>
                 </td>
                 <td class="px-6 py-4 text-right space-x-2">
-                    <a href="/management/tables/${table.id}" class="inline-flex items-center text-blue-600 hover:text-blue-800 transition-colors">
+                    <a href="/management/tables/${table.id}"
+                       class="inline-flex items-center text-blue-600 hover:text-blue-800 transition-colors">
                         <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
                         </svg>
                         View
                     </a>
-                    <a href="/management/tables/${table.id}/edit" class="inline-flex items-center text-amber-600 hover:text-amber-800 transition-colors">
-                        <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
-                        </svg>
-                        Edit
-                    </a>
+                    ${editAction}
                 </td>
             </tr>
-        `).join('');
-    }
-
-    function getStatusBadge(table) {
-        if (!table.is_active) {
-            return '<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600">⭕ Inactive</span>';
-        }
-        if (table.is_reserved) {
-            return '<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800">🕒 Reserved</span>';
-        }
-        return '<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">✅ Available</span>';
+        `}).join('');
     }
 
     function getSizeLabel(size) {
@@ -478,13 +534,11 @@
         filterTables();
     }
 
-    // Add event listeners
     document.getElementById('liveSearch').addEventListener('input', filterTables);
     document.getElementById('locationFilter').addEventListener('change', filterTables);
     document.getElementById('capacityFilter').addEventListener('change', filterTables);
     document.getElementById('statusFilter').addEventListener('change', filterTables);
 
-    // Initialize
     initView();
     filterTables();
 </script>

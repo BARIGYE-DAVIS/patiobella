@@ -6,7 +6,9 @@
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>@yield('title', 'Cashier Module') - {{ config('app.name') }}</title>
 
-    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- <script src="https://cdn.tailwindcss.com"></script> -->
+     @vite(['resources/css/app.css', 'resources/js/app.js'])
+
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 
@@ -138,6 +140,13 @@
             <i class="fas fa-cash-register w-5 h-5 mr-3"></i>
             Dashboard
         </a>
+
+     <a href="{{ route('cashier.bills') }}" class="flex items-center px-4 py-3 text-sm hover:bg-orange-700 transition sidebar-nav-link
+                  {{ request()->routeIs('cashier.bills') ? 'sidebar-active' : '' }}">
+            <i class="fas fa-file-invoice w-5 h-5 mr-3"></i>
+            Bills
+        </a>
+
     </nav>
 
     <div class="absolute bottom-0 w-full p-4 border-t border-orange-700 bg-[#9a3412]">

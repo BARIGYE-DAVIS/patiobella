@@ -716,33 +716,63 @@ Route::prefix('cafe')->name('cafe.')->middleware(['auth'])->group(function () {
 
 
 // =====================================================
-// CASHIER ROUTES WITH PERMISSIONS
+// CASHIER ROUTES
 // =====================================================
 Route::prefix('cashier')->name('cashier.')->middleware(['auth'])->group(function () {
 
-    // Dashboard - No permission required (already controlled by AuthController redirect)
-    Route::get('/', [App\Http\Controllers\CashierController::class, 'index'])->name('index');
+    // Dashboard - Tables view
+    Route::get('/', [App\Http\Controllers\CashierController::class, 'index'])
+        ->name('index');
 
-    // Order details - requires view_orders permission
-    Route::get('/order/{id}/details', [App\Http\Controllers\CashierController::class, 'getOrderDetails'])
-        ->name('order.details')
+    // Bills Management
+    Route::get('/bills', [App\Http\Controllers\CashierController::class, 'bills'])
+        ->name('bills')
         ->middleware('permission:view_orders');
 
-    // Process payment - requires process_payments permission
+    // Invoice View
+    Route::get('/invoice/{id}', [App\Http\Controllers\CashierController::class, 'getInvoice'])
+        ->name('invoice')
+        ->middleware('permission:view_orders');
+
+    // Mark as Paid
+    Route::post('/mark-paid/{id}', [App\Http\Controllers\CashierController::class, 'markAsPaid'])
+        ->name('mark-paid')
+        ->middleware('permission:process_payments');
+
+    // Table Order (AJAX)
+    Route::get('/table/{tableId}/order', [App\Http\Controllers\CashierController::class, 'getOrderByTable'])
+        ->name('table.order')
+        ->middleware('permission:view_orders');
+
+    // Process Payment (with amount)
     Route::post('/order/{id}/pay', [App\Http\Controllers\CashierController::class, 'processPayment'])
         ->name('order.pay')
         ->middleware('permission:process_payments');
 
-        Route::get('/table/{tableId}/order', [App\Http\Controllers\CashierController::class, 'getOrderByTable'])
-    ->name('cashier.table.order')
-    ->middleware('permission:view_orders');
-    // Mark as paid - requires process_payments permission
-    Route::post('/order/{id}/mark-paid', [App\Http\Controllers\CashierController::class, 'markAsPaid'])
-        ->name('order.mark-paid')
-        ->middleware('permission:process_payments');
-
-    // Print receipt - requires print_receipts permission
+    // Print Receipt
     Route::get('/receipt/{id}', [App\Http\Controllers\CashierController::class, 'printReceipt'])
         ->name('receipt')
         ->middleware('permission:print_receipts');
+});
+
+
+// =====================================================
+// KITCHEN STOCK ROUTES
+// =====================================================
+Route::prefix('kitchen')->name('kitchen.')->middleware(['auth'])->group(function () {
+
+    // Stock Export PDF - MUST be BEFORE the {id} route
+    Route::get('/stock/export-pdf', [App\Http\Controllers\Kitchen\KitchenStockController::class, 'exportPdf'])
+        ->name('stock.export-pdf');
+        //->middleware('permission:export_stock');
+
+    // Stock View
+    Route::get('/stock', [App\Http\Controllers\Kitchen\KitchenStockController::class, 'index'])
+        ->name('stock.index')
+        ->middleware('permission:view_stock');
+
+    // Stock Details - MUST be AFTER export-pdf
+    Route::get('/stock/{id}', [App\Http\Controllers\Kitchen\KitchenStockController::class, 'show'])
+        ->name('stock.show')
+        ->middleware('permission:view_stock');
 });
