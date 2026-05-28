@@ -219,6 +219,10 @@ class CheckPermission
             'access_restaurant_module' => 'You do not have permission to access the Restaurant module.',
             'access_cashier_module' => 'You do not have permission to access the Cashier module.',
             'access_bar_module' => 'You do not have permission to access the Bar module.',
+            // Add to the existing $messages array
+            'download_files' => 'You do not have permission to download files.',
+            'read_documents' => 'You do not have permission to view documents.',
+            'upload_documents' => 'You do not have permission to upload documents.',
 
             // View permissions for each module
             'view_procurement' => 'You do not have permission to view Procurement.',

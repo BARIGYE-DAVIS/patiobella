@@ -241,17 +241,67 @@ Route::prefix('procurement')->name('procurement.')->middleware(['auth'])->group(
         Route::delete('/{id}', [App\Http\Controllers\Procurement\VendorController::class, 'destroy'])->name('destroy')->middleware('permission:delete_vendors');
     });
 
-    // Goods Received
-    Route::prefix('goods-received')->name('goods-received.')->group(function () {
-        Route::get('/', [App\Http\Controllers\Procurement\GoodsReceivedController::class, 'index'])->name('index')->middleware('permission:view_goods_received');
-        Route::get('/create', [App\Http\Controllers\Procurement\GoodsReceivedController::class, 'create'])->name('create')->middleware('permission:receive_goods');
-        Route::post('/store', [App\Http\Controllers\Procurement\GoodsReceivedController::class, 'store'])->name('store')->middleware('permission:receive_goods');
-        Route::get('/get-po-items/{poId}', [App\Http\Controllers\Procurement\GoodsReceivedController::class, 'getPoItems'])->name('get-po-items')->middleware('permission:view_purchase_orders');
-        Route::get('/{id}', [App\Http\Controllers\Procurement\GoodsReceivedController::class, 'show'])->name('show')->middleware('permission:view_goods_received');
-        Route::post('/{id}/send-email', [App\Http\Controllers\Procurement\GoodsReceivedController::class, 'sendEmail'])->name('send-email')->middleware('permission:receive_goods');
-        Route::get('/{id}/download-pdf', [App\Http\Controllers\Procurement\GoodsReceivedController::class, 'downloadPdf'])->name('download-pdf')->middleware('permission:view_goods_received');
-        Route::post('/{id}/send-to-store', [App\Http\Controllers\Procurement\GoodsReceivedController::class, 'sendToStore'])->name('send-to-store')->middleware('permission:receive_goods');
-    });
+Route::prefix('goods-received')->name('goods-received.')->group(function () {
+    Route::get('/', [App\Http\Controllers\Procurement\GoodsReceivedController::class, 'index'])
+        ->name('index')
+        ->middleware('permission:view_goods_received');
+
+    Route::get('/create', [App\Http\Controllers\Procurement\GoodsReceivedController::class, 'create'])
+        ->name('create')
+        ->middleware('permission:receive_goods');
+
+    Route::post('/store', [App\Http\Controllers\Procurement\GoodsReceivedController::class, 'store'])
+        ->name('store')
+        ->middleware('permission:receive_goods');
+
+    Route::get('/get-purchase-orders', [App\Http\Controllers\Procurement\GoodsReceivedController::class, 'getPurchaseOrders'])
+        ->name('get-purchase-orders')
+        ->middleware('permission:view_purchase_orders');
+
+    Route::get('/create-form/{poId}', [App\Http\Controllers\Procurement\GoodsReceivedController::class, 'createFormAjax'])
+        ->name('create-form')
+        ->middleware('permission:receive_goods');
+
+    Route::get('/create-for-po/{poId}', [App\Http\Controllers\Procurement\GoodsReceivedController::class, 'createForPo'])
+        ->name('create-for-po')
+        ->middleware('permission:receive_goods');
+
+    Route::get('/{id}', [App\Http\Controllers\Procurement\GoodsReceivedController::class, 'show'])
+        ->name('show')
+        ->middleware('permission:view_goods_received');
+
+    Route::get('/{id}/download-pdf', [App\Http\Controllers\Procurement\GoodsReceivedController::class, 'downloadPdf'])
+        ->name('download-pdf')
+        ->middleware('permission:download_files');
+
+    Route::get('/{id}/print', [App\Http\Controllers\Procurement\GoodsReceivedController::class, 'print'])
+        ->name('print')
+        ->middleware('permission:view_goods_received');
+
+    Route::post('/{id}/send-email', [App\Http\Controllers\Procurement\GoodsReceivedController::class, 'sendEmail'])
+        ->name('send-email')
+        ->middleware('permission:receive_goods');
+
+    Route::post('/{id}/send-to-store', [App\Http\Controllers\Procurement\GoodsReceivedController::class, 'sendToStore'])
+        ->name('send-to-store')
+        ->middleware('permission:receive_goods');
+
+    // Document routes - USING THE NEW PERMISSIONS
+    Route::post('/{id}/attach-document', [App\Http\Controllers\Procurement\GoodsReceivedController::class, 'attachDocument'])
+        ->name('attach-document')
+        ->middleware('permission:upload_documents');
+
+    Route::get('/download-document/{id}', [App\Http\Controllers\Procurement\GoodsReceivedController::class, 'downloadDocument'])
+        ->name('download-document')
+        ->middleware('permission:download_files');
+
+    Route::get('/preview-document/{id}', [App\Http\Controllers\Procurement\GoodsReceivedController::class, 'previewDocument'])
+        ->name('preview-document')
+        ->middleware('permission:read_documents');
+        Route::delete('/delete-document/{id}', [App\Http\Controllers\Procurement\GoodsReceivedController::class, 'deleteDocument'])
+    ->name('delete-document')
+    ->middleware('permission:delete_documents');
+});
 
     // Cost Prices
     Route::prefix('cost-prices')->name('cost-prices.')->group(function () {
