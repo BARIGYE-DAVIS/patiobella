@@ -217,18 +217,24 @@ Route::prefix('procurement')->name('procurement.')->middleware(['auth'])->group(
     });
 
     // Purchase Orders
-    Route::prefix('purchase-orders')->name('purchase-orders.')->group(function () {
-        Route::get('/', [App\Http\Controllers\Procurement\PurchaseOrderController::class, 'index'])->name('index')->middleware('permission:view_purchase_orders');
-        Route::get('/create', [App\Http\Controllers\Procurement\PurchaseOrderController::class, 'create'])->name('create')->middleware('permission:create_purchase_orders');
-        Route::post('/', [App\Http\Controllers\Procurement\PurchaseOrderController::class, 'store'])->name('store')->middleware('permission:create_purchase_orders');
-        Route::get('/{id}', [App\Http\Controllers\Procurement\PurchaseOrderController::class, 'show'])->name('show')->middleware('permission:view_purchase_orders');
-        Route::get('/{id}/edit', [App\Http\Controllers\Procurement\PurchaseOrderController::class, 'edit'])->name('edit')->middleware('permission:edit_purchase_orders');
-        Route::put('/{id}', [App\Http\Controllers\Procurement\PurchaseOrderController::class, 'update'])->name('update')->middleware('permission:edit_purchase_orders');
-        Route::delete('/{id}', [App\Http\Controllers\Procurement\PurchaseOrderController::class, 'destroy'])->name('destroy')->middleware('permission:delete_purchase_orders');
-        Route::post('/{id}/send', [App\Http\Controllers\Procurement\PurchaseOrderController::class, 'send'])->name('send')->middleware('permission:send_purchase_orders');
-        Route::post('/{id}/resend-email', [App\Http\Controllers\Procurement\PurchaseOrderController::class, 'resendEmail'])->name('resend-email')->middleware('permission:send_purchase_orders');
-        Route::get('/{id}/download-pdf', [App\Http\Controllers\Procurement\PurchaseOrderController::class, 'downloadPdf'])->name('download-pdf')->middleware('permission:view_purchase_orders');
-    });
+Route::prefix('purchase-orders')->name('purchase-orders.')->group(function () {
+    Route::get('/', [App\Http\Controllers\Procurement\PurchaseOrderController::class, 'index'])->name('index')->middleware('permission:view_purchase_orders');
+    Route::get('/create', [App\Http\Controllers\Procurement\PurchaseOrderController::class, 'create'])->name('create')->middleware('permission:create_purchase_orders');
+    Route::post('/', [App\Http\Controllers\Procurement\PurchaseOrderController::class, 'store'])->name('store')->middleware('permission:create_purchase_orders');
+    Route::get('/{id}', [App\Http\Controllers\Procurement\PurchaseOrderController::class, 'show'])->name('show')->middleware('permission:view_purchase_orders');
+    Route::get('/{id}/edit', [App\Http\Controllers\Procurement\PurchaseOrderController::class, 'edit'])->name('edit')->middleware('permission:edit_purchase_orders');
+    Route::put('/{id}', [App\Http\Controllers\Procurement\PurchaseOrderController::class, 'update'])->name('update')->middleware('permission:edit_purchase_orders');
+    Route::delete('/{id}', [App\Http\Controllers\Procurement\PurchaseOrderController::class, 'destroy'])->name('destroy')->middleware('permission:delete_purchase_orders');
+    Route::post('/{id}/send', [App\Http\Controllers\Procurement\PurchaseOrderController::class, 'send'])->name('send')->middleware('permission:send_purchase_orders');
+    Route::post('/{id}/resend-email', [App\Http\Controllers\Procurement\PurchaseOrderController::class, 'resendEmail'])->name('resend-email')->middleware('permission:send_purchase_orders');
+    Route::get('/{id}/download-pdf', [App\Http\Controllers\Procurement\PurchaseOrderController::class, 'downloadPdf'])->name('download-pdf')->middleware('permission:view_purchase_orders');
+
+    // Document routes
+    Route::post('/attach-document', [App\Http\Controllers\Procurement\PurchaseOrderController::class, 'attachDocument'])->name('attach-document')->middleware('permission:upload_documents');
+    Route::get('/preview-document/{id}', [App\Http\Controllers\Procurement\PurchaseOrderController::class, 'previewDocument'])->name('preview-document')->middleware('permission:read_documents');
+    Route::get('/download-document/{id}', [App\Http\Controllers\Procurement\PurchaseOrderController::class, 'downloadDocument'])->name('download-document')->middleware('permission:download_files');
+    Route::delete('/delete-document/{id}', [App\Http\Controllers\Procurement\PurchaseOrderController::class, 'deleteDocument'])->name('delete-document')->middleware('permission:delete_documents');
+});
 
     // Vendors
     Route::prefix('vendors')->name('vendors.')->group(function () {

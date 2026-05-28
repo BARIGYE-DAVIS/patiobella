@@ -413,94 +413,94 @@
         </div>
     </div>
 
-{{-- Attached Documents Section --}}
-@if(isset($documents) && $documents->count() > 0)
-<div class="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
-    <div class="border-b border-gray-100 px-5 py-3 flex items-center justify-between bg-gray-50/50">
-        <div class="flex items-center gap-2">
-            <div class="w-8 h-8 rounded-lg bg-purple-50 flex items-center justify-center">
-                <svg class="w-4 h-4 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
-                </svg>
+    {{-- Attached Documents Section --}}
+    @if(isset($documents) && $documents->count() > 0)
+    <div class="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
+        <div class="border-b border-gray-100 px-5 py-3 flex items-center justify-between bg-gray-50/50">
+            <div class="flex items-center gap-2">
+                <div class="w-8 h-8 rounded-lg bg-purple-50 flex items-center justify-center">
+                    <svg class="w-4 h-4 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                    </svg>
+                </div>
+                <span class="text-sm font-bold text-gray-700">Attached Documents</span>
             </div>
-            <span class="text-sm font-bold text-gray-700">Attached Documents</span>
+            <span class="text-xs bg-purple-50 text-purple-700 font-semibold px-2 py-1 rounded-full">{{ $documents->count() }} document(s)</span>
         </div>
-        <span class="text-xs bg-purple-50 text-purple-700 font-semibold px-2 py-1 rounded-full">{{ $documents->count() }} document(s)</span>
-    </div>
-    <div class="p-4">
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-            @foreach($documents as $doc)
-            <div class="border border-gray-200 rounded-lg p-3 hover:shadow-md transition group" id="doc-{{ $doc->id }}">
-                <div class="flex items-start justify-between">
-                    <div class="flex items-center gap-3">
-                        <div class="w-10 h-10 rounded-lg flex items-center justify-center
-                            @if($doc->mime_type == 'application/pdf') bg-red-100
-                            @elseif(strpos($doc->mime_type, 'image') !== false) bg-blue-100
-                            @else bg-gray-100 @endif">
-                            @if($doc->mime_type == 'application/pdf')
-                                <svg class="w-5 h-5 text-red-600" fill="currentColor" viewBox="0 0 24 24">
-                                    <path d="M20 6.83V18a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h8.17L20 6.83zM11 8H6v2h5V8zm7 4H6v2h12v-2zm-7 4H6v2h5v-2z"/>
+        <div class="p-4">
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                @foreach($documents as $doc)
+                <div class="border border-gray-200 rounded-lg p-3 hover:shadow-md transition group" id="doc-{{ $doc->id }}">
+                    <div class="flex items-start justify-between">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-lg flex items-center justify-center
+                                @if($doc->mime_type == 'application/pdf') bg-red-100
+                                @elseif(strpos($doc->mime_type, 'image') !== false) bg-blue-100
+                                @else bg-gray-100 @endif">
+                                @if($doc->mime_type == 'application/pdf')
+                                    <svg class="w-5 h-5 text-red-600" fill="currentColor" viewBox="0 0 24 24">
+                                        <path d="M20 6.83V18a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h8.17L20 6.83zM11 8H6v2h5V8zm7 4H6v2h12v-2zm-7 4H6v2h5v-2z"/>
+                                    </svg>
+                                @elseif(strpos($doc->mime_type, 'image') !== false)
+                                    <svg class="w-5 h-5 text-blue-600" fill="currentColor" viewBox="0 0 24 24">
+                                        <path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/>
+                                    </svg>
+                                @else
+                                    <svg class="w-5 h-5 text-gray-600" fill="currentColor" viewBox="0 0 24 24">
+                                        <path d="M20 6.83V18a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h8.17L20 6.83z"/>
+                                    </svg>
+                                @endif
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <p class="text-sm font-semibold text-gray-800 truncate" title="{{ $doc->original_name }}">
+                                    {{ $doc->original_name }}
+                                </p>
+                                <p class="text-xs text-gray-400">
+                                    {{ number_format($doc->file_size / 1024, 2) }} KB
+                                    @if($doc->document_type)
+                                        · {{ $doc->document_type }}
+                                    @endif
+                                </p>
+                                <p class="text-xs text-gray-400">
+                                    by {{ $doc->uploadedBy->first_name ?? 'User' }}
+                                </p>
+                            </div>
+                        </div>
+                        <div class="flex gap-1 opacity-0 group-hover:opacity-100 transition">
+                            {{-- VIEW Button --}}
+                            <button type="button" onclick="previewDocument('{{ route('procurement.goods-received.preview-document', $doc->id) }}', '{{ $doc->original_name }}', '{{ $doc->mime_type }}')"
+                                    class="p-1.5 text-blue-600 hover:bg-blue-50 rounded transition" title="View">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
                                 </svg>
-                            @elseif(strpos($doc->mime_type, 'image') !== false)
-                                <svg class="w-5 h-5 text-blue-600" fill="currentColor" viewBox="0 0 24 24">
-                                    <path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/>
+                            </button>
+
+                            {{-- DOWNLOAD Button --}}
+                            <a href="{{ route('procurement.goods-received.download-document', $doc->id) }}"
+                               class="p-1.5 text-green-600 hover:bg-green-50 rounded transition" title="Download">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
                                 </svg>
-                            @else
-                                <svg class="w-5 h-5 text-gray-600" fill="currentColor" viewBox="0 0 24 24">
-                                    <path d="M20 6.83V18a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h8.17L20 6.83z"/>
+                            </a>
+
+                            {{-- DELETE Button (only for users with permission) --}}
+                            @if(Auth::user()->is_super_admin || Auth::user()->can('delete_documents'))
+                            <button type="button" onclick="deleteDocument({{ $doc->id }})"
+                                    class="p-1.5 text-red-600 hover:bg-red-50 rounded transition" title="Delete">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
                                 </svg>
+                            </button>
                             @endif
                         </div>
-                        <div class="flex-1 min-w-0">
-                            <p class="text-sm font-semibold text-gray-800 truncate" title="{{ $doc->original_name }}">
-                                {{ $doc->original_name }}
-                            </p>
-                            <p class="text-xs text-gray-400">
-                                {{ number_format($doc->file_size / 1024, 2) }} KB
-                                @if($doc->document_type)
-                                    · {{ $doc->document_type }}
-                                @endif
-                            </p>
-                            <p class="text-xs text-gray-400">
-                                by {{ $doc->uploadedBy->first_name ?? 'User' }}
-                            </p>
-                        </div>
-                    </div>
-                    <div class="flex gap-1 opacity-0 group-hover:opacity-100 transition">
-                        {{-- VIEW Button --}}
-                        <button type="button" onclick="previewDocument('{{ route('procurement.goods-received.preview-document', $doc->id) }}', '{{ $doc->original_name }}', '{{ $doc->mime_type }}')"
-                                class="p-1.5 text-blue-600 hover:bg-blue-50 rounded transition" title="View">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
-                            </svg>
-                        </button>
-
-                        {{-- DOWNLOAD Button --}}
-                        <a href="{{ route('procurement.goods-received.download-document', $doc->id) }}"
-                           class="p-1.5 text-green-600 hover:bg-green-50 rounded transition" title="Download">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
-                            </svg>
-                        </a>
-
-                        {{-- DELETE Button --}}
-                        @if(Auth::user()->is_super_admin || Auth::user()->can('delete_documents'))
-                        <button type="button" onclick="deleteDocument({{ $doc->id }})"
-                                class="p-1.5 text-red-600 hover:bg-red-50 rounded transition" title="Delete">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
-                            </svg>
-                        </button>
-                        @endif
                     </div>
                 </div>
+                @endforeach
             </div>
-            @endforeach
         </div>
     </div>
-</div>
-@endif
+    @endif
 </div>
 
 {{-- Rating Modal --}}
@@ -604,7 +604,7 @@
             <h3 class="text-lg font-bold text-gray-800">Attach Document to PO</h3>
         </div>
 
-        <form id="attachPdfForm" method="POST" enctype="multipart/form-data">
+        <form id="attachPdfForm" method="POST" enctype="multipart/form-data" action="{{ route('procurement.goods-received.attach-document', $grn->id) }}">
             @csrf
             <div class="space-y-5">
                 <div class="bg-blue-50 rounded-lg p-3 text-sm">
@@ -662,14 +662,14 @@
 
                 <div class="flex gap-3 pt-2">
                     <button type="button" onclick="closeAttachPdfModal()" class="flex-1 px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-lg text-sm font-medium transition">Cancel</button>
-                    <button type="button" onclick="uploadDocument()" class="flex-1 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-medium transition">Upload Document</button>
+                    <button type="submit" class="flex-1 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-medium transition">Upload Document</button>
                 </div>
             </div>
         </form>
     </div>
 </div>
 
-{{-- Document Preview Modal --}}
+{{-- Document Preview Modal (NO DOWNLOAD BUTTON) --}}
 <div id="documentPreviewModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-[100] hidden items-center justify-center" onclick="closeDocumentPreview(event)">
     <div class="bg-white rounded-xl w-full max-w-5xl max-h-[90vh] overflow-hidden shadow-2xl" onclick="event.stopPropagation()">
         <div class="flex justify-between items-center px-5 py-3 border-b bg-gray-50">
@@ -682,18 +682,11 @@
                 </div>
                 <span id="previewTitle" class="font-semibold text-gray-800">Document Preview</span>
             </div>
-            <div class="flex gap-2">
-                <a id="downloadPreviewBtn" href="#" download class="p-2 text-green-600 hover:bg-green-50 rounded transition" title="Download">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
-                    </svg>
-                </a>
-                <button type="button" onclick="closeDocumentPreview()" class="p-2 text-gray-500 hover:bg-gray-100 rounded transition">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-                    </svg>
-                </button>
-            </div>
+            <button type="button" onclick="closeDocumentPreview()" class="p-2 text-gray-500 hover:bg-gray-100 rounded transition" title="Close">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                </svg>
+            </button>
         </div>
         <div id="previewContent" class="p-4 overflow-auto max-h-[calc(90vh-70px)] flex items-center justify-center min-h-[400px] bg-gray-100">
             <div class="text-center text-gray-500">
@@ -808,68 +801,13 @@ function resetFileUpload() {
     document.getElementById('progressBar').style.width = '0%';
 }
 
-function uploadDocument() {
-    if (!selectedFile) {
-        alert('Please select a file to upload');
-        return;
-    }
-
-    const formData = new FormData();
-    formData.append('document', selectedFile);
-    formData.append('description', document.querySelector('#attachPdfForm input[name="description"]').value || '');
-
-    const progressDiv = document.getElementById('uploadProgress');
-    const progressBar = document.getElementById('progressBar');
-    const progressPercent = document.getElementById('progressPercent');
-
-    progressDiv.classList.remove('hidden');
-
-    const xhr = new XMLHttpRequest();
-    xhr.open('POST', '{{ route("procurement.goods-received.attach-document", $grn->id) }}');
-    xhr.setRequestHeader('X-CSRF-TOKEN', document.querySelector('meta[name="csrf-token"]').getAttribute('content'));
-
-    xhr.upload.addEventListener('progress', function(e) {
-        if (e.lengthComputable) {
-            const percent = Math.round((e.loaded / e.total) * 100);
-            progressBar.style.width = percent + '%';
-            progressPercent.innerText = percent + '%';
-        }
-    });
-
-    xhr.onload = function() {
-        if (xhr.status === 200) {
-            const response = JSON.parse(xhr.responseText);
-            if (response.success) {
-                alert(response.message);
-                closeAttachPdfModal();
-                location.reload();
-            } else {
-                alert('Error: ' + response.message);
-                progressDiv.classList.add('hidden');
-            }
-        } else {
-            alert('Upload failed. Please try again.');
-            progressDiv.classList.add('hidden');
-        }
-    };
-
-    xhr.onerror = function() {
-        alert('Network error. Please try again.');
-        progressDiv.classList.add('hidden');
-    };
-
-    xhr.send(formData);
-}
-
-// Document Preview Function
+// Document Preview Function (NO DOWNLOAD BUTTON INSIDE)
 function previewDocument(url, filename, mimeType) {
     const modal = document.getElementById('documentPreviewModal');
     const previewContent = document.getElementById('previewContent');
     const previewTitle = document.getElementById('previewTitle');
-    const downloadBtn = document.getElementById('downloadPreviewBtn');
 
     previewTitle.innerText = filename;
-    downloadBtn.href = url;
 
     previewContent.innerHTML = '<div class="text-center text-gray-500"><svg class="animate-spin w-8 h-8 mx-auto mb-3" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg><p>Loading preview...</p></div>';
 
@@ -877,25 +815,79 @@ function previewDocument(url, filename, mimeType) {
     modal.style.display = 'flex';
 
     if (mimeType === 'application/pdf') {
-        const embed = document.createElement('embed');
-        embed.src = url;
-        embed.type = 'application/pdf';
-        embed.style.width = '100%';
-        embed.style.height = '80vh';
+        const container = document.createElement('div');
+        container.style.width = '100%';
+        container.style.display = 'flex';
+        container.style.justifyContent = 'center';
+        container.style.alignItems = 'center';
+        container.style.flexDirection = 'column';
+
+        const canvas = document.createElement('canvas');
+        container.appendChild(canvas);
+
         previewContent.innerHTML = '';
-        previewContent.appendChild(embed);
+        previewContent.appendChild(container);
+        previewContent.style.overflow = 'auto';
+
+        if (typeof pdfjsLib === 'undefined') {
+            const script = document.createElement('script');
+            script.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js';
+            script.onload = function() {
+                pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
+                renderPdfFirstPage(url, canvas);
+            };
+            document.head.appendChild(script);
+        } else {
+            renderPdfFirstPage(url, canvas);
+        }
     } else if (mimeType.startsWith('image/')) {
         const img = new Image();
         img.onload = function() {
             previewContent.innerHTML = '';
             img.style.maxWidth = '100%';
             img.style.maxHeight = '80vh';
+            img.style.borderRadius = '8px';
             previewContent.appendChild(img);
         };
         img.src = url;
     } else {
-        previewContent.innerHTML = '<div class="text-center text-gray-500"><svg class="w-16 h-16 mx-auto mb-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg><p>Preview not available for this file type.</p><a href="' + url + '" download class="mt-3 inline-block px-4 py-2 bg-blue-600 text-white rounded-lg text-sm">Download File</a></div>';
+        previewContent.innerHTML = `
+            <div class="text-center text-gray-500">
+                <svg class="w-16 h-16 mx-auto mb-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                </svg>
+                <p>Preview not available for this file type.</p>
+            </div>
+        `;
     }
+}
+
+function renderPdfFirstPage(url, canvas) {
+    pdfjsLib.getDocument(url).promise.then(function(pdf) {
+        return pdf.getPage(1);
+    }).then(function(page) {
+        const viewport = page.getViewport({ scale: 1.5 });
+        canvas.width = viewport.width;
+        canvas.height = viewport.height;
+
+        const context = canvas.getContext('2d');
+        const renderContext = {
+            canvasContext: context,
+            viewport: viewport
+        };
+
+        page.render(renderContext);
+    }).catch(function(error) {
+        console.error('Error rendering PDF:', error);
+        document.getElementById('previewContent').innerHTML = `
+            <div class="text-center text-gray-500">
+                <svg class="w-16 h-16 mx-auto mb-3 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                </svg>
+                <p>Could not load PDF preview.</p>
+            </div>
+        `;
+    });
 }
 
 function closeDocumentPreview(e) {
@@ -905,6 +897,32 @@ function closeDocumentPreview(e) {
     }
 }
 
+// Delete Document Function (uses direct form submission)
+function deleteDocument(documentId) {
+    if (confirm('Are you sure you want to delete this document? This action cannot be undone.')) {
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = `/procurement/goods-received/delete-document/${documentId}`;
+        form.style.display = 'none';
+
+        const csrfInput = document.createElement('input');
+        csrfInput.type = 'hidden';
+        csrfInput.name = '_token';
+        csrfInput.value = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+
+        const methodInput = document.createElement('input');
+        methodInput.type = 'hidden';
+        methodInput.name = '_method';
+        methodInput.value = 'DELETE';
+
+        form.appendChild(csrfInput);
+        form.appendChild(methodInput);
+        document.body.appendChild(form);
+        form.submit();
+    }
+}
+
+// Close modals on Escape key
 document.addEventListener('keydown', function(e) {
     if (e.key === 'Escape') {
         closeRatingModal();

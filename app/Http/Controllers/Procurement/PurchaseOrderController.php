@@ -18,21 +18,38 @@ use Barryvdh\DomPDF\Facade\Pdf;
 class PurchaseOrderController extends Controller
 {
     // Index/listing
-    public function index()
-    {
-        $user = Auth::user();
-        if (!$user->department || $user->department->name !== 'PROCUREMENT') {
-            return redirect()->route('dashboard')->with('error', 'Unauthorized access');
-        }
-
-        $purchaseOrders = PurchaseOrder::with(['vendor'])
-            ->orderBy('created_at', 'desc')
-            ->paginate(20);
-
-        return view('procurement.purchase_orders.index', compact('purchaseOrders'));
+public function index(Request $request)
+{
+    $user = Auth::user();
+    if (!$user->department || $user->department->name !== 'PROCUREMENT') {
+        return redirect()->route('dashboard')->with('error', 'Unauthorized access');
     }
 
-    // Show create form
+    $query = PurchaseOrder::with(['vendor'])
+        ->orderBy('created_at', 'desc');
+
+    if ($request->filled('status')) {
+        $query->where('status', $request->status);
+    }
+
+    if ($request->filled('vendor_id')) {
+        $query->where('vendor_id', $request->vendor_id);
+    }
+
+    if ($request->filled('search')) {
+        $query->where('po_number', 'like', "%{$request->search}%");
+    }
+
+    $purchaseOrders = $query->paginate(20);
+    $vendors = Vendor::where('status', 'active')->orderBy('name')->get();
+
+    // For AJAX requests, return ONLY the table rows HTML
+    if ($request->ajax()) {
+        return view('procurement.purchase_orders._table_rows', compact('purchaseOrders'))->render();
+    }
+
+    return view('procurement.purchase_orders.index', compact('purchaseOrders', 'vendors'));
+}    // Show create form
     public function create(Request $request)
     {
         $user = Auth::user();
@@ -433,4 +450,105 @@ class PurchaseOrderController extends Controller
 
         return $pdf->download('PO_' . $po->po_number . '.pdf');
     }
+
+
+/**
+ * Attach document to purchase order
+ */
+public function attachDocument(Request $request)
+{
+    try {
+        $request->validate([
+            'po_id' => 'required|exists:purchase_orders,id',
+            'document' => 'required|file|mimes:pdf,jpg,jpeg,png|max:5120',
+            'description' => 'nullable|string|max:255'
+        ]);
+
+        $po = PurchaseOrder::findOrFail($request->po_id);
+        $file = $request->file('document');
+        $originalName = $file->getClientOriginalName();
+        $fileName = time() . '_' . preg_replace('/[^a-zA-Z0-9._-]/', '', $originalName);
+        $directory = "documents/po_{$po->id}";
+        $path = $file->storeAs($directory, $fileName, 'public');
+
+        $document = \App\Models\Document::create([
+            'po_id' => $po->id,
+            'purchase_order_id' => $po->id,  // Keep for backward compatibility
+            'document_type' => $request->description ?: 'Purchase Order Attachment',
+            'filename' => $fileName,
+            'original_name' => $originalName,
+            'path' => $path,
+            'file_size' => $file->getSize(),
+            'mime_type' => $file->getMimeType(),
+            'uploaded_by' => Auth::id(),
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Document attached successfully!',
+            'document' => $document
+        ]);
+
+    } catch (\Exception $e) {
+        Log::error('Error attaching document to PO', ['error' => $e->getMessage()]);
+        return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
+    }
+}
+/**
+ * Preview document
+ */
+public function previewDocument($id)
+{
+    $document = \App\Models\Document::findOrFail($id);
+    $filePath = storage_path('app/public/' . $document->path);
+
+    if (!file_exists($filePath)) {
+        abort(404, 'File not found');
+    }
+
+    $fileContent = file_get_contents($filePath);
+    return response($fileContent, 200)
+        ->header('Content-Type', $document->mime_type)
+        ->header('Content-Disposition', 'inline; filename="' . $document->original_name . '"');
+}
+
+/**
+ * Download document
+ */
+public function downloadDocument($id)
+{
+    $document = \App\Models\Document::findOrFail($id);
+    $filePath = storage_path('app/public/' . $document->path);
+
+    if (!file_exists($filePath)) {
+        abort(404, 'File not found');
+    }
+
+    return response()->download($filePath, $document->original_name, [
+        'Content-Type' => $document->mime_type
+    ]);
+}
+/**
+ * Delete document
+ */
+public function deleteDocument($id)
+{
+    try {
+        $document = \App\Models\Document::findOrFail($id);
+        $filePath = storage_path('app/public/' . $document->path);
+
+        if (file_exists($filePath)) {
+            unlink($filePath);
+        }
+
+        $document->delete();
+
+        return redirect()->back()->with('success', 'Document deleted successfully.');
+
+    } catch (\Exception $e) {
+        Log::error('Error deleting document', ['error' => $e->getMessage()]);
+        return redirect()->back()->with('error', 'Error deleting document: ' . $e->getMessage());
+    }
+}
+
 }
