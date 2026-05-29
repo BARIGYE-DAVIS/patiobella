@@ -33,17 +33,10 @@
         border-color: #22c55e;
         box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.1);
     }
-    .hidden-column {
-        display: none;
-    }
     .exceed-warning {
         color: #dc2626;
         font-size: 0.7rem;
         margin-top: 0.25rem;
-    }
-    .exceed-input {
-        border-color: #dc2626;
-        background-color: #fef2f2;
     }
 </style>
 
@@ -74,9 +67,7 @@
     {{-- ── Info Note ── --}}
     <div class="bg-blue-50 border-l-4 border-blue-400 rounded-lg px-5 py-4">
         <p class="text-sm text-blue-800">
-            <strong>Note:</strong> You cannot issue more than the <strong>approved quantity</strong> for each item.
-            The <em>Requested</em> and <em>Approved</em> columns are shown for reference.
-            Only available stock limits what you can issue.
+            <strong>Note:</strong> Quantities are pre-filled with the approved amounts. All items will be issued as approved unless stock is insufficient.
         </p>
     </div>
 
@@ -115,22 +106,12 @@
                         <tr>
                             <th class="px-4 py-3 text-left text-[10px] font-semibold uppercase tracking-wider text-gray-500">Item</th>
                             <th class="px-4 py-3 text-left text-[10px] font-semibold uppercase tracking-wider text-gray-500">Base Unit</th>
-                            <th class="px-4 py-3 text-center text-[10px] font-semibold uppercase tracking-wider text-gray-500">
-                                Requested
-                            </th>
-                            <th class="px-4 py-3 text-center text-[10px] font-semibold uppercase tracking-wider text-blue-600 bg-blue-50">
-                                Approved
-                            </th>
+                            <th class="px-4 py-3 text-center text-[10px] font-semibold uppercase tracking-wider text-gray-500">Requested</th>
+                            <th class="px-4 py-3 text-center text-[10px] font-semibold uppercase tracking-wider text-blue-600 bg-blue-50 border-l border-gray-200">Approved</th>
                             <th class="px-4 py-3 text-center text-[10px] font-semibold uppercase tracking-wider text-gray-500">Available Stock</th>
                             <th class="px-4 py-3 text-center text-[10px] font-semibold uppercase tracking-wider text-green-600 border-l border-gray-200 bg-green-50">
                                 Qty to Issue
-                                <div class="text-[9px] font-normal normal-case text-gray-500">(max = approved)</div>
-                            </th>
-                            <th class="px-4 py-3 text-center text-[10px] font-semibold uppercase tracking-wider text-green-600 bg-green-50 pack-type-col hidden-column">
-                                Pack Type
-                            </th>
-                            <th class="px-4 py-3 text-center text-[10px] font-semibold uppercase tracking-wider text-green-600 bg-green-50 pack-info-col hidden-column">
-                                Pack Info
+                                <div class="text-[9px] font-normal normal-case text-gray-500">(pre-filled = approved)</div>
                             </th>
                             <th class="px-4 py-3 text-center text-[10px] font-semibold uppercase tracking-wider text-green-600 bg-green-50">
                                 Total Pieces
@@ -141,15 +122,15 @@
                     <tbody class="divide-y divide-gray-100">
                         @foreach($requisition->items as $item)
                         @php
-                            $baseUnit      = $item->inventoryItem->base_unit ?? 'units';
-                            $requestedQty  = (float) $item->quantity_requested;
-                            $approvedQty   = (float) ($item->quantity_approved ?? $requestedQty);
-                            $alreadyIssued = (float) ($item->issued_total_pieces ?? 0);
+                            $baseUnit         = $item->inventoryItem->base_unit ?? 'units';
+                            $requestedQty     = (float) $item->quantity_requested;
+                            $approvedQty      = (float) ($item->quantity_approved ?? $requestedQty);
+                            $alreadyIssued    = (float) ($item->issued_total_pieces ?? 0);
                             $remainingToIssue = max(0, $approvedQty - $alreadyIssued);
-                            $stockAvail    = $item->inventoryItem->current_stock ?? 0;
-                            $maxIssue      = min($remainingToIssue, $stockAvail);
-                            $lowStock      = $stockAvail <= 0;
-                            $fullyIssued   = $remainingToIssue <= 0;
+                            $stockAvail       = $item->inventoryItem->current_stock ?? 0;
+                            $maxIssue         = min($remainingToIssue, $stockAvail);
+                            $lowStock         = $stockAvail <= 0;
+                            $fullyIssued      = $remainingToIssue <= 0;
                         @endphp
                         <tr class="hover:bg-gray-50 transition-colors {{ $lowStock ? 'bg-red-50' : '' }} {{ $fullyIssued ? 'bg-gray-50 opacity-60' : '' }}" id="row_{{ $loop->index }}">
 
@@ -165,9 +146,7 @@
                                     </div>
                                 @endif
                                 @if($fullyIssued)
-                                    <div class="text-xs text-green-600 mt-1 font-medium">
-                                        ✓ Fully issued
-                                    </div>
+                                    <div class="text-xs text-green-600 mt-1 font-medium">✓ Fully issued</div>
                                 @endif
                             </td>
 
@@ -180,7 +159,7 @@
                             </td>
 
                             {{-- Approved --}}
-                            <td class="px-4 py-3 text-center tabular-nums bg-blue-50">
+                            <td class="px-4 py-3 text-center tabular-nums bg-blue-50 border-l border-gray-200">
                                 <span class="font-semibold text-blue-700">{{ number_format($approvedQty, 2) }}</span>
                                 <div class="text-xs text-gray-500">{{ $baseUnit }}</div>
                                 @if($remainingToIssue > 0 && $remainingToIssue < $approvedQty)
@@ -202,7 +181,7 @@
                                 @endif
                             </td>
 
-                            {{-- Qty to Issue — max = remaining approved quantity --}}
+                            {{-- Qty to Issue — pre-filled, read-only --}}
                             <td class="px-4 py-3 text-center border-l border-gray-100">
                                 @if($fullyIssued)
                                     <span class="text-green-600 text-sm font-medium">Fully issued</span>
@@ -211,8 +190,8 @@
                                     <input type="number"
                                            name="items[{{ $loop->index }}][quantity_issued]"
                                            id="qty_{{ $loop->index }}"
-                                           class="quantity-issued w-24 px-2 py-1.5 border border-gray-300 rounded-lg text-center text-sm focus:outline-none focus:ring-2 focus:ring-green-400 focus:border-transparent"
-                                           value="0"
+                                           class="quantity-issued w-24 px-2 py-1.5 border border-gray-200 rounded-lg text-center text-sm bg-gray-100 cursor-not-allowed"
+                                           value="{{ $maxIssue }}"
                                            min="0"
                                            step="0.01"
                                            max="{{ $maxIssue }}"
@@ -222,37 +201,15 @@
                                            data-stock="{{ $stockAvail }}"
                                            data-baseunit="{{ $baseUnit }}"
                                            data-index="{{ $loop->index }}"
-                                           oninput="updateTotal({{ $loop->index }})">
-                                    <div id="warning_{{ $loop->index }}" class="exceed-warning hidden"></div>
+                                           readonly>
+                                    @if($lowStock)
+                                        <div class="exceed-warning">Insufficient stock</div>
+                                    @elseif($stockAvail < $remainingToIssue)
+                                        <div class="text-orange-500 text-xs mt-1">
+                                            Only {{ number_format($stockAvail, 2) }} available
+                                        </div>
+                                    @endif
                                 @endif
-                            </td>
-
-                            {{-- Pack Type (HIDDEN) --}}
-                            <td class="px-4 py-3 text-center pack-type-col hidden-column">
-                                <select name="items[{{ $loop->index }}][pack_type]"
-                                        id="pack_type_{{ $loop->index }}"
-                                        class="pack-type w-28 px-2 py-1.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-400"
-                                        disabled>
-                                    <option value="">— Direct —</option>
-                                    <option value="carton">Carton</option>
-                                    <option value="box">Box</option>
-                                    <option value="crate">Crate</option>
-                                    <option value="dozen">Dozen</option>
-                                    <option value="pack">Pack</option>
-                                    <option value="sack">Sack</option>
-                                    <option value="set">Set</option>
-                                </select>
-                            </td>
-
-                            {{-- Pack Info (HIDDEN) --}}
-                            <td class="px-4 py-3 text-center pack-info-col hidden-column">
-                                <input type="number"
-                                       name="items[{{ $loop->index }}][pack_size]"
-                                       id="pack_size_{{ $loop->index }}"
-                                       class="pack-size w-20 px-2 py-1.5 border border-gray-300 rounded-lg text-center text-sm focus:outline-none focus:ring-2 focus:ring-green-400"
-                                       placeholder="e.g. 24"
-                                       step="1" min="1"
-                                       disabled>
                             </td>
 
                             {{-- Total Pieces --}}
@@ -261,13 +218,14 @@
                                     <span class="text-green-600">0.00</span>
                                     <input type="hidden" id="total_pieces_{{ $loop->index }}" name="items[{{ $loop->index }}][issued_total_pieces]" value="0">
                                 @else
-                                    <span id="total_display_{{ $loop->index }}" class="text-gray-300">—</span>
+                                    <span id="total_display_{{ $loop->index }}" class="text-gray-700 font-semibold">
+                                        {{ number_format($maxIssue, 2) }}
+                                        <span class="text-xs text-gray-400 font-normal">{{ $baseUnit }}</span>
+                                    </span>
                                     <input type="hidden"
                                            id="total_pieces_{{ $loop->index }}"
                                            name="items[{{ $loop->index }}][issued_total_pieces]"
-                                           data-baseunit="{{ $baseUnit }}"
-                                           data-max="{{ $maxIssue }}"
-                                           value="0">
+                                           value="{{ $maxIssue }}">
                                 @endif
                             </td>
 
@@ -281,13 +239,10 @@
                         @endforeach
                     </tbody>
 
-                    {{-- Totals footer --}}
                     <tfoot class="bg-gray-50 border-t-2 border-gray-200">
                         <tr>
                             <td colspan="5" class="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Totals</td>
                             <td class="px-4 py-3 border-l border-gray-200"></td>
-                            <td class="px-4 py-3 pack-type-col hidden-column"></td>
-                            <td class="px-4 py-3 pack-info-col hidden-column"></td>
                             <td class="px-4 py-3 text-center tabular-nums font-bold text-green-600">
                                 <span id="grandTotal">0.00</span>
                                 <div class="text-xs text-gray-400 font-normal">base units</div>
@@ -323,71 +278,6 @@
 </div>
 
 <script>
-    function updateTotal(index) {
-        const qtyInput = document.getElementById(`qty_${index}`);
-        if (!qtyInput) return;
-
-        const qty = parseFloat(qtyInput.value) || 0;
-        const maxAllowed = parseFloat(qtyInput.getAttribute('data-max')) || 0;
-        const baseUnit = qtyInput.getAttribute('data-baseunit');
-        const stockAvail = parseFloat(qtyInput.getAttribute('data-stock')) || 0;
-        const approvedQty = parseFloat(qtyInput.getAttribute('data-approved')) || 0;
-        const alreadyIssued = parseFloat(qtyInput.getAttribute('data-already-issued')) || 0;
-        const remainingToIssue = maxAllowed;
-
-        const totalDisplay = document.getElementById(`total_display_${index}`);
-        const totalInput = document.getElementById(`total_pieces_${index}`);
-        const warningSpan = document.getElementById(`warning_${index}`);
-
-        let isValid = true;
-        let warningMessage = '';
-
-        // Check against approved remaining quantity
-        if (qty > remainingToIssue) {
-            isValid = false;
-            warningMessage = `Cannot exceed remaining approved quantity (${remainingToIssue.toFixed(2)} ${baseUnit})`;
-            qtyInput.classList.add('exceed-input');
-        }
-        // Check against stock availability
-        else if (qty > stockAvail) {
-            isValid = false;
-            warningMessage = `Insufficient stock. Available: ${stockAvail.toFixed(2)} ${baseUnit}`;
-            qtyInput.classList.add('exceed-input');
-        }
-        else {
-            qtyInput.classList.remove('exceed-input');
-        }
-
-        // Show/hide warning
-        if (warningSpan) {
-            if (!isValid && qty > 0) {
-                warningSpan.textContent = warningMessage;
-                warningSpan.classList.remove('hidden');
-            } else {
-                warningSpan.textContent = '';
-                warningSpan.classList.add('hidden');
-            }
-        }
-
-        // Calculate total pieces (direct issue = quantity)
-        let totalPieces = qty;
-
-        if (qty > 0 && isValid) {
-            totalDisplay.innerHTML = `<span class="text-green-600">${qty.toFixed(2)} <span class="text-xs text-gray-400 font-normal">${baseUnit}</span></span>`;
-        } else if (qty > 0 && !isValid) {
-            totalDisplay.innerHTML = `<span class="text-red-500">${qty.toFixed(2)} <span class="text-xs font-normal">${baseUnit}</span></span>
-                <div class="text-[10px] text-red-400 mt-0.5">${warningMessage}</div>`;
-        } else {
-            totalDisplay.innerHTML = `<span class="text-gray-300">—</span>`;
-        }
-
-        if (totalInput) {
-            totalInput.value = isValid ? totalPieces : 0;
-        }
-
-        updateGrandTotal();
-    }
-
     function updateGrandTotal() {
         let grand = 0;
         document.querySelectorAll('[id^="total_pieces_"]').forEach(input => {
@@ -407,52 +297,20 @@
         }
 
         let hasQty = false;
-        let hasInvalid = false;
-        let invalidMessages = [];
-
         document.querySelectorAll('.quantity-issued').forEach(input => {
-            const qty = parseFloat(input.value) || 0;
-            const maxAllowed = parseFloat(input.getAttribute('data-max')) || 0;
-            const stockAvail = parseFloat(input.getAttribute('data-stock')) || 0;
-            const baseUnit = input.getAttribute('data-baseunit');
-
-            if (qty > 0) {
-                hasQty = true;
-                if (qty > maxAllowed) {
-                    hasInvalid = true;
-                    invalidMessages.push(`Cannot issue ${qty} ${baseUnit} - only ${maxAllowed.toFixed(2)} ${baseUnit} remaining from approved quantity`);
-                } else if (qty > stockAvail) {
-                    hasInvalid = true;
-                    invalidMessages.push(`Insufficient stock: ${qty} ${baseUnit} requested, only ${stockAvail.toFixed(2)} ${baseUnit} available`);
-                }
-            }
+            if (parseFloat(input.value) > 0) hasQty = true;
         });
 
         if (!hasQty) {
             e.preventDefault();
-            alert('Please enter at least one item quantity to issue.');
-            return false;
-        }
-
-        if (hasInvalid) {
-            e.preventDefault();
-            alert('Invalid quantities:\n\n' + invalidMessages.join('\n'));
+            alert('No items available to issue. All items may be out of stock or fully issued.');
             return false;
         }
     });
 
-    // Initialize on page load
+    // Calculate grand total on load
     document.addEventListener('DOMContentLoaded', function() {
-        @foreach($requisition->items as $item)
-            @php
-                $approvedQty = (float) ($item->quantity_approved ?? $item->quantity_requested);
-                $alreadyIssued = (float) ($item->issued_total_pieces ?? 0);
-                $remainingToIssue = max(0, $approvedQty - $alreadyIssued);
-            @endphp
-            @if($remainingToIssue > 0)
-                updateTotal({{ $loop->index }});
-            @endif
-        @endforeach
+        updateGrandTotal();
     });
 </script>
 @endsection

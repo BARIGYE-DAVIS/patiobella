@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\InventoryItem;
 use App\Models\Category;
 use App\Models\Vendor;
+use App\Models\Batch;
 use App\Models\GoodsReceivedNote;
 use App\Models\GoodsReceivedNoteItem;
 use App\Models\StockMovement;
@@ -148,135 +149,154 @@ class InventoryController extends Controller
     // STORE — Manual Entry
     // ─────────────────────────────────────────────────────────────────────────────
 
-    public function store(Request $request)
-    {
-        $user = Auth::user();
+public function store(Request $request)
+{
+    $user = Auth::user();
 
-        if (!$user->department || $user->department->name !== 'STORE') {
-            return redirect()->route('dashboard')->with('error', 'Unauthorized access');
-        }
-
-        $metrics = $request->metrics;
-        $isBulk  = in_array($metrics, self::BULK_METRICS);
-
-        $rules = [
-            'item_name'   => 'required|string|max:255',
-            'category_id' => 'required|exists:categories,id',
-            'item_code'   => 'nullable|string|max:50|unique:inventory_items,item_code',
-            'barcode'     => 'nullable|string|max:100|unique:inventory_items,barcode', // ◀ NEW
-            'metrics'     => 'required|string',
-            'base_unit'   => 'required|string|max:50',
-            'vendor_id'   => 'nullable|exists:vendors,id',
-            'notes'       => 'nullable|string',
-        ];
-
-        if ($isBulk) {
-            $rules['pieces_per_unit'] = 'required|numeric|min:1';
-            $rules['number_of_units'] = 'required|numeric|min:1';
-        } else {
-            $rules['quantity'] = 'required|numeric|min:0.01';
-        }
-
-        $validated = $request->validate($rules);
-
-        DB::beginTransaction();
-
-        try {
-            $packType       = null;
-            $packSize       = null;
-            $numberOfPacks  = null;
-            $totalBaseUnits = 0;
-
-            if ($isBulk) {
-                $packType       = $metrics;
-                $packSize       = (int) $validated['pieces_per_unit'];
-                $numberOfPacks  = (int) $validated['number_of_units'];
-                $totalBaseUnits = $packSize * $numberOfPacks;
-            } else {
-                $totalBaseUnits = (float) $validated['quantity'];
-            }
-
-            $itemCode = $validated['item_code'] ?? null;
-            if (empty($itemCode)) {
-                $itemCode = 'ITEM-' . strtoupper(uniqid());
-            }
-
-            // ◀ NEW: save barcode (null if not provided)
-            $barcode = !empty($validated['barcode']) ? $validated['barcode'] : null;
-
-            $inventoryItem = InventoryItem::create([
-                'item_code'                  => $itemCode,
-                'barcode'                    => $barcode,          // ◀ NEW
-                'name'                       => $validated['item_name'],
-                'category_id'               => $validated['category_id'],
-                'default_unit_of_measure_id' => $metrics,
-                'base_unit'                  => $validated['base_unit'],
-                'unit_cost'                  => 0,
-                'current_stock'              => $totalBaseUnits,
-                'notes'                      => $validated['notes'] ?? null,
-                'is_active'                  => true,
-                'created_by'                 => Auth::id(),
-            ]);
-
-            Log::info('Inventory item created (manual)', [
-                'user_id'          => Auth::id(),
-                'item_id'          => $inventoryItem->id,
-                'item_name'        => $inventoryItem->name,
-                'barcode'          => $barcode,                    // ◀ NEW
-                'receiving_unit'   => $metrics,
-                'base_unit'        => $validated['base_unit'],
-                'pack_type'        => $packType,
-                'pack_size'        => $packSize,
-                'number_of_packs'  => $numberOfPacks,
-                'total_base_units' => $totalBaseUnits,
-            ]);
-
-            $stockBefore = 0;
-            $stockAfter  = $totalBaseUnits;
-
-            $movementNumber = 'STK-IN-' . date('Ymd') . '-' . str_pad(rand(0, 9999), 4, '0', STR_PAD_LEFT);
-
-            StockMovement::create([
-                'movement_number'       => $movementNumber,
-                'inventory_item_id'     => $inventoryItem->id,
-                'store_id'              => $request->store_id ?? 1,
-                'movement_type_id'      => 2,
-                'quantity'              => $isBulk ? $numberOfPacks : $totalBaseUnits,
-                'pack_type'             => $packType,
-                'pack_size'             => $packSize,
-                'number_of_packs'       => $numberOfPacks,
-                'base_unit'             => $validated['base_unit'],
-                'unit_id'               => null,
-                'quantity_in_base_unit' => $totalBaseUnits,
-                'unit_cost'             => 0,
-                'total_value'           => 0,
-                'reason'                => $validated['notes'] ?? 'Manual inventory entry',
-                'movement_date'         => now(),
-                'approved_at'           => now(),
-                'approved_by'           => Auth::id(),
-                'created_by'            => Auth::id(),
-                'stock_before'          => $stockBefore,
-                'stock_after'           => $stockAfter,
-            ]);
-
-            DB::commit();
-
-            return redirect()->route('store.inventory.index')
-                ->with('success', "Inventory item created. {$totalBaseUnits} {$validated['base_unit']}(s) added to stock.");
-
-        } catch (\Exception $e) {
-            DB::rollBack();
-            Log::error('Error creating inventory item', [
-                'user_id' => Auth::id(),
-                'error'   => $e->getMessage(),
-                'trace'   => $e->getTraceAsString(),
-            ]);
-            return redirect()->back()
-                ->with('error', 'Failed to create inventory item: ' . $e->getMessage())
-                ->withInput();
-        }
+    if (!$user->department || $user->department->name !== 'STORE') {
+        return redirect()->route('dashboard')->with('error', 'Unauthorized access');
     }
 
+    $metrics = $request->metrics;
+    $isBulk  = in_array($metrics, self::BULK_METRICS);
+
+    $rules = [
+        'item_name'   => 'required|string|max:255',
+        'category_id' => 'required|exists:categories,id',
+        'item_code'   => 'nullable|string|max:50|unique:inventory_items,item_code',
+        'barcode'     => 'nullable|string|max:100|unique:inventory_items,barcode',
+        'metrics'     => 'required|string',
+        'base_unit'   => 'required|string|max:50',
+        'vendor_id'   => 'nullable|exists:vendors,id',
+        'notes'       => 'nullable|string',
+        'manufacture_date' => 'nullable|date',
+        'expiry_date'      => 'nullable|date|after:manufacture_date',
+    ];
+
+    if ($isBulk) {
+        $rules['pieces_per_unit'] = 'required|numeric|min:1';
+        $rules['number_of_units'] = 'required|numeric|min:1';
+    } else {
+        $rules['quantity'] = 'required|numeric|min:0.01';
+    }
+
+    $validated = $request->validate($rules);
+
+    DB::beginTransaction();
+
+    try {
+        $packType       = null;
+        $packSize       = null;
+        $numberOfPacks  = null;
+        $totalBaseUnits = 0;
+
+        if ($isBulk) {
+            $packType       = $metrics;
+            $packSize       = (int) $validated['pieces_per_unit'];
+            $numberOfPacks  = (int) $validated['number_of_units'];
+            $totalBaseUnits = $packSize * $numberOfPacks;
+        } else {
+            $totalBaseUnits = (float) $validated['quantity'];
+        }
+
+        $itemCode = $validated['item_code'] ?? null;
+        if (empty($itemCode)) {
+            $itemCode = 'ITEM-' . strtoupper(uniqid());
+        }
+
+        $barcode = !empty($validated['barcode']) ? $validated['barcode'] : null;
+
+        $inventoryItem = InventoryItem::create([
+            'item_code'                  => $itemCode,
+            'barcode'                    => $barcode,
+            'name'                       => $validated['item_name'],
+            'category_id'                => $validated['category_id'],
+            'default_unit_of_measure_id' => $metrics,
+            'base_unit'                  => $validated['base_unit'],
+            'unit_cost'                  => 0,
+            'current_stock'              => $totalBaseUnits,
+            'notes'                      => $validated['notes'] ?? null,
+            'is_active'                  => true,
+            'created_by'                 => Auth::id(),
+        ]);
+
+        Log::info('Inventory item created (manual)', [
+            'user_id'          => Auth::id(),
+            'item_id'          => $inventoryItem->id,
+            'item_name'        => $inventoryItem->name,
+            'barcode'          => $barcode,
+            'receiving_unit'   => $metrics,
+            'base_unit'        => $validated['base_unit'],
+            'pack_type'        => $packType,
+            'pack_size'        => $packSize,
+            'number_of_packs'  => $numberOfPacks,
+            'total_base_units' => $totalBaseUnits,
+        ]);
+
+        $stockBefore = 0;
+        $stockAfter  = $totalBaseUnits;
+
+        $movementNumber = 'STK-IN-' . date('Ymd') . '-' . str_pad(rand(0, 9999), 4, '0', STR_PAD_LEFT);
+
+        StockMovement::create([
+            'movement_number'       => $movementNumber,
+            'inventory_item_id'     => $inventoryItem->id,
+            'store_id'              => $request->store_id ?? 1,
+            'movement_type_id'      => 2,
+            'quantity'              => $isBulk ? $numberOfPacks : $totalBaseUnits,
+            'pack_type'             => $packType,
+            'pack_size'             => $packSize,
+            'number_of_packs'       => $numberOfPacks,
+            'base_unit'             => $validated['base_unit'],
+            'unit_id'               => null,
+            'quantity_in_base_unit' => $totalBaseUnits,
+            'unit_cost'             => 0,
+            'total_value'           => 0,
+            'reason'                => $validated['notes'] ?? 'Manual inventory entry',
+            'movement_date'         => now(),
+            'approved_at'           => now(),
+            'approved_by'           => Auth::id(),
+            'created_by'            => Auth::id(),
+            'stock_before'          => $stockBefore,
+            'stock_after'           => $stockAfter,
+        ]);
+
+        // Create a batch for this manual stock entry
+        $batchNumber = 'BAT-MAN-' . date('Ymd') . '-' . str_pad($inventoryItem->id, 6, '0', STR_PAD_LEFT);
+
+        Batch::create([
+            'batch_number' => $batchNumber,
+            'inventory_item_id' => $inventoryItem->id,
+            'goods_received_note_id' => null,
+            'supplier_id' => $validated['vendor_id'] ?? null,
+            'initial_quantity' => $totalBaseUnits,
+            'remaining_quantity' => $totalBaseUnits,
+            'unit_cost' => 0,
+            'total_cost' => 0,
+            'base_unit' => $validated['base_unit'],
+            'manufacture_date' => $request->manufacture_date ?? null,
+            'expiry_date' => $request->expiry_date ?? null,
+            'batch_status' => 'active',
+            'notes' => $validated['notes'] ?? 'Manual stock entry',
+        ]);
+
+        DB::commit();
+
+        return redirect()->route('store.inventory.index')
+            ->with('success', "Inventory item created successfully. {$totalBaseUnits} {$validated['base_unit']}(s) added to stock.");
+
+    } catch (\Exception $e) {
+        DB::rollBack();
+        Log::error('Error creating inventory item', [
+            'user_id' => Auth::id(),
+            'error'   => $e->getMessage(),
+            'trace'   => $e->getTraceAsString(),
+        ]);
+        return redirect()->back()
+            ->with('error', 'Failed to create inventory item: ' . $e->getMessage())
+            ->withInput();
+    }
+}
     // ─────────────────────────────────────────────────────────────────────────────
     // GET GRN ITEMS (AJAX) — unchanged
     // ─────────────────────────────────────────────────────────────────────────────
@@ -338,141 +358,163 @@ class InventoryController extends Controller
     // STORE FROM GRN — unchanged (barcode already on inventory item)
     // ─────────────────────────────────────────────────────────────────────────────
 
-    public function storeFromGrn(Request $request)
-    {
-        $user = Auth::user();
+public function storeFromGrn(Request $request)
+{
+    $user = Auth::user();
 
-        if (!$user->department || $user->department->name !== 'STORE') {
-            return redirect()->route('dashboard')->with('error', 'Unauthorized access');
-        }
-
-        try {
-            $request->validate([
-                'grn_id'                              => 'required|exists:goods_received_notes,id',
-                'items'                               => 'required|array|min:1',
-                'items.*.grn_item_id'                 => 'required|exists:goods_received_items,id',
-                'items.*.inventory_item_id'           => 'required|exists:inventory_items,id',
-                'items.*.receiving_metrics'           => 'required|string',
-                'items.*.base_unit'                   => 'required|string|max:50',
-                'items.*.quantity'                    => 'required|numeric|min:0.01',
-                'items.*.unit_cost'                   => 'required|numeric|min:0',
-            ]);
-        } catch (\Illuminate\Validation\ValidationException $e) {
-            throw $e;
-        }
-
-        DB::beginTransaction();
-
-        try {
-            $grn           = GoodsReceivedNote::findOrFail($request->grn_id);
-            $totalReceived = 0;
-            $itemsSummary  = [];
-
-            foreach ($request->items as $idx => $itemData) {
-
-                $inventoryItem = InventoryItem::find($itemData['inventory_item_id']);
-                if (!$inventoryItem) continue;
-
-                $receivingMetrics = trim($itemData['receiving_metrics']);
-                $isBulk           = in_array($receivingMetrics, self::BULK_METRICS);
-                $quantityReceived  = (float) $itemData['quantity'];
-                $baseUnit          = trim($itemData['base_unit']);
-                $unitCost          = (float) $itemData['unit_cost'];
-
-                $packSize = null;
-                if ($isBulk) {
-                    $packSize = isset($itemData['pack_size']) ? (int) $itemData['pack_size'] : 0;
-                    if ($packSize < 1) {
-                        DB::rollBack();
-                        return redirect()->back()->with(
-                            'error',
-                            'Item "' . $inventoryItem->name . '": pack size must be at least 1 when receiving in ' . $receivingMetrics . '.'
-                        );
-                    }
-                }
-
-                $totalBaseUnits = ($isBulk && $packSize > 0)
-                    ? $quantityReceived * $packSize
-                    : $quantityReceived;
-
-                if (!$isBulk) $packSize = null;
-
-                $stockBefore = (float) ($inventoryItem->current_stock ?? 0);
-                $stockAfter  = $stockBefore + $totalBaseUnits;
-
-                $inventoryItem->current_stock              = $stockAfter;
-                $inventoryItem->unit_cost                  = $unitCost;
-                $inventoryItem->last_purchase_price        = $unitCost;
-                $inventoryItem->default_unit_of_measure_id = $receivingMetrics;
-                $inventoryItem->updated_by                 = Auth::id();
-
-                if (empty($inventoryItem->base_unit) || $inventoryItem->base_unit === 'pcs') {
-                    $inventoryItem->base_unit = $baseUnit;
-                }
-
-                $inventoryItem->save();
-
-                $grnItem = GoodsReceivedNoteItem::find($itemData['grn_item_id']);
-                if ($grnItem) {
-                    $grnItem->pack_type             = $isBulk ? $receivingMetrics : null;
-                    $grnItem->pack_size             = $packSize;
-                    $grnItem->number_of_packs       = $isBulk ? (int) $quantityReceived : null;
-                    $grnItem->quantity_in_base_unit = $totalBaseUnits;
-                    $grnItem->base_unit             = $baseUnit;
-                    $grnItem->updated_by            = Auth::id();
-                    $grnItem->save();
-                }
-
-                $movementNumber = 'STK-GRN-' . date('Ymd') . '-' . str_pad(rand(0, 9999), 4, '0', STR_PAD_LEFT);
-
-                StockMovement::create([
-                    'movement_number'        => $movementNumber,
-                    'inventory_item_id'      => $inventoryItem->id,
-                    'store_id'               => 1,
-                    'movement_type_id'       => 1,
-                    'quantity'               => $quantityReceived,
-                    'pack_type'              => $isBulk ? $receivingMetrics : null,
-                    'pack_size'              => $packSize,
-                    'number_of_packs'        => $isBulk ? (int) $quantityReceived : null,
-                    'base_unit'              => $baseUnit,
-                    'unit_id'                => null,
-                    'quantity_in_base_unit'  => $totalBaseUnits,
-                    'unit_cost'              => $unitCost,
-                    'total_value'            => $totalBaseUnits * $unitCost,
-                    'reason'                 => 'Received from GRN: ' . $grn->grn_number,
-                    'movement_date'          => now(),
-                    'approved_at'            => now(),
-                    'approved_by'            => Auth::id(),
-                    'goods_received_note_id' => $grn->id,
-                    'created_by'             => Auth::id(),
-                    'stock_before'           => $stockBefore,
-                    'stock_after'            => $stockAfter,
-                ]);
-
-                $totalReceived += $totalBaseUnits;
-                $itemsSummary[] = "{$inventoryItem->name}: +{$totalBaseUnits} {$baseUnit}(s)";
-            }
-
-            $grn->status     = 'inventory_updated';
-            $grn->updated_by = Auth::id();
-            $grn->save();
-
-            DB::commit();
-
-            $summary = implode(', ', array_slice($itemsSummary, 0, 5));
-            if (count($itemsSummary) > 5) {
-                $summary .= ' … and ' . (count($itemsSummary) - 5) . ' more';
-            }
-
-            return redirect()->route('store.inventory.index')
-                ->with('success', "GRN {$grn->grn_number} received into inventory. {$summary}.");
-
-        } catch (\Exception $e) {
-            DB::rollBack();
-            return redirect()->back()
-                ->with('error', 'Failed to receive goods: ' . $e->getMessage());
-        }
+    if (!$user->department || $user->department->name !== 'STORE') {
+        return redirect()->route('dashboard')->with('error', 'Unauthorized access');
     }
+
+    try {
+        $request->validate([
+            'grn_id'                              => 'required|exists:goods_received_notes,id',
+            'items'                               => 'required|array|min:1',
+            'items.*.grn_item_id'                 => 'required|exists:goods_received_items,id',
+            'items.*.inventory_item_id'           => 'required|exists:inventory_items,id',
+            'items.*.receiving_metrics'           => 'required|string',
+            'items.*.base_unit'                   => 'required|string|max:50',
+            'items.*.quantity'                    => 'required|numeric|min:0.01',
+            'items.*.unit_cost'                   => 'required|numeric|min:0',
+            'items.*.pack_size'                   => 'nullable|numeric|min:1',
+            'manufacture_date'                    => 'nullable|date',
+            'expiry_date'                         => 'nullable|date|after:manufacture_date',
+        ]);
+    } catch (\Illuminate\Validation\ValidationException $e) {
+        throw $e;
+    }
+
+    DB::beginTransaction();
+
+    try {
+        $grn           = GoodsReceivedNote::findOrFail($request->grn_id);
+        $totalReceived = 0;
+        $itemsSummary  = [];
+
+        foreach ($request->items as $idx => $itemData) {
+
+            $inventoryItem = InventoryItem::find($itemData['inventory_item_id']);
+            if (!$inventoryItem) continue;
+
+            $receivingMetrics = trim($itemData['receiving_metrics']);
+            $isBulk           = in_array($receivingMetrics, self::BULK_METRICS);
+            $quantityReceived  = (float) $itemData['quantity'];
+            $baseUnit          = trim($itemData['base_unit']);
+            $unitCost          = (float) $itemData['unit_cost'];
+
+            $packSize = null;
+            if ($isBulk) {
+                $packSize = isset($itemData['pack_size']) ? (int) $itemData['pack_size'] : 0;
+                if ($packSize < 1) {
+                    DB::rollBack();
+                    return redirect()->back()->with(
+                        'error',
+                        'Item "' . $inventoryItem->name . '": pack size must be at least 1 when receiving in ' . $receivingMetrics . '.'
+                    );
+                }
+            }
+
+            $totalBaseUnits = ($isBulk && $packSize > 0)
+                ? $quantityReceived * $packSize
+                : $quantityReceived;
+
+            if (!$isBulk) $packSize = null;
+
+            $stockBefore = (float) ($inventoryItem->current_stock ?? 0);
+            $stockAfter  = $stockBefore + $totalBaseUnits;
+
+            $inventoryItem->current_stock              = $stockAfter;
+            $inventoryItem->unit_cost                  = $unitCost;
+            $inventoryItem->last_purchase_price        = $unitCost;
+            $inventoryItem->default_unit_of_measure_id = $receivingMetrics;
+            $inventoryItem->updated_by                 = Auth::id();
+
+            if (empty($inventoryItem->base_unit) || $inventoryItem->base_unit === 'pcs') {
+                $inventoryItem->base_unit = $baseUnit;
+            }
+
+            $inventoryItem->save();
+
+            $grnItem = GoodsReceivedNoteItem::find($itemData['grn_item_id']);
+            if ($grnItem) {
+                $grnItem->pack_type             = $isBulk ? $receivingMetrics : null;
+                $grnItem->pack_size             = $packSize;
+                $grnItem->number_of_packs       = $isBulk ? (int) $quantityReceived : null;
+                $grnItem->quantity_in_base_unit = $totalBaseUnits;
+                $grnItem->base_unit             = $baseUnit;
+                $grnItem->updated_by            = Auth::id();
+                $grnItem->save();
+            }
+
+            $movementNumber = 'STK-GRN-' . date('Ymd') . '-' . str_pad(rand(0, 9999), 4, '0', STR_PAD_LEFT);
+
+            StockMovement::create([
+                'movement_number'        => $movementNumber,
+                'inventory_item_id'      => $inventoryItem->id,
+                'store_id'               => 1,
+                'movement_type_id'       => 1,
+                'quantity'               => $quantityReceived,
+                'pack_type'              => $isBulk ? $receivingMetrics : null,
+                'pack_size'              => $packSize,
+                'number_of_packs'        => $isBulk ? (int) $quantityReceived : null,
+                'base_unit'              => $baseUnit,
+                'unit_id'                => null,
+                'quantity_in_base_unit'  => $totalBaseUnits,
+                'unit_cost'              => $unitCost,
+                'total_value'            => $totalBaseUnits * $unitCost,
+                'reason'                 => 'Received from GRN: ' . $grn->grn_number,
+                'movement_date'          => now(),
+                'approved_at'            => now(),
+                'approved_by'            => Auth::id(),
+                'goods_received_note_id' => $grn->id,
+                'created_by'             => Auth::id(),
+                'stock_before'           => $stockBefore,
+                'stock_after'            => $stockAfter,
+            ]);
+
+            // Create a batch for this GRN item
+            $batchNumber = 'BAT-GRN-' . date('Ymd') . '-' . str_pad($inventoryItem->id, 6, '0', STR_PAD_LEFT) . '-' . str_pad($idx, 3, '0', STR_PAD_LEFT);
+
+            Batch::create([
+                'batch_number' => $batchNumber,
+                'inventory_item_id' => $inventoryItem->id,
+                'goods_received_note_id' => $grn->id,
+                'supplier_id' => $grn->vendor_id,
+                'initial_quantity' => $totalBaseUnits,
+                'remaining_quantity' => $totalBaseUnits,
+                'unit_cost' => $unitCost,
+                'total_cost' => $totalBaseUnits * $unitCost,
+                'base_unit' => $baseUnit,
+                'manufacture_date' => $request->manufacture_date ?? null,
+                'expiry_date' => $request->expiry_date ?? null,
+                'batch_status' => 'active',
+                'notes' => 'Received from GRN: ' . $grn->grn_number,
+            ]);
+
+            $totalReceived += $totalBaseUnits;
+            $itemsSummary[] = "{$inventoryItem->name}: +{$totalBaseUnits} {$baseUnit}(s)";
+        }
+
+        $grn->status     = 'inventory_updated';
+        $grn->updated_by = Auth::id();
+        $grn->save();
+
+        DB::commit();
+
+        $summary = implode(', ', array_slice($itemsSummary, 0, 5));
+        if (count($itemsSummary) > 5) {
+            $summary .= ' … and ' . (count($itemsSummary) - 5) . ' more';
+        }
+
+        return redirect()->route('store.inventory.index')
+            ->with('success', "GRN {$grn->grn_number} received into inventory. {$summary}.");
+
+    } catch (\Exception $e) {
+        DB::rollBack();
+        return redirect()->back()
+            ->with('error', 'Failed to receive goods: ' . $e->getMessage());
+    }
+}
 
     // ─────────────────────────────────────────────────────────────────────────────
     // SHOW
@@ -715,6 +757,9 @@ public function update(Request $request, $id)
         }
     }
 
+
+
+
     // ─────────────────────────────────────────────────────────────────────────────
     // ADJUST STOCK — unchanged
     // ─────────────────────────────────────────────────────────────────────────────
@@ -780,6 +825,8 @@ public function update(Request $request, $id)
                 'stock_before'          => $stockBefore,
                 'stock_after'           => $newStock,
             ]);
+
+
 
             DB::commit();
 

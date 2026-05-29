@@ -62,8 +62,6 @@
         </span>
     </div>
 
-
-
     {{-- ── Info Cards Row ───────────────────────────────────────────────────── --}}
     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
 
@@ -185,36 +183,31 @@
                         <th class="px-4 py-3 text-left text-[10px] font-semibold uppercase tracking-wider text-gray-500">Metrics</th>
                         <th class="px-4 py-3 text-center text-[10px] font-semibold uppercase tracking-wider text-gray-500">Requested</th>
 
+                        {{-- APPROVED --}}
+                        <th class="px-4 py-3 text-center text-[10px] font-semibold uppercase tracking-wider text-blue-600 border-l border-gray-200 bg-blue-50">
+                            Approved
+                        </th>
+
                         {{-- ISSUED group --}}
                         <th class="px-4 py-3 text-center text-[10px] font-semibold uppercase tracking-wider text-green-600 border-l border-gray-200 bg-green-50">
                             Issued
-                        </th>
-                        <th class="px-4 py-3 text-center text-[10px] font-semibold uppercase tracking-wider text-green-600 bg-green-50 pack-info-col hidden-column">
-                            Pack Info
                         </th>
 
                         {{-- RETURNED group --}}
                         <th class="px-4 py-3 text-center text-[10px] font-semibold uppercase tracking-wider text-purple-600 border-l border-gray-200 bg-purple-50">
                             Returned
                         </th>
-                        <th class="px-4 py-3 text-center text-[10px] font-semibold uppercase tracking-wider text-purple-600 bg-purple-50 pack-info-returned-col hidden-column">
-                            Pack Info
-                        </th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-100">
                     @foreach($requisition->items as $item)
                     @php
-                        $unit = $item->metrics ?? ($item->inventoryItem->base_unit ?? 'units');
-
-                        $requested    = (float) $item->quantity_requested;
-                        $reqPackType  = $item->requested_pack_type;
-                        $reqPackSize  = $item->requested_pack_size;
-
-                        $issuedTotal    = (float) ($item->issued_total_pieces ?? 0);
-                        $fullyIssued    = $issuedTotal >= $requested;
-
-                        $returnedTotal    = (float) ($item->returned_total_pieces ?? 0);
+                        $unit          = $item->metrics ?? ($item->inventoryItem->base_unit ?? 'units');
+                        $requested     = (float) $item->quantity_requested;
+                        $approvedQty   = (float) ($item->quantity_approved ?? $requested);
+                        $issuedTotal   = (float) ($item->issued_total_pieces ?? 0);
+                        $fullyIssued   = $issuedTotal >= $requested;
+                        $returnedTotal = (float) ($item->returned_total_pieces ?? 0);
                     @endphp
                     <tr class="hover:bg-gray-50 transition-colors">
 
@@ -225,13 +218,16 @@
 
                         <td class="px-4 py-3 text-gray-500 text-sm">{{ $unit }}</td>
 
+                        {{-- Requested --}}
                         <td class="px-4 py-3 text-center tabular-nums font-semibold text-gray-800">
                             {{ number_format($requested, 2) }}
-                            @if($reqPackType)
-                                <div class="text-xs text-gray-400 font-normal">{{ ucfirst($reqPackType) }}{{ $reqPackSize ? ' × '.$reqPackSize.' '.$unit : '' }}</div>
-                            @else
-                                <div class="text-xs text-gray-400 font-normal">{{ $unit }}</div>
-                            @endif
+                            <div class="text-xs text-gray-400 font-normal">{{ $unit }}</div>
+                        </td>
+
+                        {{-- Approved --}}
+                        <td class="px-4 py-3 text-center tabular-nums bg-blue-50 border-l border-gray-100">
+                            <span class="font-semibold text-blue-700">{{ number_format($approvedQty, 2) }}</span>
+                            <div class="text-xs text-gray-400">{{ $unit }}</div>
                         </td>
 
                         {{-- Issued Total --}}
@@ -246,11 +242,6 @@
                             @endif
                         </td>
 
-                        {{-- Pack Info (HIDDEN) --}}
-                        <td class="px-4 py-3 text-center pack-info-col hidden-column">
-                            <span class="text-gray-300">—</span>
-                        </td>
-
                         {{-- Returned Total --}}
                         <td class="px-4 py-3 text-center tabular-nums font-semibold border-l border-gray-100">
                             @if($returnedTotal > 0)
@@ -263,31 +254,28 @@
                             @endif
                         </td>
 
-                        {{-- Returned Pack Info (HIDDEN) --}}
-                        <td class="px-4 py-3 text-center pack-info-returned-col hidden-column">
-                            <span class="text-gray-300">—</span>
-                        </td>
                     </tr>
                     @endforeach
                 </tbody>
 
-                {{-- Totals footer --}}
                 <tfoot class="bg-gray-50 border-t-2 border-gray-200">
                     <tr>
                         <td colspan="2" class="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Totals</td>
                         <td class="px-4 py-3 text-center tabular-nums font-bold text-gray-800">
                             {{ number_format($requisition->items->sum('quantity_requested'), 2) }}
                         </td>
+                        <td class="px-4 py-3 text-center tabular-nums font-bold text-blue-600 bg-blue-50 border-l border-gray-200">
+                            {{ number_format($requisition->items->sum('quantity_approved'), 2) }}
+                            <div class="text-xs text-gray-400 font-normal">base units</div>
+                        </td>
                         <td class="px-4 py-3 text-center tabular-nums font-bold text-green-600 border-l border-gray-200">
                             {{ number_format($requisition->items->sum('issued_total_pieces'), 2) }}
                             <div class="text-xs text-gray-400 font-normal">base units</div>
                         </td>
-                        <td class="px-4 py-3 pack-info-col hidden-column">—</td>
                         <td class="px-4 py-3 text-center tabular-nums font-bold text-purple-600 border-l border-gray-200">
                             {{ number_format($requisition->items->sum('returned_total_pieces'), 2) }}
                             <div class="text-xs text-gray-400 font-normal">base units</div>
                         </td>
-                        <td class="px-4 py-3 pack-info-returned-col hidden-column">—</td>
                     </tr>
                 </tfoot>
             </table>
@@ -383,12 +371,6 @@
         </form>
     </div>
 </div>
-
-<style>
-    .hidden-column {
-        display: none;
-    }
-</style>
 
 <script>
     document.getElementById('rejectModal').addEventListener('click', function(e) {

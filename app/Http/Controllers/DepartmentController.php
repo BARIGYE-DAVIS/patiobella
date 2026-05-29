@@ -20,7 +20,7 @@ class DepartmentController extends Controller
         ]);
 
         $query = Department::query();
-        
+
         // Search
         if ($request->filled('search')) {
             $search = $request->search;
@@ -31,10 +31,10 @@ class DepartmentController extends Controller
                   ->orWhere('Description', 'like', "%{$search}%");
             });
         }
-        
+
         $departments = $query->orderBy('code')->paginate(15);
-        
-        return view('departments.index', compact('departments'));
+
+        return view('admin.departments.index', compact('departments'));
     }
 
     /**
@@ -45,8 +45,8 @@ class DepartmentController extends Controller
         Log::info('Department create form accessed', [
             'user_id' => Auth::id()
         ]);
-        
-        return view('departments.create');
+
+        return view('admin.departments.create');
     }
 
     /**
@@ -65,10 +65,10 @@ class DepartmentController extends Controller
             'Location' => 'nullable|string|max:255',
             'Description' => 'nullable|string',
         ]);
-        
+
         $validated['created_by'] = Auth::id();
         $validated['is_active'] = true;
-        
+
         $department = Department::create($validated);
 
         Log::info('Department created successfully', [
@@ -77,7 +77,7 @@ class DepartmentController extends Controller
             'department_code' => $department->code,
             'department_name' => $department->name
         ]);
-        
+
         return redirect()->route('departments.index')
             ->with('success', "Department '{$department->name}' created successfully.");
     }
@@ -93,8 +93,8 @@ class DepartmentController extends Controller
             'department_code' => $department->code,
             'department_name' => $department->name
         ]);
-        
-        return view('departments.show', compact('department'));
+
+        return view('admin.departments.show', compact('department'));
     }
 
     /**
@@ -108,8 +108,8 @@ class DepartmentController extends Controller
             'department_code' => $department->code,
             'department_name' => $department->name
         ]);
-        
-        return view('departments.edit', compact('department'));
+
+        return view('admin.departments.edit', compact('department'));
     }
 
     /**
@@ -131,9 +131,9 @@ class DepartmentController extends Controller
             'Location' => 'nullable|string|max:255',
             'Description' => 'nullable|string',
         ]);
-        
+
         $validated['updated_by'] = Auth::id();
-        
+
         $department->update($validated);
 
         Log::info('Department updated successfully', [
@@ -143,7 +143,7 @@ class DepartmentController extends Controller
             'old_name' => $department->getOriginal('name'),
             'new_name' => $department->name
         ]);
-        
+
         return redirect()->route('departments.show', $department)
             ->with('success', "Department '{$department->name}' updated successfully.");
     }
@@ -162,11 +162,11 @@ class DepartmentController extends Controller
 
         $departmentName = $department->name;
         $department->delete();
-        
+
         return redirect()->route('departments.index')
             ->with('success', "Department '{$departmentName}' deleted successfully.");
     }
-    
+
     /**
      * Activate the specified department.
      */
@@ -183,11 +183,11 @@ class DepartmentController extends Controller
             'is_active' => true,
             'updated_by' => Auth::id()
         ]);
-        
+
         return redirect()->route('departments.show', $department)
             ->with('success', "Department '{$department->name}' activated successfully.");
     }
-    
+
     /**
      * Deactivate the specified department.
      */
@@ -204,11 +204,11 @@ class DepartmentController extends Controller
             'is_active' => false,
             'updated_by' => Auth::id()
         ]);
-        
+
         return redirect()->route('departments.show', $department)
             ->with('success', "Department '{$department->name}' deactivated successfully.");
     }
-    
+
     /**
      * Restore a soft-deleted department.
      */
@@ -229,11 +229,11 @@ class DepartmentController extends Controller
             'department_code' => $department->code,
             'department_name' => $department->name
         ]);
-        
+
         return redirect()->route('departments.show', $department)
             ->with('success', "Department '{$department->name}' restored successfully.");
     }
-    
+
     /**
      * Permanently delete a department.
      */
@@ -253,7 +253,7 @@ class DepartmentController extends Controller
             'department_id' => $id,
             'department_name' => $departmentName
         ]);
-        
+
         return redirect()->route('departments.index')
             ->with('success', "Department '{$departmentName}' permanently deleted.");
     }

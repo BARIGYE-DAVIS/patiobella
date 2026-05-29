@@ -42,7 +42,7 @@ class PermissionController extends Controller
     $permissions = $query->orderBy('group')->orderBy('sort_order')->orderBy('name')->get();
     $groups = Permission::select('group')->distinct()->pluck('group');
 
-    return view('permissions.index', compact('permissions', 'groups'));
+    return view('admin.permissions.index', compact('permissions', 'groups'));
 }
     /**
      * Show form to create a new permission.
@@ -50,11 +50,11 @@ class PermissionController extends Controller
     public function create()
     {
         if (!Auth::user()->is_super_admin) {
-            return redirect()->route('permissions.index')
+            return redirect()->route('admin.permissions.index')
                 ->with('error', 'You do not have permission to create permissions.');
         }
 
-        return view('permissions.create');
+        return view('admin.permissions.create');
     }
 
     /**
@@ -66,7 +66,7 @@ class PermissionController extends Controller
             if ($request->ajax()) {
                 return response()->json(['success' => false, 'message' => 'Unauthorized'], 403);
             }
-            return redirect()->route('permissions.index')
+            return redirect()->route('admin.permissions.index')
                 ->with('error', 'You do not have permission to create permissions.');
         }
 
@@ -106,7 +106,7 @@ class PermissionController extends Controller
             ]);
         }
 
-        return redirect()->route('permissions.index')
+        return redirect()->route('admin.permissions.index')
             ->with('success', "Permission '{$permission->name}' created successfully.");
     }
 
@@ -116,13 +116,13 @@ class PermissionController extends Controller
     public function show($id)
     {
         if (!Auth::user()->is_super_admin) {
-            return redirect()->route('permissions.index')
+            return redirect()->route('admin.permissions.index')
                 ->with('error', 'You do not have permission to view permissions.');
         }
 
         $permission = Permission::findOrFail($id);
 
-        return view('permissions.show', compact('permission'));
+        return view('admin.permissions.show', compact('permission'));
     }
 
     /**
@@ -131,13 +131,13 @@ class PermissionController extends Controller
     public function edit($id)
     {
         if (!Auth::user()->is_super_admin) {
-            return redirect()->route('permissions.index')
+            return redirect()->route('admin.permissions.index')
                 ->with('error', 'You do not have permission to edit permissions.');
         }
 
         $permission = Permission::findOrFail($id);
 
-        return view('permissions.edit', compact('permission'));
+        return view('admin.permissions.edit', compact('permission'));
     }
 
     /**
@@ -146,7 +146,7 @@ class PermissionController extends Controller
     public function update(Request $request, $id)
     {
         if (!Auth::user()->is_super_admin) {
-            return redirect()->route('permissions.index')
+            return redirect()->route('admin.permissions.index')
                 ->with('error', 'You do not have permission to update permissions.');
         }
 
@@ -169,7 +169,7 @@ class PermissionController extends Controller
             'permission_name' => $permission->name
         ]);
 
-        return redirect()->route('permissions.show', $permission->id)
+        return redirect()->route('admin.permissions.show', $permission->id)
             ->with('success', "Permission '{$permission->name}' updated successfully.");
     }
 
@@ -179,19 +179,19 @@ class PermissionController extends Controller
     public function destroy($id)
     {
         if (!Auth::user()->is_super_admin) {
-            return redirect()->route('permissions.index')
+            return redirect()->route('admin.permissions.index')
                 ->with('error', 'You do not have permission to delete permissions.');
         }
 
         $permission = Permission::findOrFail($id);
 
         if ($permission->roles()->count() > 0) {
-            return redirect()->route('permissions.index')
+            return redirect()->route('admin.permissions.index')
                 ->with('error', 'Cannot delete permission that is assigned to roles. Remove it from roles first.');
         }
 
         if ($permission->users()->count() > 0) {
-            return redirect()->route('permissions.index')
+            return redirect()->route('admin.permissions.index')
                 ->with('error', 'Cannot delete permission that is assigned to users as extra permission. Remove it from users first.');
         }
 
@@ -206,7 +206,7 @@ class PermissionController extends Controller
 
         $permission->delete();
 
-        return redirect()->route('permissions.index')
+        return redirect()->route('admin.permissions.index')
             ->with('success', "Permission '{$permissionName}' deleted successfully.");
     }
 
@@ -216,7 +216,7 @@ class PermissionController extends Controller
     public function activate($id)
     {
         if (!Auth::user()->is_super_admin) {
-            return redirect()->route('permissions.index')
+            return redirect()->route('admin.permissions.index')
                 ->with('error', 'You do not have permission to activate permissions.');
         }
 
@@ -229,7 +229,7 @@ class PermissionController extends Controller
             'permission_name' => $permission->name
         ]);
 
-        return redirect()->route('permissions.index')
+        return redirect()->route('admin.permissions.index')
             ->with('success', "Permission '{$permission->name}' activated successfully.");
     }
 

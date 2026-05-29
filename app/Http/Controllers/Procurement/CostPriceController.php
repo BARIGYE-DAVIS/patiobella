@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Procurement;
 
 use App\Http\Controllers\Controller;
 use App\Models\InventoryItem;
+use App\Models\Batch;
 use App\Models\CostPriceHistory;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -14,7 +15,7 @@ use Illuminate\Support\Facades\Log;
 class CostPriceController extends Controller
 {
     /**
-     * Display cost price management page.
+     * Display batch management page.
      */
     public function index(Request $request)
     {
@@ -24,40 +25,42 @@ class CostPriceController extends Controller
             return redirect()->route('dashboard')->with('error', 'Unauthorized access');
         }
 
-        $query = InventoryItem::where('is_active', true);
+        $query = Batch::with('inventoryItem')->where('batch_status', 'active');
 
         // Search
         if ($request->filled('search')) {
             $search = $request->search;
             $query->where(function($q) use ($search) {
-                $q->where('name', 'like', "%{$search}%")
-                  ->orWhere('item_code', 'like', "%{$search}%");
+                $q->where('batch_number', 'like', "%{$search}%")
+                  ->orWhereHas('inventoryItem', function($item) use ($search) {
+                      $item->where('name', 'like', "%{$search}%")
+                           ->orWhere('item_code', 'like', "%{$search}%");
+                  });
             });
         }
 
-        // Filter by category
-        if ($request->filled('category_id')) {
-            $query->where('category_id', $request->category_id);
+        // Filter by expiry status
+        if ($request->filled('expiry_status')) {
+            if ($request->expiry_status === 'expired') {
+                $query->where('expiry_date', '<', now());
+            } elseif ($request->expiry_status === 'expiring_soon') {
+                $query->where('expiry_date', '<=', now()->addDays(30))
+                      ->where('expiry_date', '>=', now());
+            }
         }
 
-        $items = $query->orderBy('name')->paginate(20);
-
-        // Get categories for filter
-        $categories = \App\Models\Category::where('is_active', true)->orderBy('name')->get();
-
-        // For each item, get latest price history
-        foreach ($items as $item) {
-            $item->priceHistory = CostPriceHistory::where('inventory_item_id', $item->id)
-                ->orderBy('created_at', 'desc')
-                ->limit(5)
-                ->get();
+        // Filter by batch status
+        if ($request->filled('batch_status')) {
+            $query->where('batch_status', $request->batch_status);
         }
 
-        return view('procurement.cost-prices.index', compact('items', 'categories'));
+        $batches = $query->orderBy('expiry_date', 'asc')->paginate(20);
+
+        return view('procurement.cost-prices.index', compact('batches'));
     }
 
     /**
-     * Show form to update cost price for a single item.
+     * Show form to update batch for a single item.
      */
     public function edit($id)
     {
@@ -67,18 +70,19 @@ class CostPriceController extends Controller
             return redirect()->route('dashboard')->with('error', 'Unauthorized access');
         }
 
-        $item = InventoryItem::findOrFail($id);
+        $batch = Batch::with('inventoryItem')->findOrFail($id);
+        $item = $batch->inventoryItem;
 
-        // Get price history
-        $priceHistory = CostPriceHistory::where('inventory_item_id', $id)
+        // Get price history for this batch
+        $priceHistory = CostPriceHistory::where('inventory_item_id', $item->id)
             ->orderBy('created_at', 'desc')
             ->paginate(10);
 
-        return view('procurement.cost-prices.edit', compact('item', 'priceHistory'));
+        return view('procurement.cost-prices.edit', compact('batch', 'item', 'priceHistory'));
     }
 
     /**
-     * Update cost price for simple item (per unit).
+     * Update batch unit cost for simple item (per unit).
      */
     public function updateSimple(Request $request, $id)
     {
@@ -96,14 +100,31 @@ class CostPriceController extends Controller
         DB::beginTransaction();
 
         try {
-            $item = InventoryItem::findOrFail($id);
-            $oldCost = $item->unit_cost;
+            $batch = Batch::findOrFail($id);
+            $oldCost = $batch->unit_cost;
             $newCost = $request->unit_cost;
 
-            // Update item cost
-            $item->unit_cost = $newCost;
+            // Update batch cost
+            $batch->unit_cost = $newCost;
+            $batch->total_cost = $batch->remaining_quantity * $newCost;
+            $batch->save();
+
+            // Update inventory item average cost
+            $item = $batch->inventoryItem;
+            $activeBatches = Batch::where('inventory_item_id', $item->id)
+                ->where('batch_status', 'active')
+                ->where('remaining_quantity', '>', 0)
+                ->get();
+
+            $totalQty = $activeBatches->sum('remaining_quantity');
+            $totalValue = $activeBatches->sum(function($b) {
+                return $b->remaining_quantity * $b->unit_cost;
+            });
+
+            $avgCost = $totalQty > 0 ? $totalValue / $totalQty : $newCost;
+
+            $item->unit_cost = $avgCost;
             $item->last_purchase_price = $newCost;
-            $item->updated_by = Auth::id();
             $item->save();
 
             // Record history
@@ -111,39 +132,39 @@ class CostPriceController extends Controller
                 'inventory_item_id' => $item->id,
                 'old_unit_cost' => $oldCost,
                 'new_unit_cost' => $newCost,
-                'reason' => $request->reason ?? 'Manual cost update',
+                'reason' => $request->reason ?? 'Manual batch cost update',
                 'changed_by' => Auth::id(),
             ]);
 
             DB::commit();
 
-            Log::info('Cost price updated (simple)', [
+            Log::info('Batch cost price updated (simple)', [
                 'user_id' => Auth::id(),
-                'item_id' => $id,
-                'item_name' => $item->name,
+                'batch_id' => $id,
+                'batch_number' => $batch->batch_number,
                 'old_cost' => $oldCost,
                 'new_cost' => $newCost,
             ]);
 
             return response()->json([
                 'success' => true,
-                'message' => "Cost price updated from UGX " . number_format($oldCost, 2) . " to UGX " . number_format($newCost, 2),
+                'message' => "Batch cost price updated from UGX " . number_format($oldCost, 2) . " to UGX " . number_format($newCost, 2),
                 'new_cost' => number_format($newCost, 2),
             ]);
 
         } catch (\Exception $e) {
             DB::rollBack();
-            Log::error('Failed to update cost price', [
+            Log::error('Failed to update batch cost price', [
                 'user_id' => Auth::id(),
-                'item_id' => $id,
+                'batch_id' => $id,
                 'error' => $e->getMessage(),
             ]);
-            return response()->json(['success' => false, 'message' => 'Failed to update cost price: ' . $e->getMessage()], 500);
+            return response()->json(['success' => false, 'message' => 'Failed to update batch cost price: ' . $e->getMessage()], 500);
         }
     }
 
     /**
-     * Update cost price for bulk item (per pack).
+     * Update batch cost price for bulk item (per pack).
      */
     public function updateBulk(Request $request, $id)
     {
@@ -164,8 +185,8 @@ class CostPriceController extends Controller
         DB::beginTransaction();
 
         try {
-            $item = InventoryItem::findOrFail($id);
-            $oldCost = $item->unit_cost;
+            $batch = Batch::findOrFail($id);
+            $oldCost = $batch->unit_cost;
 
             $packSize = $request->pack_size;
             $numberOfPacks = $request->number_of_packs;
@@ -173,16 +194,29 @@ class CostPriceController extends Controller
 
             // Calculate new unit cost (cost per single unit)
             $totalBaseUnits = $packSize * $numberOfPacks;
-            $newUnitCost = $packCost / $totalBaseUnits;
+            $newUnitCost = round($packCost / $totalBaseUnits, 2);
 
-            // Round to 2 decimal places
-            $newUnitCost = round($newUnitCost, 2);
+            // Update batch cost
+            $batch->unit_cost = $newUnitCost;
+            $batch->total_cost = $batch->remaining_quantity * $newUnitCost;
+            $batch->save();
 
-            // Update item cost
-            $item->unit_cost = $newUnitCost;
+            // Update inventory item average cost
+            $item = $batch->inventoryItem;
+            $activeBatches = Batch::where('inventory_item_id', $item->id)
+                ->where('batch_status', 'active')
+                ->where('remaining_quantity', '>', 0)
+                ->get();
+
+            $totalQty = $activeBatches->sum('remaining_quantity');
+            $totalValue = $activeBatches->sum(function($b) {
+                return $b->remaining_quantity * $b->unit_cost;
+            });
+
+            $avgCost = $totalQty > 0 ? $totalValue / $totalQty : $newUnitCost;
+
+            $item->unit_cost = $avgCost;
             $item->last_purchase_price = $newUnitCost;
-            $item->default_unit_of_measure_id = $request->pack_type;
-            $item->updated_by = Auth::id();
             $item->save();
 
             // Record history with pack details
@@ -194,14 +228,14 @@ class CostPriceController extends Controller
                 'pack_size' => $packSize,
                 'number_of_packs' => $numberOfPacks,
                 'total_base_units' => $totalBaseUnits,
-                'reason' => $request->reason ?? 'Bulk cost update - ' . $numberOfPacks . ' ' . $request->pack_type . '(s)',
+                'reason' => $request->reason ?? 'Bulk batch cost update - ' . $numberOfPacks . ' ' . $request->pack_type . '(s)',
                 'changed_by' => Auth::id(),
             ]);
 
             DB::commit();
 
             $message = sprintf(
-                "Cost updated: %d %s(s) × %d = %d units @ UGX %s = UGX %.2f per unit",
+                "Batch cost updated: %d %s(s) × %d = %d units @ UGX %s = UGX %.2f per unit",
                 $numberOfPacks,
                 $request->pack_type,
                 $packSize,
@@ -210,37 +244,33 @@ class CostPriceController extends Controller
                 $newUnitCost
             );
 
-            Log::info('Cost price updated (bulk)', [
+            Log::info('Batch cost price updated (bulk)', [
                 'user_id' => Auth::id(),
-                'item_id' => $id,
-                'item_name' => $item->name,
+                'batch_id' => $id,
+                'batch_number' => $batch->batch_number,
                 'old_cost' => $oldCost,
                 'new_cost' => $newUnitCost,
-                'pack_type' => $request->pack_type,
-                'pack_size' => $packSize,
-                'number_of_packs' => $numberOfPacks,
             ]);
 
             return response()->json([
                 'success' => true,
                 'message' => $message,
                 'new_unit_cost' => number_format($newUnitCost, 2),
-                'new_unit_cost_raw' => $newUnitCost,
             ]);
 
         } catch (\Exception $e) {
             DB::rollBack();
-            Log::error('Failed to update bulk cost price', [
+            Log::error('Failed to update bulk batch cost price', [
                 'user_id' => Auth::id(),
-                'item_id' => $id,
+                'batch_id' => $id,
                 'error' => $e->getMessage(),
             ]);
-            return response()->json(['success' => false, 'message' => 'Failed to update cost price: ' . $e->getMessage()], 500);
+            return response()->json(['success' => false, 'message' => 'Failed to update batch cost price: ' . $e->getMessage()], 500);
         }
     }
 
     /**
-     * Get price history for an item (AJAX).
+     * Get batch history for an item (AJAX).
      */
     public function getHistory($id)
     {
@@ -270,7 +300,7 @@ class CostPriceController extends Controller
     }
 
     /**
-     * Bulk update multiple items.
+     * Bulk update multiple batches.
      */
     public function bulkUpdate(Request $request)
     {
@@ -282,7 +312,7 @@ class CostPriceController extends Controller
 
         $request->validate([
             'items' => 'required|array',
-            'items.*.id' => 'required|exists:inventory_items,id',
+            'items.*.id' => 'required|exists:batches,id',
             'items.*.unit_cost' => 'required|numeric|min:0',
             'reason' => 'nullable|string|max:500',
         ]);
@@ -293,22 +323,38 @@ class CostPriceController extends Controller
             $updatedCount = 0;
 
             foreach ($request->items as $itemData) {
-                $item = InventoryItem::find($itemData['id']);
-                if ($item) {
-                    $oldCost = $item->unit_cost;
+                $batch = Batch::find($itemData['id']);
+                if ($batch) {
+                    $oldCost = $batch->unit_cost;
                     $newCost = $itemData['unit_cost'];
 
                     if ($oldCost != $newCost) {
-                        $item->unit_cost = $newCost;
-                        $item->last_purchase_price = $newCost;
-                        $item->updated_by = Auth::id();
+                        $batch->unit_cost = $newCost;
+                        $batch->total_cost = $batch->remaining_quantity * $newCost;
+                        $batch->save();
+
+                        // Update inventory item average cost
+                        $item = $batch->inventoryItem;
+                        $activeBatches = Batch::where('inventory_item_id', $item->id)
+                            ->where('batch_status', 'active')
+                            ->where('remaining_quantity', '>', 0)
+                            ->get();
+
+                        $totalQty = $activeBatches->sum('remaining_quantity');
+                        $totalValue = $activeBatches->sum(function($b) {
+                            return $b->remaining_quantity * $b->unit_cost;
+                        });
+
+                        $avgCost = $totalQty > 0 ? $totalValue / $totalQty : $newCost;
+
+                        $item->unit_cost = $avgCost;
                         $item->save();
 
                         CostPriceHistory::create([
                             'inventory_item_id' => $item->id,
                             'old_unit_cost' => $oldCost,
                             'new_unit_cost' => $newCost,
-                            'reason' => $request->reason ?? 'Bulk cost update',
+                            'reason' => $request->reason ?? 'Bulk batch cost update',
                             'changed_by' => Auth::id(),
                         ]);
 
@@ -321,12 +367,12 @@ class CostPriceController extends Controller
 
             return response()->json([
                 'success' => true,
-                'message' => "{$updatedCount} item(s) updated successfully",
+                'message' => "{$updatedCount} batch(es) updated successfully",
             ]);
 
         } catch (\Exception $e) {
             DB::rollBack();
-            return response()->json(['success' => false, 'message' => 'Failed to update items'], 500);
+            return response()->json(['success' => false, 'message' => 'Failed to update batches'], 500);
         }
     }
 }

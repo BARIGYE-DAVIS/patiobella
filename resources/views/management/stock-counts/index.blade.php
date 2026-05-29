@@ -22,15 +22,31 @@
         </nav>
     </div>
 
-    {{-- Filters --}}
+    {{-- Filters with Live Search --}}
     <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
-        <form method="GET" action="{{ route('management.stock-counts.index') }}" class="grid grid-cols-1 md:grid-cols-5 gap-4">
-            <input type="hidden" name="type" value="{{ $type }}">
+        <div class="grid grid-cols-1 md:grid-cols-6 gap-4">
+            <input type="hidden" name="type" id="typeHidden" value="{{ $type }}">
+
+            {{-- Live Search Field --}}
+            <div class="md:col-span-2">
+                <label class="block text-xs font-medium text-gray-700 mb-1">Live Search</label>
+                <div class="relative">
+                    <input type="text"
+                           id="searchInput"
+                           placeholder="Type to search count #, location, creator..."
+                           class="w-full rounded-lg border-gray-300 text-sm focus:border-orange-500 focus:ring-orange-500 pl-9"
+                           autocomplete="off">
+                    <i class="fas fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 text-xs"></i>
+                    <div id="searchLoader" class="absolute right-3 top-1/2 transform -translate-y-1/2 hidden">
+                        <i class="fas fa-spinner fa-spin text-orange-500 text-xs"></i>
+                    </div>
+                </div>
+            </div>
 
             @if($type === 'department')
             <div>
                 <label class="block text-xs font-medium text-gray-700 mb-1">Department</label>
-                <select name="department_id" class="w-full rounded-lg border-gray-300 text-sm focus:border-orange-500 focus:ring-orange-500">
+                <select name="department_id" id="departmentSelect" class="w-full rounded-lg border-gray-300 text-sm focus:border-orange-500 focus:ring-orange-500">
                     <option value="">All Departments</option>
                     @foreach($departments as $department)
                         <option value="{{ $department->id }}" {{ request('department_id') == $department->id ? 'selected' : '' }}>
@@ -43,7 +59,7 @@
 
             <div>
                 <label class="block text-xs font-medium text-gray-700 mb-1">Status</label>
-                <select name="status" class="w-full rounded-lg border-gray-300 text-sm focus:border-orange-500 focus:ring-orange-500">
+                <select name="status" id="statusSelect" class="w-full rounded-lg border-gray-300 text-sm focus:border-orange-500 focus:ring-orange-500">
                     <option value="">All Status</option>
                     @foreach($statuses as $status)
                         <option value="{{ $status }}" {{ request('status') == $status ? 'selected' : '' }}>
@@ -55,30 +71,29 @@
 
             <div>
                 <label class="block text-xs font-medium text-gray-700 mb-1">Date From</label>
-                <input type="date" name="date_from" value="{{ request('date_from') }}"
+                <input type="date" name="date_from" id="dateFrom" value="{{ request('date_from') }}"
                        class="w-full rounded-lg border-gray-300 text-sm focus:border-orange-500 focus:ring-orange-500">
             </div>
 
             <div>
                 <label class="block text-xs font-medium text-gray-700 mb-1">Date To</label>
-                <input type="date" name="date_to" value="{{ request('date_to') }}"
+                <input type="date" name="date_to" id="dateTo" value="{{ request('date_to') }}"
                        class="w-full rounded-lg border-gray-300 text-sm focus:border-orange-500 focus:ring-orange-500">
             </div>
 
-            <div class="flex items-end gap-2">
-                <button type="submit" class="bg-orange-600 hover:bg-orange-700 text-white px-4 py-2 rounded-lg text-sm transition">
-                    <i class="fas fa-search mr-1"></i> Filter
-                </button>
-                <a href="{{ route('management.stock-counts.index', ['type' => $type]) }}"
-                   class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg text-sm transition">
+            <div class="flex items-end gap-2 md:col-span-1">
+                <button type="button" id="resetBtn" class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg text-sm transition w-full">
                     <i class="fas fa-undo mr-1"></i> Reset
-                </a>
+                </button>
             </div>
-        </form>
+        </div>
     </div>
 
-    {{-- Create Button --}}
-    <div class="flex justify-end">
+    {{-- Results Summary & Create Button --}}
+    <div class="flex justify-between items-center">
+        <div class="text-sm text-gray-600" id="resultsSummary">
+            Showing {{ $stockCounts->firstItem() ?? 0 }} to {{ $stockCounts->lastItem() ?? 0 }} of {{ $stockCounts->total() }} results
+        </div>
         <a href="{{ route('management.stock-counts.create', ['type' => $type]) }}"
            class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm transition">
             <i class="fas fa-plus mr-1"></i> New Stock Count
@@ -101,89 +116,161 @@
                         <th class="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase">Actions</th>
                     </tr>
                 </thead>
-                <tbody class="divide-y divide-gray-100">
-                    @forelse($stockCounts as $count)
-                        @php
-                            $totalVariance = $count->getTotalVarianceAttribute();
-                            $varianceClass = $totalVariance < 0 ? 'text-red-600' : ($totalVariance > 0 ? 'text-green-600' : 'text-gray-400');
-                        @endphp
-                        <tr class="hover:bg-gray-50 transition">
-                            <td class="px-4 py-3">
-                                <span class="font-mono font-medium text-gray-800">{{ $count->count_number }}</span>
-                            </td>
-                            <td class="px-4 py-3">
-                                @if($type === 'store')
-                                    <span class="inline-flex items-center gap-1 px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-700">
-                                        <i class="fas fa-warehouse text-xs"></i> Main Store
-                                    </span>
-                                @else
-                                    <span class="inline-flex items-center gap-1 px-2 py-1 text-xs rounded-full bg-purple-100 text-purple-700">
-                                        <i class="fas fa-building text-xs"></i> {{ $count->location->name ?? 'N/A' }}
-                                    </span>
-                                @endif
-                            </td>
-                            <td class="px-4 py-3 text-center">
-                                {{ \Carbon\Carbon::parse($count->count_date)->format('d M Y') }}
-                            </td>
-                            <td class="px-4 py-3 text-center">
-                                {{ $count->items->count() }}
-                            </td>
-                            <td class="px-4 py-3 text-center">
-                                <span class="font-semibold {{ $varianceClass }}">
-                                    {{ number_format($totalVariance, 2) }}
-                                </span>
-                            </td>
-                            <td class="px-4 py-3 text-center">
-                                @php
-                                    $statusColors = [
-                                        'draft' => 'bg-gray-100 text-gray-700',
-                                        'in_progress' => 'bg-yellow-100 text-yellow-700',
-                                        'completed' => 'bg-green-100 text-green-700',
-                                        'cancelled' => 'bg-red-100 text-red-700',
-                                    ];
-                                    $statusLabels = [
-                                        'draft' => 'Draft',
-                                        'in_progress' => 'In Progress',
-                                        'completed' => 'Completed',
-                                        'cancelled' => 'Cancelled',
-                                    ];
-                                @endphp
-                                <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full {{ $statusColors[$count->status] }}">
-                                    {{ $statusLabels[$count->status] }}
-                                </span>
-                            </td>
-                            <td class="px-4 py-3 text-center text-gray-600">
-                                {{ $count->creator->first_name ?? 'N/A' }}
-                            </td>
-                            <td class="px-4 py-3 text-center">
-                                <div class="flex items-center justify-center gap-2">
-                                    <a href="{{ route('management.stock-counts.show', $count->id) }}"
-                                       class="text-blue-600 hover:text-blue-800 transition" title="View">
-                                        <i class="fas fa-eye"></i>
-                                    </a>
-                                </div>
-                            </td>
-                        </tr>
-                    @empty
-                        <tr>
-                            <td colspan="8" class="px-4 py-8 text-center text-gray-400">
-                                <i class="fas fa-clipboard-list text-3xl mb-2 block"></i>
-                                No stock counts found.
-                                <a href="{{ route('management.stock-counts.create', ['type' => $type]) }}" class="text-orange-600 hover:underline ml-1">
-                                    Create your first stock count
-                                </a>
-                            </td>
-                        </tr>
-                    @endforelse
+                <tbody id="stockCountsTableBody" class="divide-y divide-gray-100">
+                    @include('management.stock-counts.partials.table-rows', ['stockCounts' => $stockCounts, 'type' => $type])
                 </tbody>
-             </table>
+            </table>
         </div>
 
-        @if($stockCounts->hasPages())
-            <div class="px-4 py-3 border-t border-gray-200">
+        <div id="paginationContainer" class="px-4 py-3 border-t border-gray-200">
+            @if($stockCounts->hasPages())
                 {{ $stockCounts->appends(request()->query())->links() }}
-            </div>
-        @endif
+            @endif
+        </div>
     </div>
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    let debounceTimer;
+    let currentPage = 1;
+    let isLoading = false;
+
+    const searchInput = document.getElementById('searchInput');
+    const departmentSelect = document.getElementById('departmentSelect');
+    const statusSelect = document.getElementById('statusSelect');
+    const dateFrom = document.getElementById('dateFrom');
+    const dateTo = document.getElementById('dateTo');
+    const resetBtn = document.getElementById('resetBtn');
+    const tableBody = document.getElementById('stockCountsTableBody');
+    const paginationContainer = document.getElementById('paginationContainer');
+    const resultsSummary = document.getElementById('resultsSummary');
+    const searchLoader = document.getElementById('searchLoader');
+    const typeHidden = document.getElementById('typeHidden');
+
+    function fetchLiveResults() {
+        if (isLoading) return;
+
+        clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(() => {
+            const params = new URLSearchParams();
+            params.append('type', typeHidden ? typeHidden.value : '{{ $type }}');
+            params.append('page', currentPage);
+            params.append('ajax', '1');
+
+            if (searchInput && searchInput.value.trim()) {
+                params.append('search', searchInput.value.trim());
+            }
+            if (departmentSelect && departmentSelect.value) {
+                params.append('department_id', departmentSelect.value);
+            }
+            if (statusSelect && statusSelect.value) {
+                params.append('status', statusSelect.value);
+            }
+            if (dateFrom && dateFrom.value) {
+                params.append('date_from', dateFrom.value);
+            }
+            if (dateTo && dateTo.value) {
+                params.append('date_to', dateTo.value);
+            }
+
+            if (searchLoader) searchLoader.classList.remove('hidden');
+            isLoading = true;
+
+            fetch(window.location.pathname + '?' + params.toString(), {
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'Accept': 'application/json'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.html) {
+                    tableBody.innerHTML = data.html;
+                }
+                if (data.pagination !== undefined) {
+                    paginationContainer.innerHTML = data.pagination;
+                }
+                if (data.summary) {
+                    resultsSummary.innerHTML = `Showing ${data.summary.start} to ${data.summary.end} of ${data.summary.total} results`;
+                }
+                isLoading = false;
+                if (searchLoader) searchLoader.classList.add('hidden');
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                isLoading = false;
+                if (searchLoader) searchLoader.classList.add('hidden');
+            });
+        }, 300);
+    }
+
+    // Live search - as user types
+    if (searchInput) {
+        searchInput.addEventListener('input', function() {
+            currentPage = 1;
+            fetchLiveResults();
+        });
+    }
+
+    // Live filter on select changes
+    if (departmentSelect) {
+        departmentSelect.addEventListener('change', function() {
+            currentPage = 1;
+            fetchLiveResults();
+        });
+    }
+
+    if (statusSelect) {
+        statusSelect.addEventListener('change', function() {
+            currentPage = 1;
+            fetchLiveResults();
+        });
+    }
+
+    if (dateFrom) {
+        dateFrom.addEventListener('change', function() {
+            currentPage = 1;
+            fetchLiveResults();
+        });
+    }
+
+    if (dateTo) {
+        dateTo.addEventListener('change', function() {
+            currentPage = 1;
+            fetchLiveResults();
+        });
+    }
+
+    // Reset all filters
+    if (resetBtn) {
+        resetBtn.addEventListener('click', function() {
+            if (searchInput) searchInput.value = '';
+            if (departmentSelect) departmentSelect.value = '';
+            if (statusSelect) statusSelect.value = '';
+            if (dateFrom) dateFrom.value = '';
+            if (dateTo) dateTo.value = '';
+            currentPage = 1;
+            fetchLiveResults();
+        });
+    }
+
+    // Handle pagination clicks
+    if (paginationContainer) {
+        paginationContainer.addEventListener('click', function(e) {
+            const link = e.target.closest('a');
+            if (link && link.getAttribute('href')) {
+                e.preventDefault();
+                const url = new URL(link.href);
+                const page = url.searchParams.get('page');
+                if (page) {
+                    currentPage = parseInt(page);
+                    fetchLiveResults();
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                }
+            }
+        });
+    }
+});
+</script>
 @endsection

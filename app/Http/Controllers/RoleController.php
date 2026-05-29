@@ -38,7 +38,7 @@ class RoleController extends Controller
 
         $roles = $query->orderBy('name')->paginate(15);
 
-        return view('roles.index', compact('roles'));
+        return view('admin.roles.index', compact('roles'));
     }
 
     /**
@@ -51,7 +51,7 @@ class RoleController extends Controller
                 ->with('error', 'You do not have permission to create roles.');
         }
 
-        return view('roles.create');
+        return view('admin.roles.create');
     }
 
     /**
@@ -102,7 +102,7 @@ class RoleController extends Controller
         $role = Role::with('permissions')->findOrFail($id);
         $permissions = Permission::where('is_active', true)->orderBy('group')->orderBy('sort_order')->get();
 
-        return view('roles.show', compact('role', 'permissions'));
+        return view('admin.roles.show', compact('role', 'permissions'));
     }
 
     /**
@@ -117,7 +117,7 @@ public function edit($id)
 
     $role = Role::findOrFail($id);
 
-    return view('roles.edit', compact('role'));
+    return view('admin.roles.edit', compact('role'));
 }
     /**
      * Update the specified role.

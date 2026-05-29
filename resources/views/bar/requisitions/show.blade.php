@@ -388,7 +388,7 @@
 
     {{-- Record Consumption Button --}}
     @if(in_array($requisition->status, ['issued', 'partially_issued', 'partially_consumed', 'partially_returned']))
-    <div class="flex justify-end mt-6 p-6 pt-0">
+    <div class="flex justify-end mt-6 p-6 pt-0 hidden">
         <a href="{{ route('bar.requisitions.consume', $requisition->id) }}" class="bg-orange-600 text-white px-6 py-2 rounded-lg text-sm font-semibold hover:bg-orange-700 transition">
             Record Consumption
         </a>

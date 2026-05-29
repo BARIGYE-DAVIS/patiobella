@@ -129,6 +129,28 @@ Route::prefix('store')->name('store.')->middleware(['auth'])->group(function () 
         Route::put('/{id}', [App\Http\Controllers\Store\EmptyBottleWeightController::class, 'update'])->name('update')->middleware('permission:edit_inventory');
     });
 
+    Route::prefix('stock-counts')->name('stock-counts.')->group(function () {
+        Route::get('/', [App\Http\Controllers\Store\StoreStockCountController::class, 'index'])->name('index')->middleware('permission:view_stock_counts');
+        Route::get('/create', [App\Http\Controllers\Store\StoreStockCountController::class, 'create'])->name('create')->middleware('permission:create_stock_counts');
+        Route::post('/', [App\Http\Controllers\Store\StoreStockCountController::class, 'store'])->name('store')->middleware('permission:create_stock_counts');
+        Route::get('/get-item-stock/{id}', [App\Http\Controllers\Store\StoreStockCountController::class, 'getItemStock'])->name('get-item-stock')->middleware('permission:view_stock_counts');
+        Route::get('/get-department-items/{departmentId}', [App\Http\Controllers\Store\StoreStockCountController::class, 'getDepartmentItems'])->name('get-department-items')->middleware('permission:view_stock_counts');
+        Route::post('/calculate-net-quantity', [App\Http\Controllers\Store\StoreStockCountController::class, 'calculateNetQuantity'])->name('calculate-net-quantity')->middleware('permission:view_stock_counts');
+        Route::get('/{id}/download-pdf', [App\Http\Controllers\Store\StoreStockCountController::class, 'downloadPdf'])->name('download-pdf')->middleware('permission:export_reports');
+        Route::get('/{id}/review', [App\Http\Controllers\Store\StoreStockCountController::class, 'review'])->name('review')->middleware('permission:approve_stock_counts');
+        Route::post('/{id}/review-approve', [App\Http\Controllers\Store\StoreStockCountController::class, 'reviewApprove'])->name('review-approve')->middleware('permission:approve_stock_counts');
+        Route::get('/{id}/edit', [App\Http\Controllers\Store\StoreStockCountController::class, 'editCount'])->name('edit-count')->middleware('permission:edit_stock_counts');
+        Route::get('/{id}/approve-count', [App\Http\Controllers\Store\StoreStockCountController::class, 'approveCountForm'])->name('approve-count')->middleware('permission:approve_stock_counts');
+        Route::post('/{id}/approve-count-submit', [App\Http\Controllers\Store\StoreStockCountController::class, 'approveCountSubmit'])->name('approve-count-submit')->middleware('permission:approve_stock_counts');
+        Route::get('/{id}', [App\Http\Controllers\Store\StoreStockCountController::class, 'show'])->name('show')->middleware('permission:view_stock_counts');
+        Route::put('/{id}/items', [App\Http\Controllers\Store\StoreStockCountController::class, 'updateItems'])->name('update-items')->middleware('permission:edit_stock_counts');
+
+        Route::post('/{id}/submit', [App\Http\Controllers\Store\StoreStockCountController::class, 'submit'])->name('submit')->middleware('permission:edit_stock_counts');
+        Route::post('/{id}/complete', [App\Http\Controllers\Store\StoreStockCountController::class, 'complete'])->name('complete')->middleware('permission:edit_stock_counts');
+        Route::delete('/{id}/cancel', [App\Http\Controllers\Store\StoreStockCountController::class, 'cancel'])->name('cancel')->middleware('permission:edit_stock_counts');
+        Route::post('/{id}/items/{itemId}/approve-variance', [App\Http\Controllers\Store\StoreStockCountController::class, 'approveVariance'])->name('approve-variance')->middleware('permission:approve_stock_counts');
+    });
+
     // Store - Department Requisitions Routes
     Route::prefix('department-requisitions')->name('department-requisitions.')->group(function () {
         Route::get('/', [App\Http\Controllers\Store\DepartmentRequisitionController::class, 'index'])->name('index')->middleware('permission:view_requisitions');
@@ -150,7 +172,15 @@ Route::prefix('store')->name('store.')->middleware(['auth'])->group(function () 
         Route::put('/{id}', [App\Http\Controllers\Store\CategoryController::class, 'update'])->name('update')->middleware('permission:manage_categories');
         Route::delete('/{id}', [App\Http\Controllers\Store\CategoryController::class, 'destroy'])->name('destroy')->middleware('permission:manage_categories');
     });
-
+// Batch Management Routes
+Route::prefix('batches')->name('batches.')->group(function () {
+    Route::get('/', [App\Http\Controllers\Store\BatchController::class, 'index'])->name('index')->middleware('permission:view_batches');
+    Route::get('/{id}', [App\Http\Controllers\Store\BatchController::class, 'show'])->name('show')->middleware('permission:view_batches');
+    Route::get('/{id}/edit', [App\Http\Controllers\Store\BatchController::class, 'edit'])->name('edit')->middleware('permission:edit_batches');
+    Route::put('/{id}/expiry', [App\Http\Controllers\Store\BatchController::class, 'updateExpiry'])->name('update-expiry')->middleware('permission:edit_batches');
+    Route::put('/{id}/manufacture-date', [App\Http\Controllers\Store\BatchController::class, 'updateManufactureDate'])->name('update-manufacture-date')->middleware('permission:edit_batches');
+    Route::put('/{id}/quantity', [App\Http\Controllers\Store\BatchController::class, 'adjustQuantity'])->name('adjust-quantity')->middleware('permission:adjust_batch_quantity');
+});
     // Stock Movements Routes
     Route::prefix('stock-movements')->name('stock-movements.')->group(function () {
         Route::get('/', [App\Http\Controllers\Store\StockMovementController::class, 'index'])->name('index')->middleware('permission:view_stock_movements');
@@ -363,6 +393,8 @@ Route::prefix('management')->name('management.')->middleware(['auth'])->group(fu
         Route::get('/get-department-items/{departmentId}', [App\Http\Controllers\Management\StockCountController::class, 'getDepartmentItems'])->name('get-department-items')->middleware('permission:view_stock_counts');
         Route::post('/calculate-net-quantity', [App\Http\Controllers\Management\StockCountController::class, 'calculateNetQuantity'])->name('calculate-net-quantity')->middleware('permission:view_stock_counts');
         Route::get('/{id}/download-pdf', [App\Http\Controllers\Management\StockCountController::class, 'downloadPdf'])->name('download-pdf')->middleware('permission:export_reports');
+       Route::get('/{id}/review', [App\Http\Controllers\Management\StockCountController::class, 'review'])->name('review')->middleware('permission:approve_stock_counts');
+        Route::post('/{id}/review-approve', [App\Http\Controllers\Management\StockCountController::class, 'reviewApprove'])->name('review-approve')->middleware('permission:approve_stock_counts');
         Route::get('/{id}/edit', [App\Http\Controllers\Management\StockCountController::class, 'editCount'])->name('edit-count')->middleware('permission:edit_stock_counts');
         Route::get('/{id}/approve-count', [App\Http\Controllers\Management\StockCountController::class, 'approveCountForm'])->name('approve-count')->middleware('permission:approve_stock_counts');
         Route::post('/{id}/approve-count-submit', [App\Http\Controllers\Management\StockCountController::class, 'approveCountSubmit'])->name('approve-count-submit')->middleware('permission:approve_stock_counts');

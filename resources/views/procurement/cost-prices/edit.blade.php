@@ -3,7 +3,6 @@
 @extends('layouts.procurement')
 
 @section('title', 'Edit Cost Price')
-
 @section('page-title', 'Edit Cost Price')
 
 @section('content')
@@ -121,19 +120,6 @@
         margin-top: 0.5rem;
         font-size: 0.8rem;
     }
-    .radio-group {
-        display: flex;
-        gap: 1.5rem;
-        margin-bottom: 1rem;
-    }
-    .radio-option {
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-    }
-    .bulk-section, .simple-section {
-        transition: all 0.3s;
-    }
 </style>
 
 <div class="space-y-4">
@@ -182,21 +168,6 @@
                 @csrf
                 @method('PUT')
 
-                {{-- Update Method Selection --}}
-                <div class="form-group mb-4">
-                    <label class="form-label">Update Method <span class="required">*</span></label>
-                    <div class="radio-group">
-                        <label class="radio-option">
-                            <input type="radio" name="update_method" value="simple" checked>
-                            <span>Per Unit (Simple)</span>
-                        </label>
-                        <label class="radio-option">
-                            <input type="radio" name="update_method" value="bulk">
-                            <span>Per Pack (Bulk)</span>
-                        </label>
-                    </div>
-                </div>
-
                 {{-- Simple Update Section --}}
                 <div id="simpleSection" class="simple-section">
                     <div class="form-row">
@@ -207,44 +178,6 @@
                     </div>
                     <div class="calculation-preview" id="simplePreview">
                         <i class="fas fa-info-circle mr-1"></i> New unit cost will be: <strong>UGX <span id="simplePreviewAmount">{{ number_format($item->unit_cost ?? 0, 2) }}</span></strong>
-                    </div>
-                </div>
-
-                {{-- Bulk Update Section --}}
-                <div id="bulkSection" class="bulk-section" style="display: none;">
-                    <div class="form-row">
-                        <div>
-                            <label class="form-label">Pack Type <span class="required">*</span></label>
-                            <select id="pack_type" class="form-select">
-                                <option value="">Select Pack Type</option>
-                                <option value="carton">Carton</option>
-                                <option value="crate">Crate</option>
-                                <option value="box">Box</option>
-                                <option value="dozen">Dozen</option>
-                                <option value="pack">Pack</option>
-                                <option value="sack">Sack</option>
-                                <option value="bottle">Bottle (Pack)</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label class="form-label">Pack Size (pieces per pack) <span class="required">*</span></label>
-                            <input type="number" id="pack_size" class="form-input" step="1" min="1" placeholder="e.g., 12">
-                        </div>
-                        <div>
-                            <label class="form-label">Number of Packs <span class="required">*</span></label>
-                            <input type="number" id="number_of_packs" class="form-input" step="1" min="1" placeholder="e.g., 1">
-                        </div>
-                    </div>
-                    <div class="form-row">
-                        <div>
-                            <label class="form-label">Total Pack Cost (UGX) <span class="required">*</span></label>
-                            <input type="number" id="pack_cost" class="form-input" step="0.01" min="0" placeholder="Total cost for the packs">
-                        </div>
-                    </div>
-                    <div class="calculation-preview" id="bulkPreview">
-                        <i class="fas fa-calculator mr-1"></i> Calculation:
-                        <span id="bulkCalculation">—</span><br>
-                        <i class="fas fa-chart-line mr-1"></i> New unit cost will be: <strong>UGX <span id="bulkPreviewAmount">0.00</span></strong>
                     </div>
                 </div>
 
@@ -295,7 +228,7 @@
                                 <td>{{ $history->created_at->format('Y-m-d H:i') }}</td>
                                 <td>UGX {{ number_format($history->old_unit_cost, 2) }}</td>
                                 <td class="font-semibold text-emerald-600">UGX {{ number_format($history->new_unit_cost, 2) }}</td>
-                                <td>{{ $history->changedBy->name ?? 'System' }}</td>
+                               <td>{{ ($history->changedBy->first_name ?? '') . ' ' . ($history->changedBy->last_name ?? '') ?: 'System' }}</td>
                                 <td>
                                     @if($history->pack_type)
                                         {{ $history->number_of_packs }} {{ ucfirst($history->pack_type) }}(s) × {{ $history->pack_size }} = {{ number_format($history->total_base_units, 2) }} units
@@ -324,31 +257,9 @@
 
 <script>
     document.addEventListener('DOMContentLoaded', function() {
-        const updateMethodRadios = document.querySelectorAll('input[name="update_method"]');
-        const simpleSection = document.getElementById('simpleSection');
-        const bulkSection = document.getElementById('bulkSection');
         const simpleUnitCost = document.getElementById('simple_unit_cost');
         const simplePreviewAmount = document.getElementById('simplePreviewAmount');
-        const packType = document.getElementById('pack_type');
-        const packSize = document.getElementById('pack_size');
-        const numberOfPacks = document.getElementById('number_of_packs');
-        const packCost = document.getElementById('pack_cost');
-        const bulkPreviewAmount = document.getElementById('bulkPreviewAmount');
-        const bulkCalculation = document.getElementById('bulkCalculation');
         const submitBtn = document.getElementById('submitBtn');
-
-        // Toggle between simple and bulk sections
-        updateMethodRadios.forEach(radio => {
-            radio.addEventListener('change', function() {
-                if (this.value === 'simple') {
-                    simpleSection.style.display = 'block';
-                    bulkSection.style.display = 'none';
-                } else {
-                    simpleSection.style.display = 'none';
-                    bulkSection.style.display = 'block';
-                }
-            });
-        });
 
         // Simple price preview
         simpleUnitCost.addEventListener('input', function() {
@@ -356,92 +267,31 @@
             simplePreviewAmount.textContent = value.toFixed(2);
         });
 
-        // Bulk price calculation
-        function calculateBulk() {
-            const packs = parseFloat(numberOfPacks.value) || 0;
-            const size = parseFloat(packSize.value) || 0;
-            const cost = parseFloat(packCost.value) || 0;
-
-            if (packs > 0 && size > 0 && cost > 0) {
-                const totalUnits = packs * size;
-                const unitCost = cost / totalUnits;
-                bulkPreviewAmount.textContent = unitCost.toFixed(2);
-                bulkCalculation.innerHTML = `${packs} ${packType.value || 'pack'}(s) × ${size} = ${totalUnits} units @ UGX ${cost.toFixed(2)} = UGX ${unitCost.toFixed(2)} per unit`;
-            } else {
-                bulkPreviewAmount.textContent = '0.00';
-                bulkCalculation.innerHTML = '—';
-            }
-        }
-
-        packType.addEventListener('change', calculateBulk);
-        packSize.addEventListener('input', calculateBulk);
-        numberOfPacks.addEventListener('input', calculateBulk);
-        packCost.addEventListener('input', calculateBulk);
-
         // Submit form
         submitBtn.addEventListener('click', async function() {
-            const updateMethod = document.querySelector('input[name="update_method"]:checked').value;
+            const unitCost = parseFloat(simpleUnitCost.value);
             const reason = document.getElementById('reason').value;
             const itemId = {{ $item->id }};
 
-            let url, data;
-
-            if (updateMethod === 'simple') {
-                const unitCost = parseFloat(simpleUnitCost.value);
-                if (isNaN(unitCost) || unitCost < 0) {
-                    alert('Please enter a valid unit cost.');
-                    return;
-                }
-
-                url = `/procurement/cost-prices/${itemId}/simple`;
-                data = {
-                    unit_cost: unitCost,
-                    reason: reason
-                };
-            } else {
-                const pack_type = packType.value;
-                const pack_size = parseFloat(packSize.value);
-                const number_of_packs = parseFloat(numberOfPacks.value);
-                const pack_cost = parseFloat(packCost.value);
-
-                if (!pack_type) {
-                    alert('Please select a pack type.');
-                    return;
-                }
-                if (isNaN(pack_size) || pack_size < 1) {
-                    alert('Please enter a valid pack size.');
-                    return;
-                }
-                if (isNaN(number_of_packs) || number_of_packs < 1) {
-                    alert('Please enter a valid number of packs.');
-                    return;
-                }
-                if (isNaN(pack_cost) || pack_cost < 0) {
-                    alert('Please enter a valid pack cost.');
-                    return;
-                }
-
-                url = `/procurement/cost-prices/${itemId}/bulk`;
-                data = {
-                    pack_type: pack_type,
-                    pack_size: pack_size,
-                    number_of_packs: number_of_packs,
-                    pack_cost: pack_cost,
-                    reason: reason
-                };
+            if (isNaN(unitCost) || unitCost < 0) {
+                alert('Please enter a valid unit cost.');
+                return;
             }
 
             submitBtn.disabled = true;
             submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i> Updating...';
 
             try {
-                const response = await fetch(url, {
+                const response = await fetch(`/procurement/cost-prices/${itemId}/simple`, {
                     method: 'PUT',
                     headers: {
                         'Content-Type': 'application/json',
                         'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
                     },
-                    body: JSON.stringify(data)
+                    body: JSON.stringify({
+                        unit_cost: unitCost,
+                        reason: reason
+                    })
                 });
 
                 const result = await response.json();

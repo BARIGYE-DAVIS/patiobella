@@ -162,6 +162,18 @@
             </a>
             @endCanNav
 
+            {{-- Batches --}}
+            @canNav('view_batches')
+            <a href="{{ route('store.batches.index') }}"
+               class="flex items-center px-4 py-3 text-sm hover:bg-orange-700 transition sidebar-nav-link
+                      {{ request()->routeIs('store.batches.*') ? 'sidebar-active' : '' }}">
+                <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/>
+                </svg>
+                Batches
+            </a>
+            @endCanNav
+
             {{-- Stock Movements --}}
             @canNav('view_stock_movements')
             <a href="{{ route('store.stock-movements.index') }}"
@@ -171,6 +183,18 @@
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/>
                 </svg>
                 Stock Movements
+            </a>
+            @endCanNav
+
+                        {{-- Categories --}}
+            @canNav('view_stock_counts')
+            <a href="{{ route('store.stock-counts.index') }}"
+               class="flex items-center px-4 py-3 text-sm hover:bg-orange-700 transition sidebar-nav-link
+                      {{ request()->routeIs('store.stock-counts.*') ? 'sidebar-active' : '' }}">
+                <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
+                </svg>
+                Stock Counts
             </a>
             @endCanNav
 

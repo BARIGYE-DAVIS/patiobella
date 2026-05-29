@@ -46,7 +46,7 @@ class UserController extends Controller
         $roles = Role::where('is_active', true)->orderBy('name')->get();
         $departments = Department::where('is_active', true)->orderBy('name')->get();
 
-        return view('users.index', compact('users', 'roles', 'departments'));
+        return view('admin.users.index', compact('users', 'roles', 'departments'));
     }
 
     /**
@@ -65,7 +65,7 @@ class UserController extends Controller
             $departments = Department::where('is_active', true)->orderBy('name')->get();
             $permissions = Permission::where('is_active', true)->orderBy('group')->orderBy('sort_order')->get();
 
-            return view('users.create', compact('roles', 'departments', 'permissions'));
+            return view('admin.users.create', compact('roles', 'departments', 'permissions'));
         } catch (\Exception $e) {
             Log::error('Error in create method: ' . $e->getMessage());
             return redirect()->route('users.index')->with('error', 'An error occurred: ' . $e->getMessage());
@@ -155,10 +155,10 @@ class UserController extends Controller
             $user = User::with(['roles', 'department', 'creator', 'updater', 'userPermissions'])->findOrFail($id);
             $roles = Role::where('is_active', true)->orderBy('name')->get();
 
-            return view('users.show', compact('user', 'roles'));
+            return view('admin.users.show', compact('user', 'roles'));
         } catch (\Exception $e) {
             Log::error('Error in show method: ' . $e->getMessage());
-            return redirect()->route('users.index')->with('error', 'User not found.');
+            return redirect()->route('admin.users.index')->with('error', 'User not found.');
         }
     }
 
@@ -169,14 +169,14 @@ class UserController extends Controller
     {
         try {
             if (!$this->canManageUsers()) {
-                return redirect()->route('users.index')
+                return redirect()->route('admin.users.index')
                     ->with('error', 'You do not have permission to edit users.');
             }
 
             $user = User::with(['roles', 'userPermissions'])->findOrFail($id);
 
             if ($user->is_super_admin && !Auth::user()->is_super_admin) {
-                return redirect()->route('users.index')
+                return redirect()->route('admin.users.index')
                     ->with('error', 'You cannot edit a super administrator.');
             }
 
@@ -192,12 +192,12 @@ class UserController extends Controller
                 ->pluck('permissions.id')
                 ->toArray();
 
-            return view('users.edit', compact('user', 'roles', 'departments', 'userRoleIds', 'permissions', 'extraPermissionIds'));
+            return view('admin.users.edit', compact('user', 'roles', 'departments', 'userRoleIds', 'permissions', 'extraPermissionIds'));
         } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
-            return redirect()->route('users.index')->with('error', 'User not found.');
+            return redirect()->route('admin.users.index')->with('error', 'User not found.');
         } catch (\Exception $e) {
             Log::error('Error in edit method: ' . $e->getMessage());
-            return redirect()->route('users.index')->with('error', 'An error occurred: ' . $e->getMessage());
+            return redirect()->route('admin.users.index')->with('error', 'An error occurred: ' . $e->getMessage());
         }
     }
 
@@ -294,7 +294,7 @@ class UserController extends Controller
     {
         try {
             if (!$this->canManageUsers()) {
-                return redirect()->route('users.index')->with('error', 'You do not have permission.');
+                return redirect()->route('admin.users.index')->with('error', 'You do not have permission.');
             }
 
             $user = User::findOrFail($id);
@@ -308,7 +308,7 @@ class UserController extends Controller
                 'updated_by' => Auth::user()->id
             ]);
 
-            return redirect()->route('users.edit', $id)->with('success', 'Password updated successfully.');
+            return redirect()->route('admin.users.edit', $id)->with('success', 'Password updated successfully.');
         } catch (\Exception $e) {
             Log::error('Error updating password: ' . $e->getMessage());
             return redirect()->back()->with('error', 'Failed to update password.')->withInput();
@@ -322,24 +322,24 @@ class UserController extends Controller
     {
         try {
             if (!Auth::user()->is_super_admin) {
-                return redirect()->route('users.index')
+                return redirect()->route('admin.users.index')
                     ->with('error', 'Only super administrator can delete users.');
             }
 
             $user = User::findOrFail($id);
 
             if ($user->id === Auth::user()->id) {
-                return redirect()->route('users.index')
+                return redirect()->route('admin.users.index')
                     ->with('error', 'You cannot delete your own account.');
             }
 
             $user->delete();
 
-            return redirect()->route('users.index')
+            return redirect()->route('admin.users.index')
                 ->with('success', 'User deleted successfully.');
         } catch (\Exception $e) {
             Log::error('Error in destroy method: ' . $e->getMessage());
-            return redirect()->route('users.index')->with('error', 'An error occurred while deleting the user.');
+            return redirect()->route('admin.users.index')->with('error', 'An error occurred while deleting the user.');
         }
     }
 
@@ -350,7 +350,7 @@ class UserController extends Controller
     {
         try {
             if (!$this->canManageUsers()) {
-                return redirect()->route('users.index')
+                return redirect()->route('admin.users.index')
                     ->with('error', 'You do not have permission to activate users.');
             }
 
@@ -360,11 +360,11 @@ class UserController extends Controller
                 'updated_by' => Auth::user()->id
             ]);
 
-            return redirect()->route('users.index')
+            return redirect()->route('admin.users.index')
                 ->with('success', 'User activated successfully.');
         } catch (\Exception $e) {
             Log::error('Error in activate method: ' . $e->getMessage());
-            return redirect()->route('users.index')->with('error', 'An error occurred while activating the user.');
+            return redirect()->route('admin.users.index')->with('error', 'An error occurred while activating the user.');
         }
     }
 
@@ -375,14 +375,14 @@ class UserController extends Controller
     {
         try {
             if (!$this->canManageUsers()) {
-                return redirect()->route('users.index')
+                return redirect()->route('admin.users.index')
                     ->with('error', 'You do not have permission to deactivate users.');
             }
 
             $user = User::findOrFail($id);
 
             if ($user->id === Auth::user()->id) {
-                return redirect()->route('users.index')
+                return redirect()->route('admin.users.index')
                     ->with('error', 'You cannot deactivate your own account.');
             }
 
@@ -391,7 +391,7 @@ class UserController extends Controller
                 'updated_by' => Auth::user()->id
             ]);
 
-            return redirect()->route('users.index')
+            return redirect()->route('admin.users.index')
                 ->with('success', 'User deactivated successfully.');
         } catch (\Exception $e) {
             Log::error('Error in deactivate method: ' . $e->getMessage());

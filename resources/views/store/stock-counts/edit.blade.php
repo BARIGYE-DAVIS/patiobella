@@ -1,4 +1,4 @@
-@extends('layouts.management')
+@extends('layouts.store')
 
 @section('title', 'Edit Stock Count')
 @section('page-title', 'Edit Stock Count')
@@ -48,7 +48,7 @@
                 </p>
             </div>
             <div class="flex gap-2">
-                <a href="{{ route('management.stock-counts.show', $stockCount->id) }}"
+                <a href="{{ route('store.stock-counts.show', $stockCount->id) }}"
                    class="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-sm transition">
                     <i class="fas fa-arrow-left mr-1"></i> Back to Details
                 </a>
@@ -58,7 +58,7 @@
 
     {{-- Form --}}
     <div class="bg-white rounded-xl shadow-sm border border-gray-200">
-        <form method="POST" action="{{ route('management.stock-counts.update-items', $stockCount->id) }}" id="editStockCountForm">
+        <form method="POST" action="{{ route('store.stock-counts.update-items', $stockCount->id) }}" id="editStockCountForm">
             @csrf
             @method('PUT')
 
@@ -217,7 +217,7 @@
 
             {{-- Form Actions --}}
             <div class="px-6 py-4 bg-gray-50 border-t border-gray-200 flex justify-end gap-3">
-                <a href="{{ route('management.stock-counts.show', $stockCount->id) }}"
+                <a href="{{ route('store.stock-counts.show', $stockCount->id) }}"
                    class="inline-flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 rounded-lg text-sm font-medium transition">
                     <i class="fas fa-times text-gray-400"></i> Cancel
                 </a>

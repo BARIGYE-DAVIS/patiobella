@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Http\Controllers\Management;
+namespace App\Http\Controllers\Store;
 
 use App\Http\Controllers\Controller;
 use App\Models\StockCount;
@@ -15,87 +15,56 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Barryvdh\DomPDF\Facade\Pdf;
-class StockCountController extends Controller
+class StoreStockCountController extends Controller
 {
     /**
      * Display a listing of stock counts with tab filtering.
      */
-public function index(Request $request)
-{
-    $type = $request->get('type', 'store');
-    $isAjax = $request->ajax() || $request->header('X-Requested-With') === 'XMLHttpRequest';
+    public function index(Request $request)
+    {
+        $type = $request->get('type', 'store');
 
-    $query = StockCount::with(['creator', 'completer', 'items', 'location']);
+        $query = StockCount::with(['creator', 'completer', 'items', 'location']);
 
-    if ($type === 'store') {
-        $query->where('location_type', StockCount::LOCATION_STORE);
-    } else {
-        $query->where('location_type', StockCount::LOCATION_DEPARTMENT);
+        if ($type === 'store') {
+            $query->where('location_type', StockCount::LOCATION_STORE);
+        } else {
+            $query->where('location_type', StockCount::LOCATION_DEPARTMENT);
 
-        if ($request->filled('department_id')) {
-            $query->where('location_id', $request->department_id);
+            if ($request->filled('department_id')) {
+                $query->where('location_id', $request->department_id);
+            }
         }
+
+        if ($request->filled('status')) {
+            $query->where('status', $request->status);
+        }
+
+        if ($request->filled('date_from')) {
+            $query->whereDate('count_date', '>=', $request->date_from);
+        }
+
+        if ($request->filled('date_to')) {
+            $query->whereDate('count_date', '<=', $request->date_to);
+        }
+
+        $stockCounts = $query->orderBy('created_at', 'desc')->paginate(20);
+
+        $departments = Department::where('is_active', true)
+            ->whereIn('name', ['KITCHEN', 'RESTAURANT', 'BAR'])
+            ->orderBy('name')
+            ->get();
+
+        $statuses = [
+            StockCount::STATUS_DRAFT,
+            StockCount::STATUS_IN_PROGRESS,
+            StockCount::STATUS_COMPLETED,
+            StockCount::STATUS_CANCELLED,
+        ];
+
+        return view('store.stock-counts.index', compact('stockCounts', 'type', 'departments', 'statuses'));
     }
 
-    // Live search
-    if ($request->filled('search')) {
-        $searchTerm = $request->search;
-        $query->where(function($q) use ($searchTerm) {
-            $q->where('count_number', 'like', "%{$searchTerm}%")
-              ->orWhereHas('location', function($loc) use ($searchTerm) {
-                  $loc->where('name', 'like', "%{$searchTerm}%");
-              })
-              ->orWhereHas('creator', function($creator) use ($searchTerm) {
-                  $creator->where('first_name', 'like', "%{$searchTerm}%")
-                          ->orWhere('last_name', 'like', "%{$searchTerm}%");
-              });
-        });
-    }
-
-    if ($request->filled('status')) {
-        $query->where('status', $request->status);
-    }
-
-    if ($request->filled('date_from')) {
-        $query->whereDate('count_date', '>=', $request->date_from);
-    }
-
-    if ($request->filled('date_to')) {
-        $query->whereDate('count_date', '<=', $request->date_to);
-    }
-
-    $stockCounts = $query->orderBy('created_at', 'desc')->paginate(20);
-
-    // Return JSON for AJAX requests
-    if ($isAjax) {
-        $html = view('management.stock-counts.partials.table-rows', compact('stockCounts', 'type'))->render();
-        $pagination = $stockCounts->hasPages() ? $stockCounts->appends(request()->query())->links()->toHtml() : '';
-
-        return response()->json([
-            'html' => $html,
-            'pagination' => $pagination,
-            'summary' => [
-                'start' => $stockCounts->firstItem() ?? 0,
-                'end' => $stockCounts->lastItem() ?? 0,
-                'total' => $stockCounts->total()
-            ]
-        ]);
-    }
-
-    $departments = Department::where('is_active', true)
-        ->whereIn('name', ['KITCHEN', 'RESTAURANT', 'BAR'])
-        ->orderBy('name')
-        ->get();
-
-    $statuses = [
-        StockCount::STATUS_DRAFT,
-        StockCount::STATUS_IN_PROGRESS,
-        StockCount::STATUS_COMPLETED,
-        StockCount::STATUS_CANCELLED,
-    ];
-
-    return view('management.stock-counts.index', compact('stockCounts', 'type', 'departments', 'statuses'));
-}
     /**
      * Show form to create a new stock count (unified with tabs).
      */
@@ -111,7 +80,7 @@ public function index(Request $request)
 
         // For Department counts
         $departments = Department::where('is_active', true)
-            ->whereIn('name', ['KITCHEN', 'RESTAURANT', 'BAR'])
+            ->whereIn('name', ['KITCHEN', 'CAFE', 'BAR'])
             ->orderBy('name')
             ->get();
 
@@ -126,7 +95,7 @@ public function index(Request $request)
             }
         }
 
-        return view('management.stock-counts.create', compact('type', 'storeItems', 'departments', 'selectedDepartment', 'departmentItems'));
+        return view('store.stock-counts.create', compact('type', 'storeItems', 'departments', 'selectedDepartment', 'departmentItems'));
     }
 
     /**
@@ -142,7 +111,7 @@ public function index(Request $request)
                 'notes' => 'nullable|string',
                 'items' => 'required|array|min:1',
                 'items.*.inventory_item_id' => 'required|exists:inventory_items,id',
-                'items.*.physical_quantity' => 'required|numeric|min:0',
+                'items.*.physical_quantity' => 'nullable|numeric|min:0',
                 'items.*.reason_notes' => 'nullable|string',
             ]);
         } else {
@@ -152,7 +121,7 @@ public function index(Request $request)
                 'notes' => 'nullable|string',
                 'items' => 'required|array|min:1',
                 'items.*.inventory_item_id' => 'required|exists:inventory_items,id',
-                'items.*.physical_quantity' => 'required|numeric|min:0',
+                'items.*.physical_quantity' => 'nullable|numeric|min:0',
                 'items.*.expected_quantity' => 'required|numeric|min:0',
                 'items.*.unit_cost' => 'nullable|numeric',
                 'items.*.reason_notes' => 'nullable|string',
@@ -182,7 +151,7 @@ public function index(Request $request)
                         'stock_count_id' => $stockCount->id,
                         'inventory_item_id' => $itemData['inventory_item_id'],
                         'system_quantity' => $inventoryItem->current_stock ?? 0,
-                        'physical_quantity' => $itemData['physical_quantity'],
+                        'physical_quantity' => $itemData['physical_quantity'] ?? 0,
                         'physical_quantity_is_gross' => false,
                         'unit_cost' => $inventoryItem->unit_cost ?? 0,
                         'reason_notes' => $itemData['reason_notes'] ?? null,
@@ -204,7 +173,7 @@ public function index(Request $request)
                         'stock_count_id' => $stockCount->id,
                         'inventory_item_id' => $itemData['inventory_item_id'],
                         'system_quantity' => $itemData['expected_quantity'],
-                        'physical_quantity' => $itemData['physical_quantity'],
+                        'physical_quantity' => $itemData['physical_quantity'] ?? 0,
                         'physical_quantity_is_gross' => false,
                         'unit_cost' => $itemData['unit_cost'] ?? 0,
                         'reason_notes' => $itemData['reason_notes'] ?? null,
@@ -221,7 +190,7 @@ public function index(Request $request)
                 'count_id' => $stockCount->id,
             ]);
 
-            return redirect()->route('management.stock-counts.show', $stockCount->id)
+            return redirect()->route('store.stock-counts.show', $stockCount->id)
                 ->with('success', "Stock count {$countNumber} created successfully.");
 
         } catch (\Exception $e) {
@@ -252,7 +221,7 @@ public function index(Request $request)
 
         $type = $stockCount->location_type;
 
-        return view('management.stock-counts.show', compact('stockCount', 'reasons', 'type'));
+        return view('store.stock-counts.show', compact('stockCount', 'reasons', 'type'));
     }
 
     /**
@@ -264,13 +233,13 @@ public function editCount($id)
         ->findOrFail($id);
 
     if ($stockCount->status !== StockCount::STATUS_DRAFT) {
-        return redirect()->route('management.stock-counts.show', $stockCount->id)
+        return redirect()->route('store.stock-counts.show', $stockCount->id)
             ->with('error', 'Only draft counts can be edited.');
     }
 
     $type = $stockCount->location_type;
 
-    return view('management.stock-counts.edit', compact('stockCount', 'type'));
+    return view('store.stock-counts.edit', compact('stockCount', 'type'));
 }
     /**
      * Update physical quantities for items.
@@ -319,7 +288,7 @@ public function updateItems(Request $request, $id)
 
         DB::commit();
 
-        return redirect()->route('management.stock-counts.show', $stockCount->id)
+        return redirect()->route('store.stock-counts.show', $stockCount->id)
             ->with('success', 'Stock count items updated successfully.');
 
     } catch (\Exception $e) {
@@ -346,7 +315,7 @@ public function updateItems(Request $request, $id)
 
             DB::commit();
 
-            return redirect()->route('management.stock-counts.show', $stockCount->id)
+            return redirect()->route('store.stock-counts.show', $stockCount->id)
                 ->with('success', 'Stock count submitted for review.');
 
         } catch (\Exception $e) {
@@ -385,7 +354,7 @@ public function updateItems(Request $request, $id)
 
             DB::commit();
 
-            return redirect()->route('management.stock-counts.show', $stockCount->id)
+            return redirect()->route('store.stock-counts.show', $stockCount->id)
                 ->with('success', 'Variance approved successfully.');
 
         } catch (\Exception $e) {
@@ -424,7 +393,7 @@ public function updateItems(Request $request, $id)
 
             DB::commit();
 
-            return redirect()->route('management.stock-counts.show', $stockCount->id)
+            return redirect()->route('store.stock-counts.show', $stockCount->id)
                 ->with('success', 'Stock count completed successfully.');
 
         } catch (\Exception $e) {
@@ -610,7 +579,7 @@ public function review($id)
 
     $type = $stockCount->location_type;
 
-    return view('management.stock-counts.review', compact('stockCount', 'reasons', 'type'));
+    return view('store.stock-counts.review', compact('stockCount', 'reasons', 'type'));
 }
 
 /**
@@ -709,13 +678,13 @@ public function approveCountForm($id)
         ->findOrFail($id);
 
     if ($stockCount->status !== StockCount::STATUS_IN_PROGRESS) {
-        return redirect()->route('management.stock-counts.show', $stockCount->id)
+        return redirect()->route('store.stock-counts.show', $stockCount->id)
             ->with('error', 'Only in-progress counts can be approved.');
     }
 
     $type = $stockCount->location_type;
 
-    return view('management.stock-counts.approve-count', compact('stockCount', 'type'));
+    return view('store.stock-counts.approve-count', compact('stockCount', 'type'));
 }
 
 /**
@@ -751,7 +720,7 @@ public function approveCountSubmit(Request $request, $id)
 
         DB::commit();
 
-        return redirect()->route('management.stock-counts.show', $stockCount->id)
+        return redirect()->route('store.stock-counts.show', $stockCount->id)
             ->with('success', 'Stock count approved and completed successfully.');
 
     } catch (\Exception $e) {
@@ -777,7 +746,7 @@ public function downloadPdf($id)
     $type = $stockCount->location_type;
     $totalVariance = $stockCount->getTotalVarianceAttribute();
 
-    $pdf = Pdf::loadView('management.stock-counts.pdf', compact('stockCount', 'type', 'totalVariance'));
+    $pdf = Pdf::loadView('store.stock-counts.pdf', compact('stockCount', 'type', 'totalVariance'));
 
     return $pdf->download('stock-count-' . $stockCount->count_number . '.pdf');
 }
