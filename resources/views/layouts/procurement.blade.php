@@ -6,16 +6,9 @@
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>@yield('title', 'Procurement Module') - {{ config('app.name') }}</title>
 
-    <!-- Tailwind CSS -->
-    <!-- <script src="https://cdn.tailwindcss.com"></script> -->
+    @vite(['resources/css/app.css', 'resources/js/app.js'])
 
-    <!-- Vite -->
-     @vite(['resources/css/app.css', 'resources/js/app.js'])
-
-    <!-- Font Awesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-
-    <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 
     <style>
@@ -30,8 +23,6 @@
         .sidebar-active svg {
             color: white;
         }
-
-        /* ── Sidebar (Orange theme) ── */
         #sidebar {
             position: fixed;
             left: -280px;
@@ -48,8 +39,6 @@
         #sidebar.open {
             left: 0;
         }
-
-        /* ── Overlay ── */
         .sidebar-overlay {
             position: fixed;
             inset: 0;
@@ -60,8 +49,6 @@
         .sidebar-overlay.active {
             display: block;
         }
-
-        /* ── Top Bar ── */
         .top-bar {
             background: #fff7ed;
             box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
@@ -81,8 +68,6 @@
             align-items: center;
             gap: 12px;
         }
-
-        /* ── Hamburger button ── */
         #menuIconBtn {
             background: transparent;
             border: none;
@@ -100,8 +85,6 @@
         #menuIconBtn:hover {
             background: #ffedd5;
         }
-
-        /* ── Main content ── */
         main {
             margin-top: 65px;
             padding: 20px;
@@ -115,12 +98,17 @@
                 margin-left: 0;
             }
         }
-
-        /* Scrollable nav area */
         .sidebar-nav-scroll {
             flex: 1;
             overflow-y: auto;
             padding-bottom: 20px;
+        }
+
+        /* Disabled nav link style */
+        .nav-disabled {
+            opacity: 0.35;
+            cursor: not-allowed;
+            pointer-events: none;
         }
     </style>
 
@@ -128,13 +116,10 @@
 </head>
 <body>
 
-{{-- Sidebar Overlay --}}
 <div class="sidebar-overlay" id="sidebarOverlay"></div>
 
-{{-- ── SIDEBAR (Orange theme, logout at bottom) ── --}}
 <aside id="sidebar" class="text-white shadow-xl">
 
-    <!-- Header - stays at top -->
     <div class="p-4 border-b border-orange-700/60 flex-shrink-0">
         <div class="flex justify-between items-center">
             <div>
@@ -150,9 +135,10 @@
         </div>
     </div>
 
-    <!-- Scrollable navigation area -->
     <div class="sidebar-nav-scroll">
         <nav class="mt-4">
+
+            {{-- Dashboard — always visible, no permission needed --}}
             <a href="{{ route('procurement.dashboard') }}"
                class="flex items-center px-4 py-3 text-sm hover:bg-orange-700 transition sidebar-nav-link
                       {{ request()->routeIs('procurement.dashboard') ? 'sidebar-active' : '' }}">
@@ -163,6 +149,8 @@
                 Dashboard
             </a>
 
+            {{-- Requisitions --}}
+            @canNav('view_requisitions')
             <a href="{{ route('procurement.requisitions.index') }}"
                class="flex items-center px-4 py-3 text-sm hover:bg-orange-700 transition sidebar-nav-link
                       {{ request()->routeIs('procurement.requisitions.*') ? 'sidebar-active' : '' }}">
@@ -172,10 +160,13 @@
                 </svg>
                 Requisitions
                 @if(isset($pendingCount) && $pendingCount > 0)
-                <span class="ml-auto bg-red-500 text-white text-xs px-2 py-0.5 rounded-full">{{ $pendingCount }}</span>
+                    <span class="ml-auto bg-red-500 text-white text-xs px-2 py-0.5 rounded-full">{{ $pendingCount }}</span>
                 @endif
             </a>
+            @endCanNav
 
+            {{-- Purchase Orders --}}
+            @canNav('view_purchase_orders')
             <a href="{{ route('procurement.purchase-orders.index') }}"
                class="flex items-center px-4 py-3 text-sm hover:bg-orange-700 transition sidebar-nav-link
                       {{ request()->routeIs('procurement.purchase-orders.*') ? 'sidebar-active' : '' }}">
@@ -185,7 +176,10 @@
                 </svg>
                 Purchase Orders
             </a>
+            @endCanNav
 
+            {{-- LPOs --}}
+            @canNav('view_purchase_orders')
             <a href="{{ route('procurement.lpo.index') }}"
                class="flex items-center px-4 py-3 text-sm hover:bg-orange-700 transition sidebar-nav-link
                       {{ request()->routeIs('procurement.lpo.*') ? 'sidebar-active' : '' }}">
@@ -195,7 +189,10 @@
                 </svg>
                 LPOs
             </a>
+            @endCanNav
 
+            {{-- Approved LPOs --}}
+            @canNav('view_purchase_orders')
             <a href="{{ route('procurement.approved-lpos.index') }}"
                class="flex items-center px-4 py-3 text-sm hover:bg-orange-700 transition sidebar-nav-link
                       {{ request()->routeIs('procurement.approved-lpos.*') ? 'sidebar-active' : '' }}">
@@ -203,7 +200,10 @@
                 <span>Approved LPOs</span>
                 <span class="ml-auto text-xs bg-yellow-600 px-2 py-0.5 rounded-full">EPO</span>
             </a>
+            @endCanNav
 
+            {{-- Vendors --}}
+            @canNav('view_vendors')
             <a href="{{ route('procurement.vendors.index') }}"
                class="flex items-center px-4 py-3 text-sm hover:bg-orange-700 transition sidebar-nav-link
                       {{ request()->routeIs('procurement.vendors.*') ? 'sidebar-active' : '' }}">
@@ -213,7 +213,10 @@
                 </svg>
                 Vendors
             </a>
+            @endCanNav
 
+            {{-- Goods Received --}}
+            @canNav('view_goods_received')
             <a href="{{ route('procurement.goods-received.index') }}"
                class="flex items-center px-4 py-3 text-sm hover:bg-orange-700 transition sidebar-nav-link
                       {{ request()->routeIs('procurement.goods-received.*') ? 'sidebar-active' : '' }}">
@@ -223,15 +226,19 @@
                 </svg>
                 Goods Received
             </a>
+            @endCanNav
 
+            {{-- Cost Prices --}}
+            @canNav('view_inventory')
             <a href="{{ route('procurement.cost-prices.index') }}"
                class="flex items-center px-4 py-3 text-sm hover:bg-orange-700 transition sidebar-nav-link
                       {{ request()->routeIs('procurement.cost-prices.*') ? 'sidebar-active' : '' }}">
                 <i class="fas fa-dollar-sign w-5 h-5 mr-3"></i>
                 <span>Cost Prices</span>
             </a>
+            @endCanNav
 
-            <!-- User profile section (inside scrollable area) -->
+            {{-- User profile section --}}
             <div class="px-4 pt-6 pb-3 mt-4 border-t border-orange-700/40">
                 <div class="flex items-center mb-3">
                     <div class="w-8 h-8 rounded-full bg-orange-500 flex items-center justify-center flex-shrink-0">
@@ -245,10 +252,10 @@
                     </div>
                 </div>
             </div>
+
         </nav>
     </div>
 
-    <!-- LOGOUT - absolute bottom, last element -->
     <div class="flex-shrink-0 border-t border-orange-700/60 bg-[#9a3412] p-4">
         <a href="{{ route('logout') }}"
            onclick="event.preventDefault(); document.getElementById('logout-form').submit();"
@@ -266,9 +273,8 @@
 </aside>
 
 
-{{-- ── TOP BAR ── --}}
+{{-- TOP BAR --}}
 <div class="top-bar">
-    {{-- Left: Hamburger + Branding --}}
     <div class="top-bar-left">
         <button id="menuIconBtn" aria-label="Open menu">
             <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -281,7 +287,6 @@
         </div>
     </div>
 
-    {{-- Right: Main Dashboard link + Notification Bell --}}
     <div class="flex items-center gap-4">
         <a href="{{ route('dashboard') }}" class="text-gray-600 hover:text-orange-700 text-sm hidden sm:inline-flex items-center gap-1">
             <i class="fas fa-tachometer-alt"></i>
@@ -298,7 +303,6 @@
                 </span>
             </button>
 
-            {{-- Dropdown --}}
             <div id="notificationDropdown"
                  class="absolute right-0 mt-2 w-80 bg-white rounded-lg shadow-xl z-50 hidden">
                 <div class="p-3 border-b border-gray-200 flex justify-between items-center">
@@ -309,8 +313,10 @@
                     <div class="p-4 text-center text-gray-500 text-sm">No new notifications</div>
                 </div>
                 <div class="p-2 border-t border-gray-100 text-center">
+                    @canNav('view_requisitions')
                     <a href="{{ route('procurement.requisitions.index') }}"
                        class="text-xs text-orange-600 hover:underline">View all requisitions</a>
+                    @endCanNav
                 </div>
             </div>
         </div>
@@ -318,7 +324,7 @@
 </div>
 
 
-{{-- ── MAIN CONTENT ── --}}
+{{-- MAIN CONTENT --}}
 <main>
     @if(session('success'))
         <div class="mb-4 p-4 bg-amber-50 border-l-4 border-orange-500 text-amber-800 rounded-r-lg flex items-center gap-2 shadow-sm">
@@ -339,12 +345,11 @@
 
 
 <script>
-    // ── Sidebar toggle ──────────────────────────────────────────────
-    const sidebar       = document.getElementById('sidebar');
-    const overlay       = document.getElementById('sidebarOverlay');
-    const menuIconBtn   = document.getElementById('menuIconBtn');
+    const sidebar         = document.getElementById('sidebar');
+    const overlay         = document.getElementById('sidebarOverlay');
+    const menuIconBtn     = document.getElementById('menuIconBtn');
     const closeSidebarBtn = document.getElementById('closeSidebarBtn');
-    const navLinks      = document.querySelectorAll('.sidebar-nav-link');
+    const navLinks        = document.querySelectorAll('.sidebar-nav-link');
 
     function openSidebar() {
         sidebar.classList.add('open');
@@ -361,11 +366,8 @@
     menuIconBtn.addEventListener('click', openSidebar);
     closeSidebarBtn.addEventListener('click', closeSidebar);
     overlay.addEventListener('click', closeSidebar);
-
     navLinks.forEach(link => link.addEventListener('click', closeSidebar));
 
-
-    // ── Notifications ───────────────────────────────────────────────
     let notificationInterval;
 
     function checkPendingRequisitions() {
@@ -411,20 +413,18 @@
     }
 
     document.addEventListener('DOMContentLoaded', function () {
-        const bellBtn  = document.getElementById('notificationBell');
-        const dropdown = document.getElementById('notificationDropdown');
-        const clearBtn = document.getElementById('clearNotifications');
+        const bellBtn          = document.getElementById('notificationBell');
+        const dropdown         = document.getElementById('notificationDropdown');
+        const clearBtn         = document.getElementById('clearNotifications');
         const notificationList = document.getElementById('notificationList');
-        const badge    = document.getElementById('notificationBadge');
+        const badge            = document.getElementById('notificationBadge');
 
-        // Toggle dropdown
         if (bellBtn) {
             bellBtn.addEventListener('click', function (e) {
                 e.stopPropagation();
                 dropdown.classList.toggle('hidden');
             });
 
-            // Close dropdown on outside click
             document.addEventListener('click', function (e) {
                 if (!dropdown.contains(e.target) && e.target !== bellBtn) {
                     dropdown.classList.add('hidden');
@@ -432,7 +432,6 @@
             });
         }
 
-        // Clear notifications (UI only)
         if (clearBtn) {
             clearBtn.addEventListener('click', function (e) {
                 e.stopPropagation();
@@ -442,7 +441,6 @@
             });
         }
 
-        // Initial check + poll every 10 seconds
         checkPendingRequisitions();
         notificationInterval = setInterval(checkPendingRequisitions, 10000);
     });

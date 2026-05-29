@@ -6,15 +6,9 @@
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>@yield('title', 'Kitchen Dashboard') - PaitoBella</title>
 
-    <!-- Tailwind CSS -->
-    <!-- <script src="https://cdn.tailwindcss.com"></script> -->
-     @vite(['resources/css/app.css', 'resources/js/app.js'])
+    @vite(['resources/css/app.css', 'resources/js/app.js'])
 
-
-    <!-- Font Awesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-
-    <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 
     <style>
@@ -29,8 +23,6 @@
         .sidebar-active svg {
             color: white;
         }
-
-        /* ── Sidebar ── */
         #sidebar {
             position: fixed;
             left: -280px;
@@ -45,8 +37,6 @@
         #sidebar.open {
             left: 0;
         }
-
-        /* ── Overlay ── */
         .sidebar-overlay {
             position: fixed;
             inset: 0;
@@ -57,8 +47,6 @@
         .sidebar-overlay.active {
             display: block;
         }
-
-        /* ── Top Bar ── */
         .top-bar {
             background: #eff1f3;
             box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
@@ -78,8 +66,6 @@
             align-items: center;
             gap: 12px;
         }
-
-        /* ── Hamburger button ── */
         #menuIconBtn {
             background: transparent;
             border: none;
@@ -97,8 +83,6 @@
         #menuIconBtn:hover {
             background: #e5e7eb;
         }
-
-        /* ── Main content ── */
         main {
             margin-top: 65px;
             padding: 20px;
@@ -118,10 +102,8 @@
 </head>
 <body>
 
-{{-- Sidebar Overlay --}}
 <div class="sidebar-overlay" id="sidebarOverlay"></div>
 
-{{-- ── SIDEBAR ── --}}
 <aside id="sidebar" class="text-white shadow-xl">
 
     <div class="p-4 border-b border-blue-700">
@@ -136,11 +118,12 @@
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
                 </svg>
             </button>
-
         </div>
     </div>
 
     <nav class="mt-6">
+
+        {{-- Dashboard — always visible --}}
         <a href="{{ route('kitchen.dashboard') }}"
            class="flex items-center px-4 py-3 text-sm hover:bg-blue-700 transition sidebar-nav-link
                   {{ request()->routeIs('kitchen.dashboard') ? 'sidebar-active' : '' }}">
@@ -151,37 +134,42 @@
             Dashboard
         </a>
 
+        {{-- Requisitions --}}
+        @canNav('view_requisitions')
+        <a href="{{ route('kitchen.requisitions.index') }}"
+           class="flex items-center px-4 py-3 text-sm hover:bg-blue-700 transition sidebar-nav-link
+                  {{ request()->routeIs('kitchen.requisitions.*') ? 'sidebar-active' : '' }}">
+            <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                      d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+            </svg>
+            Requisitions
+        </a>
+        @endCanNav
 
+        {{-- Stock --}}
+        @canNav('view_stock')
+        <a href="{{ route('kitchen.stock.index') }}"
+           class="flex items-center px-4 py-3 text-sm hover:bg-blue-700 transition sidebar-nav-link
+                  {{ request()->routeIs('kitchen.stock.*') ? 'sidebar-active' : '' }}">
+            <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                      d="M3 3v2m0 4v2m0 4v2M7 3h.01M7 7h.01M7 11h.01M11 3h.01M11 7h.01M11 11h.01M15 3h.01M15 7h.01M15 11h.01M19 3h.01M19 7h.01M19 11h.01M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V8"/>
+            </svg>
+            Stock
+        </a>
+        @endCanNav
 
+        {{-- Order Tickets --}}
+        @canNav('view_order_tickets')
+        <a href="{{ route('kitchen.order-tickets') }}"
+           class="flex items-center px-4 py-3 text-sm hover:bg-blue-700 transition sidebar-nav-link
+                  {{ request()->routeIs('kitchen.order-tickets') ? 'sidebar-active' : '' }}">
+            <i class="fas fa-fire w-5 h-5 mr-3"></i>
+            <span>Order Tickets</span>
+        </a>
+        @endCanNav
 
-
-    <a href="{{ route('kitchen.requisitions.index') }}"
-   class="flex items-center px-4 py-3 text-sm hover:bg-blue-700 transition sidebar-nav-link
-          {{ request()->routeIs('kitchen.requisitions.*') ? 'sidebar-active' : '' }}">
-    <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-              d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
-    </svg>
-    Requisitions
-</a>
-
-    <a href="{{ route('kitchen.stock.index') }}"
-   class="flex items-center px-4 py-3 text-sm hover:bg-blue-700 transition sidebar-nav-link
-          {{ request()->routeIs('kitchen.stock.*') ? 'sidebar-active' : '' }}">
-    <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-              d="M3 3v2m0 4v2m0 4v2M7 3h.01M7 7h.01M7 11h.01M11 3h.01M11 7h.01M11 11h.01M15 3h.01M15 7h.01M15 11h.01M19 3h.01M19 7h.01M19 11h.01M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V8"/>
-    </svg>
-    Stock
-</a>
-<!-- Add this inside the <nav> section, after existing links -->
-
-<a href="{{ route('kitchen.order-tickets') }}"
-   class="flex items-center px-4 py-3 text-sm hover:bg-orange-700 transition sidebar-nav-link
-          {{ request()->routeIs('kitchen.order-tickets') ? 'sidebar-active' : '' }}">
-    <i class="fas fa-fire w-5 h-5 mr-3"></i>
-    <span>Order Tickets</span>
-</a>
     </nav>
 
     {{-- Sidebar Footer --}}
@@ -213,9 +201,8 @@
     </div>
 </aside>
 
-{{-- ── TOP BAR ── --}}
+{{-- Top Bar --}}
 <div class="top-bar">
-    {{-- Left: Hamburger + Branding --}}
     <div class="top-bar-left">
         <button id="menuIconBtn" aria-label="Open menu">
             <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -228,7 +215,6 @@
         </div>
     </div>
 
-    {{-- Right: Page title + User avatar --}}
     <div class="flex items-center gap-4">
         <span class="text-sm text-gray-600 hidden sm:inline">@yield('page-title')</span>
         <div class="w-8 h-8 bg-orange-600 rounded-full flex items-center justify-center text-white font-bold text-sm">
@@ -237,7 +223,7 @@
     </div>
 </div>
 
-{{-- ── MAIN CONTENT ── --}}
+{{-- Main Content --}}
 <main>
     @if(session('success'))
         <div class="mb-4 p-4 bg-green-100 border border-green-400 text-green-700 rounded-lg flex items-center gap-2">
@@ -257,7 +243,6 @@
 </main>
 
 <script>
-    // ── Sidebar toggle ──────────────────────────────────────────────
     const sidebar         = document.getElementById('sidebar');
     const overlay         = document.getElementById('sidebarOverlay');
     const menuIconBtn     = document.getElementById('menuIconBtn');
@@ -279,7 +264,6 @@
     menuIconBtn.addEventListener('click', openSidebar);
     closeSidebarBtn.addEventListener('click', closeSidebar);
     overlay.addEventListener('click', closeSidebar);
-
     navLinks.forEach(link => link.addEventListener('click', closeSidebar));
 </script>
 

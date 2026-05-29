@@ -6,16 +6,12 @@
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>@yield('title', 'Management Dashboard') - PaitoBella</title>
 
-    <!-- Tailwind CSS -->
-    <!-- <script src="https://cdn.tailwindcss.com"></script> -->
-     @vite(['resources/css/app.css', 'resources/js/app.js'])
+    @vite(['resources/css/app.css', 'resources/js/app.js'])
 
-    <!-- Font Awesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-
-    <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
+
     <style>
         body {
             font-family: 'Inter', sans-serif;
@@ -28,7 +24,6 @@
         .sidebar-active svg {
             color: white;
         }
-
         #sidebar {
             position: fixed;
             left: -280px;
@@ -45,7 +40,6 @@
         #sidebar.open {
             left: 0;
         }
-
         .sidebar-overlay {
             position: fixed;
             inset: 0;
@@ -56,7 +50,6 @@
         .sidebar-overlay.active {
             display: block;
         }
-
         .top-bar {
             background: #fff7ed;
             box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
@@ -76,7 +69,6 @@
             align-items: center;
             gap: 12px;
         }
-
         #menuIconBtn {
             background: transparent;
             border: none;
@@ -94,7 +86,6 @@
         #menuIconBtn:hover {
             background: #ffedd5;
         }
-
         main {
             margin-top: 65px;
             padding: 20px;
@@ -108,12 +99,19 @@
                 margin-left: 0;
             }
         }
-
-        /* Scrollable nav area */
         .sidebar-nav-scroll {
             flex: 1;
             overflow-y: auto;
             padding-bottom: 20px;
+        }
+        /* Section header — only shown if at least one child is visible */
+        .nav-section-label {
+            padding: 20px 16px 4px;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: #fda4af;
+            font-weight: 600;
         }
     </style>
 
@@ -123,9 +121,8 @@
 
 <div class="sidebar-overlay" id="sidebarOverlay"></div>
 
-{{-- ── SIDEBAR ── --}}
 <aside id="sidebar" class="text-white shadow-xl">
-    <!-- Header - stays at top -->
+
     <div class="p-4 border-b border-orange-700/60 flex-shrink-0">
         <div class="flex justify-between items-center">
             <div>
@@ -141,12 +138,15 @@
         </div>
     </div>
 
-    <!-- Scrollable navigation area -->
     <div class="sidebar-nav-scroll">
         <nav class="mt-4">
-            <!-- ========== CORE OPERATIONS ========== -->
-            <div class="px-4 py-1 text-xs uppercase tracking-wider text-orange-300 font-semibold">Core Operations</div>
 
+            {{-- ========== CORE OPERATIONS ========== --}}
+            @canNavAny(['view_requisitions', 'view_purchase_orders', 'view_goods_received', 'view_vendors'])
+            <div class="nav-section-label text-orange-300">Core Operations</div>
+            @endCanNavAny
+
+            {{-- Dashboard — always visible --}}
             <a href="{{ route('management.dashboard') }}"
                class="flex items-center px-4 py-3 text-sm hover:bg-orange-700 transition sidebar-nav-link
                       {{ request()->routeIs('management.dashboard') ? 'sidebar-active' : '' }}">
@@ -157,6 +157,8 @@
                 Dashboard
             </a>
 
+            {{-- Requisitions --}}
+            @canNav('view_requisitions')
             <a href="{{ route('management.requisitions.index') }}"
                class="flex items-center px-4 py-3 text-sm hover:bg-orange-700 transition sidebar-nav-link
                       {{ request()->routeIs('management.requisitions.*') ? 'sidebar-active' : '' }}">
@@ -166,7 +168,10 @@
                 </svg>
                 Requisitions
             </a>
+            @endCanNav
 
+            {{-- Department Requisitions --}}
+            @canNav('view_requisitions')
             <a href="{{ route('management.department-requisitions.index') }}"
                class="flex items-center px-4 py-3 text-sm hover:bg-orange-700 transition sidebar-nav-link
                       {{ request()->routeIs('department-requisitions.*') ? 'sidebar-active' : '' }}">
@@ -176,7 +181,10 @@
                 </svg>
                 Department Requisitions
             </a>
+            @endCanNav
 
+            {{-- Purchase Orders --}}
+            @canNav('view_purchase_orders')
             <a href="{{ route('management.purchase-orders.index') }}"
                class="flex items-center px-4 py-3 text-sm hover:bg-orange-700 transition sidebar-nav-link
                       {{ request()->routeIs('management.purchase-orders.*') ? 'sidebar-active' : '' }}">
@@ -186,7 +194,10 @@
                 </svg>
                 Purchase Orders
             </a>
+            @endCanNav
 
+            {{-- GRNs --}}
+            @canNav('view_goods_received')
             <a href="{{ route('management.grns.index') }}"
                class="flex items-center px-4 py-3 text-sm hover:bg-orange-700 transition sidebar-nav-link
                       {{ request()->routeIs('management.grns.*') ? 'sidebar-active' : '' }}">
@@ -196,7 +207,10 @@
                 </svg>
                 GRNs
             </a>
+            @endCanNav
 
+            {{-- Vendors --}}
+            @canNav('view_vendors')
             <a href="{{ route('management.vendors.index') }}"
                class="flex items-center px-4 py-3 text-sm hover:bg-orange-700 transition sidebar-nav-link
                       {{ request()->routeIs('management.vendors.*') ? 'sidebar-active' : '' }}">
@@ -206,10 +220,15 @@
                 </svg>
                 Vendors
             </a>
+            @endCanNav
 
-            <!-- ========== INVENTORY & STABILITY ========== -->
-            <div class="px-4 pt-5 pb-1 text-xs uppercase tracking-wider text-orange-300 font-semibold">Inventory & Stock</div>
+            {{-- ========== INVENTORY & STOCK ========== --}}
+            @canNavAny(['view_stock_movements', 'view_stock_counts'])
+            <div class="nav-section-label text-orange-300">Inventory & Stock</div>
+            @endCanNavAny
 
+            {{-- Stock Movements --}}
+            @canNav('view_stock_movements')
             <a href="{{ route('management.stock-movements.index') }}"
                class="flex items-center px-4 py-3 text-sm hover:bg-orange-700 transition sidebar-nav-link
                       {{ request()->routeIs('management.stock-movements.*') ? 'sidebar-active' : '' }}">
@@ -219,7 +238,10 @@
                 </svg>
                 Stock Movements
             </a>
+            @endCanNav
 
+            {{-- Stock Counts --}}
+            @canNav('view_stock_counts')
             <a href="{{ route('management.stock-counts.index') }}"
                class="flex items-center px-4 py-3 text-sm hover:bg-orange-700 transition sidebar-nav-link
                       {{ request()->routeIs('management.stock-counts.*') ? 'sidebar-active' : '' }}">
@@ -229,55 +251,80 @@
                 </svg>
                 Stock Count / Reconciliation
             </a>
+            @endCanNav
 
-            <!-- ========== MENU & CATERING ========== -->
-            <div class="px-4 pt-5 pb-1 text-xs uppercase tracking-wider text-orange-300 font-semibold">Menu & Items</div>
+            {{-- ========== MENU & ITEMS ========== --}}
+            @canNavAny(['view_menus', 'view_menu_items', 'view_menu_item_categories', 'view_tables', 'view_reservations'])
+            <div class="nav-section-label text-orange-300">Menu & Items</div>
+            @endCanNavAny
 
+            {{-- Menu Management --}}
+            @canNav('view_menus')
             <a href="{{ route('management.menus.index') }}"
                class="flex items-center px-4 py-3 text-sm hover:bg-orange-700 transition sidebar-nav-link
                       {{ request()->routeIs('management.menus.*') ? 'sidebar-active' : '' }}">
                 <i class="fas fa-utensils w-5 h-5 mr-3 text-orange-200"></i>
                 <span>Menu Management</span>
             </a>
+            @endCanNav
 
+            {{-- Menu Items --}}
+            @canNav('view_menu_items')
             <a href="{{ route('management.menu-items.index') }}"
                class="flex items-center px-4 py-3 text-sm hover:bg-orange-700 transition sidebar-nav-link
                       {{ request()->routeIs('management.menu-items.*') ? 'sidebar-active' : '' }}">
                 <i class="fas fa-concierge-bell w-5 h-5 mr-3 text-orange-200"></i>
                 <span>Menu Items</span>
             </a>
+            @endCanNav
 
+            {{-- Menu Item Categories --}}
+            @canNav('view_menu_item_categories')
             <a href="{{ route('management.menu-item-categories.index') }}"
                class="flex items-center px-4 py-3 text-sm hover:bg-orange-700 transition sidebar-nav-link
                       {{ request()->routeIs('management.menu-item-categories.*') ? 'sidebar-active' : '' }}">
                 <i class="fas fa-th-list w-5 h-5 mr-3 text-orange-200"></i>
                 <span>Menu Item Categories</span>
             </a>
+            @endCanNav
 
+            {{-- Tables --}}
+            @canNav('view_tables')
             <a href="{{ route('management.tables.index') }}"
                class="flex items-center px-4 py-3 text-sm hover:bg-orange-700 transition sidebar-nav-link
                       {{ request()->routeIs('management.tables.*') ? 'sidebar-active' : '' }}">
                 <i class="fas fa-table w-5 h-5 mr-3 text-orange-200"></i>
                 <span>Tables</span>
             </a>
+            @endCanNav
 
+            {{-- Reservations --}}
+            @canNav('view_reservations')
             <a href="{{ route('management.reservations.index') }}"
                class="flex items-center px-4 py-3 text-sm hover:bg-orange-700 transition sidebar-nav-link
                       {{ request()->routeIs('management.reservations.*') ? 'sidebar-active' : '' }}">
                 <i class="fas fa-calendar-alt w-5 h-5 mr-3 text-orange-200"></i>
                 <span>Reservations</span>
             </a>
+            @endCanNav
 
-            <!-- ========== PRICING & FINANCIAL ========== -->
-            <div class="px-4 pt-5 pb-1 text-xs uppercase tracking-wider text-orange-300 font-semibold">Procurement & Analytics</div>
+            {{-- ========== PROCUREMENT & ANALYTICS ========== --}}
+            @canNavAny(['view_prices', 'view_financial_reports'])
+            <div class="nav-section-label text-orange-300">Procurement & Analytics</div>
+            @endCanNavAny
 
+            {{-- Price Management --}}
+            @canNav('view_prices')
             <a href="{{ route('management.prices.index') }}"
                class="flex items-center px-4 py-3 text-sm hover:bg-orange-700 transition sidebar-nav-link
                       {{ request()->routeIs('management.prices.*') ? 'sidebar-active' : '' }}">
                 <i class="fas fa-tag w-5 h-5 mr-3 text-orange-200"></i>
                 <span>Price Management</span>
             </a>
+            @endCanNav
 
+            {{-- Reports --}}
+            @canNav('view_financial_reports')
             <a href="{{ route('management.reports.purchase-orders') }}"
                class="flex items-center px-4 py-3 text-sm hover:bg-orange-700 transition sidebar-nav-link
                       {{ request()->routeIs('management.reports.*') ? 'sidebar-active' : '' }}">
@@ -287,7 +334,10 @@
                 </svg>
                 Reports
             </a>
+            @endCanNav
 
+            {{-- Analytics --}}
+            @canNav('view_financial_reports')
             <a href="{{ route('management.analytics.procurement') }}"
                class="flex items-center px-4 py-3 text-sm hover:bg-orange-700 transition sidebar-nav-link
                       {{ request()->routeIs('management.analytics.*') ? 'sidebar-active' : '' }}">
@@ -297,8 +347,9 @@
                 </svg>
                 Analytics
             </a>
+            @endCanNav
 
-            <!-- User profile section -->
+            {{-- User profile section --}}
             <div class="px-4 pt-6 pb-3 mt-2 border-t border-orange-700/40">
                 <div class="flex items-center mb-3">
                     <div class="w-8 h-8 rounded-full bg-orange-500 flex items-center justify-center flex-shrink-0">
@@ -312,10 +363,10 @@
                     </div>
                 </div>
             </div>
+
         </nav>
     </div>
 
-    <!-- LOGOUT - absolute bottom, last link -->
     <div class="flex-shrink-0 border-t border-orange-700/60 bg-[#9a3412] p-4">
         <a href="{{ route('logout') }}"
            onclick="event.preventDefault(); document.getElementById('logout-form').submit();"
@@ -333,7 +384,7 @@
 </aside>
 
 
-{{-- ── TOP BAR ── --}}
+{{-- TOP BAR --}}
 <div class="top-bar">
     <div class="top-bar-left">
         <button id="menuIconBtn" aria-label="Open menu">
@@ -356,7 +407,7 @@
 </div>
 
 
-{{-- ── MAIN CONTENT ── --}}
+{{-- MAIN CONTENT --}}
 <main>
     @if(session('success'))
         <div class="mb-4 p-4 bg-amber-50 border-l-4 border-orange-500 text-amber-800 rounded-r-lg flex items-center gap-2 shadow-sm">
@@ -398,7 +449,6 @@
     menuIconBtn.addEventListener('click', openSidebar);
     closeSidebarBtn.addEventListener('click', closeSidebar);
     overlay.addEventListener('click', closeSidebar);
-
     navLinks.forEach(link => link.addEventListener('click', closeSidebar));
 </script>
 

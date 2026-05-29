@@ -6,15 +6,9 @@
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>@yield('title', 'Store Module') - {{ config('app.name') }}</title>
 
-    <!-- Tailwind CSS -->
-    <!-- <script src="https://cdn.tailwindcss.com"></script> -->
+    @vite(['resources/css/app.css', 'resources/js/app.js'])
 
-     @vite(['resources/css/app.css', 'resources/js/app.js'])
-        <!-- Vite -->
-    <!-- Font Awesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-
-    <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 
     <style>
@@ -29,8 +23,6 @@
         .sidebar-active svg {
             color: white;
         }
-
-        /* Sidebar - Orange theme */
         #sidebar {
             position: fixed;
             left: -280px;
@@ -46,8 +38,6 @@
         #sidebar.open {
             left: 0;
         }
-
-        /* Overlay when sidebar is open */
         .sidebar-overlay {
             position: fixed;
             top: 0;
@@ -61,8 +51,6 @@
         .sidebar-overlay.active {
             display: block;
         }
-
-        /* Custom Menu Button */
         .custom-menu-btn {
             background: transparent;
             color: #c2410c;
@@ -80,8 +68,6 @@
         .custom-menu-btn:hover {
             background: #ffedd5;
         }
-
-        /* Top Bar - Orange theme */
         .top-bar {
             background: #fff7ed;
             box-shadow: 0 1px 3px rgba(0,0,0,0.1);
@@ -109,26 +95,19 @@
             font-size: 12px;
             color: #78350f;
         }
-
-        /* Main content */
         main {
             margin-top: 65px;
             transition: margin-left 0.3s ease;
             padding: 20px;
         }
-
-        /* When sidebar opens, shift main content */
         body.sidebar-open main {
             margin-left: 280px;
         }
-
         @media (max-width: 768px) {
             body.sidebar-open main {
                 margin-left: 0;
             }
         }
-
-        /* Scrollable nav area */
         .sidebar-nav-scroll {
             flex: 1;
             overflow-y: auto;
@@ -140,13 +119,10 @@
 </head>
 <body>
 
-{{-- Sidebar Overlay --}}
 <div class="sidebar-overlay" id="sidebarOverlay"></div>
 
-{{-- Sidebar (Orange theme, logout at bottom) --}}
 <aside id="sidebar" class="text-white shadow-xl">
 
-    <!-- Header - stays at top -->
     <div class="p-4 border-b border-orange-700/60 flex-shrink-0">
         <div class="flex justify-between items-center">
             <div>
@@ -161,9 +137,10 @@
         </div>
     </div>
 
-    <!-- Scrollable navigation area -->
     <div class="sidebar-nav-scroll">
         <nav class="mt-4">
+
+            {{-- Dashboard — always visible --}}
             <a href="{{ route('store.dashboard') }}"
                class="flex items-center px-4 py-3 text-sm hover:bg-orange-700 transition sidebar-nav-link
                       {{ request()->routeIs('store.dashboard') ? 'sidebar-active' : '' }}">
@@ -173,6 +150,8 @@
                 Dashboard
             </a>
 
+            {{-- Inventory --}}
+            @canNav('view_inventory')
             <a href="{{ route('store.inventory.index') }}"
                class="flex items-center px-4 py-3 text-sm hover:bg-orange-700 transition sidebar-nav-link
                       {{ request()->routeIs('store.inventory.*') ? 'sidebar-active' : '' }}">
@@ -181,7 +160,10 @@
                 </svg>
                 Inventory
             </a>
+            @endCanNav
 
+            {{-- Stock Movements --}}
+            @canNav('view_stock_movements')
             <a href="{{ route('store.stock-movements.index') }}"
                class="flex items-center px-4 py-3 text-sm hover:bg-orange-700 transition sidebar-nav-link
                       {{ request()->routeIs('store.stock-movements.*') ? 'sidebar-active' : '' }}">
@@ -190,7 +172,10 @@
                 </svg>
                 Stock Movements
             </a>
+            @endCanNav
 
+            {{-- Requisitions --}}
+            @canNav('view_requisitions')
             <a href="{{ route('store.requisitions.index') }}"
                class="flex items-center px-4 py-3 text-sm hover:bg-orange-700 transition sidebar-nav-link
                       {{ request()->routeIs('store.requisitions.*') ? 'sidebar-active' : '' }}">
@@ -199,7 +184,10 @@
                 </svg>
                 Requisitions
             </a>
+            @endCanNav
 
+            {{-- Department Requisitions --}}
+            @canNav('view_requisitions')
             <a href="{{ route('store.department-requisitions.index') }}"
                class="flex items-center px-4 py-3 text-sm hover:bg-orange-700 transition sidebar-nav-link
                       {{ request()->routeIs('store.department-requisitions.*') ? 'sidebar-active' : '' }}">
@@ -210,7 +198,10 @@
                 Department Requisitions
                 <span class="ml-auto text-xs bg-yellow-600 px-2 py-0.5 rounded-full">New</span>
             </a>
+            @endCanNav
 
+            {{-- Categories --}}
+            @canNav('view_categories')
             <a href="{{ route('store.categories.index') }}"
                class="flex items-center px-4 py-3 text-sm hover:bg-orange-700 transition sidebar-nav-link
                       {{ request()->routeIs('store.categories.*') ? 'sidebar-active' : '' }}">
@@ -219,8 +210,9 @@
                 </svg>
                 Categories
             </a>
+            @endCanNav
 
-            <!-- User profile section (inside scrollable area, above logout) -->
+            {{-- User profile section --}}
             <div class="px-4 pt-6 pb-3 mt-4 border-t border-orange-700/40">
                 <div class="flex items-center">
                     <div class="w-8 h-8 rounded-full bg-orange-500 flex items-center justify-center flex-shrink-0">
@@ -234,10 +226,10 @@
                     </div>
                 </div>
             </div>
+
         </nav>
     </div>
 
-    <!-- LOGOUT - absolute bottom, last element -->
     <div class="flex-shrink-0 border-t border-orange-700/60 bg-[#9a3412] p-4">
         <a href="{{ route('logout') }}"
            onclick="event.preventDefault(); document.getElementById('logout-form').submit();"
@@ -253,7 +245,7 @@
     </div>
 </aside>
 
-{{-- Top Bar - Fixed at Top --}}
+{{-- Top Bar --}}
 <div class="top-bar">
     <div class="top-bar-left">
         <button class="custom-menu-btn" id="menuIconBtn">
@@ -299,11 +291,11 @@
 </main>
 
 <script>
-    const sidebar = document.getElementById('sidebar');
-    const overlay = document.getElementById('sidebarOverlay');
-    const menuIconBtn = document.getElementById('menuIconBtn');
+    const sidebar         = document.getElementById('sidebar');
+    const overlay         = document.getElementById('sidebarOverlay');
+    const menuIconBtn     = document.getElementById('menuIconBtn');
     const closeSidebarBtn = document.getElementById('closeSidebarBtn');
-    const navLinks = document.querySelectorAll('.sidebar-nav-link');
+    const navLinks        = document.querySelectorAll('.sidebar-nav-link');
 
     function openSidebar() {
         sidebar.classList.add('open');
@@ -320,13 +312,7 @@
     menuIconBtn.addEventListener('click', openSidebar);
     closeSidebarBtn.addEventListener('click', closeSidebar);
     overlay.addEventListener('click', closeSidebar);
-
-    // Close sidebar when a navigation link is clicked
-    navLinks.forEach(link => {
-        link.addEventListener('click', function() {
-            closeSidebar();
-        });
-    });
+    navLinks.forEach(link => link.addEventListener('click', closeSidebar));
 </script>
 
 @stack('scripts')

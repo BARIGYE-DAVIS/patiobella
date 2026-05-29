@@ -6,15 +6,9 @@
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>@yield('title', 'Restaurant Module') - {{ config('app.name') }}</title>
 
-    <!-- Tailwind CSS -->
-    <!-- <script src="https://cdn.tailwindcss.com"></script> -->
-
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 
-    <!-- Font Awesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-
-    <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 
     <style>
@@ -29,8 +23,6 @@
         .sidebar-active svg {
             color: white;
         }
-
-        /* ── Sidebar ── */
         #sidebar {
             position: fixed;
             left: -280px;
@@ -45,8 +37,6 @@
         #sidebar.open {
             left: 0;
         }
-
-        /* ── Overlay ── */
         .sidebar-overlay {
             position: fixed;
             inset: 0;
@@ -57,8 +47,6 @@
         .sidebar-overlay.active {
             display: block;
         }
-
-        /* ── Top Bar ── */
         .top-bar {
             background: #eff1f3;
             box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
@@ -78,8 +66,6 @@
             align-items: center;
             gap: 12px;
         }
-
-        /* ── Hamburger button ── */
         #menuIconBtn {
             background: transparent;
             border: none;
@@ -97,8 +83,6 @@
         #menuIconBtn:hover {
             background: #e5e7eb;
         }
-
-        /* ── Main content ── */
         main {
             margin-top: 65px;
             padding: 20px;
@@ -118,10 +102,8 @@
 </head>
 <body>
 
-{{-- Sidebar Overlay --}}
 <div class="sidebar-overlay" id="sidebarOverlay"></div>
 
-{{-- ── SIDEBAR ── --}}
 <aside id="sidebar" class="text-white shadow-xl">
 
     <div class="p-4 border-b border-orange-700">
@@ -139,7 +121,9 @@
         </div>
     </div>
 
-    <nav class="mt-6">
+    <nav class="mt-6 pb-32">
+
+        {{-- Dashboard — always visible --}}
         <a href="{{ route('restaurant.dashboard') }}"
            class="flex items-center px-4 py-3 text-sm hover:bg-orange-700 transition sidebar-nav-link
                   {{ request()->routeIs('restaurant.dashboard') ? 'sidebar-active' : '' }}">
@@ -150,6 +134,8 @@
             Dashboard
         </a>
 
+        {{-- Requisitions --}}
+        @canNav('view_requisitions')
         <a href="{{ route('restaurant.requisitions.index') }}"
            class="flex items-center px-4 py-3 text-sm hover:bg-orange-700 transition sidebar-nav-link
                   {{ request()->routeIs('restaurant.requisitions.*') ? 'sidebar-active' : '' }}">
@@ -159,7 +145,10 @@
             </svg>
             Requisitions
         </a>
+        @endCanNav
 
+        {{-- New Requisition --}}
+        @canNav('create_requisitions')
         <a href="{{ route('restaurant.requisitions.create') }}"
            class="flex items-center px-4 py-3 text-sm hover:bg-orange-700 transition sidebar-nav-link">
             <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -167,37 +156,47 @@
             </svg>
             New Requisition
         </a>
+        @endCanNav
 
+        {{-- Menu --}}
+        @canNav('view_menus')
         <a href="{{ route('restaurant.menu.index') }}"
            class="flex items-center px-4 py-3 text-sm hover:bg-orange-700 transition sidebar-nav-link
                   {{ request()->routeIs('restaurant.menu.*') ? 'sidebar-active' : '' }}">
             <i class="fas fa-utensils w-5 h-5 mr-3"></i>
             Menu
         </a>
+        @endCanNav
 
+        {{-- Order Tickets --}}
+        @canNav('view_sales')
         <a href="{{ route('cafe.order-tickets') }}"
            class="flex items-center px-4 py-3 text-sm hover:bg-orange-700 transition sidebar-nav-link
                   {{ request()->routeIs('cafe.order-tickets') ? 'sidebar-active' : '' }}">
             <i class="fas fa-cash-register w-5 h-5 mr-3"></i>
-            order Tickets
+            Order Tickets
         </a>
+        @endCanNav
 
+        {{-- Sales Reports --}}
+        @canNav('view_sales')
         <a href="{{ route('restaurant.sales.index') }}"
            class="flex items-center px-4 py-3 text-sm hover:bg-orange-700 transition sidebar-nav-link
                   {{ request()->routeIs('restaurant.sales.index') ? 'sidebar-active' : '' }}">
             <i class="fas fa-chart-line w-5 h-5 mr-3"></i>
             Sales Reports
         </a>
+        @endCanNav
 
-<!-- Add this inside the <nav> section -->
-
-<a href="{{ route('restaurant.stock.index') }}"
-   class="flex items-center px-4 py-3 text-sm hover:bg-orange-700 transition sidebar-nav-link
-          {{ request()->routeIs('restaurant.stock.*') ? 'sidebar-active' : '' }}">
-    <i class="fas fa-boxes w-5 h-5 mr-3"></i>
-    <span>My Stock</span>
-</a>
-
+        {{-- My Stock --}}
+        @canNav('view_stock')
+        <a href="{{ route('restaurant.stock.index') }}"
+           class="flex items-center px-4 py-3 text-sm hover:bg-orange-700 transition sidebar-nav-link
+                  {{ request()->routeIs('restaurant.stock.*') ? 'sidebar-active' : '' }}">
+            <i class="fas fa-boxes w-5 h-5 mr-3"></i>
+            <span>My Stock</span>
+        </a>
+        @endCanNav
 
     </nav>
 
@@ -230,9 +229,8 @@
     </div>
 </aside>
 
-{{-- ── TOP BAR ── --}}
+{{-- TOP BAR --}}
 <div class="top-bar no-print">
-    {{-- Left: Hamburger + Branding --}}
     <div class="top-bar-left">
         <button id="menuIconBtn" aria-label="Open menu">
             <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -245,7 +243,6 @@
         </div>
     </div>
 
-    {{-- Right: Main Dashboard link + Notification Bell --}}
     <div class="flex items-center gap-4">
         <a href="{{ route('dashboard') }}" class="text-gray-600 hover:text-gray-800 text-sm hidden sm:inline-flex items-center gap-1">
             <i class="fas fa-tachometer-alt"></i>
@@ -262,7 +259,6 @@
                 </span>
             </button>
 
-            {{-- Dropdown --}}
             <div id="notificationDropdown"
                  class="absolute right-0 mt-2 w-80 bg-white rounded-lg shadow-xl z-50 hidden">
                 <div class="p-3 border-b border-gray-200 flex justify-between items-center">
@@ -273,15 +269,17 @@
                     <div class="p-4 text-center text-gray-500 text-sm">No new notifications</div>
                 </div>
                 <div class="p-2 border-t border-gray-100 text-center">
+                    @canNav('view_requisitions')
                     <a href="{{ route('restaurant.requisitions.index') }}"
                        class="text-xs text-orange-600 hover:underline">View all requisitions</a>
+                    @endCanNav
                 </div>
             </div>
         </div>
     </div>
 </div>
 
-{{-- ── MAIN CONTENT ── --}}
+{{-- MAIN CONTENT --}}
 <main>
     @if(session('success'))
         <div class="mb-4 p-4 bg-green-100 border border-green-400 text-green-700 rounded-lg flex items-center gap-2">
@@ -301,12 +299,11 @@
 </main>
 
 <script>
-    // ── Sidebar toggle ──────────────────────────────────────────────
-    const sidebar       = document.getElementById('sidebar');
-    const overlay       = document.getElementById('sidebarOverlay');
-    const menuIconBtn   = document.getElementById('menuIconBtn');
+    const sidebar         = document.getElementById('sidebar');
+    const overlay         = document.getElementById('sidebarOverlay');
+    const menuIconBtn     = document.getElementById('menuIconBtn');
     const closeSidebarBtn = document.getElementById('closeSidebarBtn');
-    const navLinks      = document.querySelectorAll('.sidebar-nav-link');
+    const navLinks        = document.querySelectorAll('.sidebar-nav-link');
 
     function openSidebar() {
         sidebar.classList.add('open');
@@ -323,10 +320,8 @@
     menuIconBtn.addEventListener('click', openSidebar);
     closeSidebarBtn.addEventListener('click', closeSidebar);
     overlay.addEventListener('click', closeSidebar);
-
     navLinks.forEach(link => link.addEventListener('click', closeSidebar));
 
-    // ── Notifications ───────────────────────────────────────────────
     let notificationInterval;
 
     function checkPendingRequisitions() {
@@ -376,7 +371,6 @@
         const clearBtn = document.getElementById('clearNotifications');
         const badge    = document.getElementById('notificationBadge');
 
-        // Toggle dropdown
         if (bellBtn) {
             bellBtn.addEventListener('click', function (e) {
                 e.stopPropagation();

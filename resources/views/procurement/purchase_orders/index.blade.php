@@ -168,10 +168,7 @@
                        class="px-3 py-1.5 text-xs border border-gray-300 rounded-md w-64">
             </div>
 
-            <a href="{{ route('procurement.purchase-orders.create') }}"
-               class="px-3 py-1.5 bg-orange-600 text-white rounded-md text-xs font-semibold hover:bg-orange-700 transition">
-                Create PO
-            </a>
+
         </div>
 
         {{-- Table --}}
