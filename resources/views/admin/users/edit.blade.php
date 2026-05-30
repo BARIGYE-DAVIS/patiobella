@@ -57,6 +57,51 @@
                 <p class="text-gray-500 text-xs mt-1">Assign user to a specific department (optional)</p>
             </div>
 
+            {{-- Signature Section --}}
+            <div class="md:col-span-2">
+                <div class="border-t border-gray-200 pt-4 mt-2">
+                    <label class="block text-gray-700 font-medium mb-3">Digital Signature</label>
+                    <div class="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                        <div class="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                            <div class="flex items-center gap-4">
+                                @if($user->signature_url)
+                                    <div class="border border-gray-300 rounded-lg p-2 bg-white">
+                                        <img src="{{ $user->signature_url }}" alt="Signature" class="h-12 w-auto">
+                                    </div>
+                                    <div>
+                                        <p class="text-sm text-green-600">
+                                            <i class="fas fa-check-circle mr-1"></i> Signature uploaded
+                                        </p>
+                                        <p class="text-xs text-gray-500">
+                                            Last updated: {{ $user->signature_updated_at ? \Carbon\Carbon::parse($user->signature_updated_at)->format('d M Y H:i') : 'Never' }}
+                                        </p>
+                                    </div>
+                                @else
+                                    <div class="border border-gray-300 rounded-lg p-3 bg-white">
+                                        <i class="fas fa-signature text-gray-400 text-2xl"></i>
+                                    </div>
+                                    <div>
+                                        <p class="text-sm text-gray-500">No signature uploaded</p>
+                                    </div>
+                                @endif
+                            </div>
+                            <div class="flex gap-2">
+                                <a href="{{ route('users.signature-form', $user->id) }}"
+                                   class="bg-orange-600 hover:bg-orange-700 text-white px-4 py-2 rounded-lg text-sm transition">
+                                    <i class="fas fa-upload mr-1"></i> {{ $user->signature_url ? 'Change Signature' : 'Upload Signature' }}
+                                </a>
+                                @if($user->signature_url)
+                                    <button type="button" id="removeSignatureBtn" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm transition">
+                                        <i class="fas fa-trash mr-1"></i> Remove
+                                    </button>
+                                @endif
+                            </div>
+                        </div>
+                        <p class="text-xs text-gray-500 mt-3">Signature will be used on official documents (POs, GRNs, Invoices, etc.)</p>
+                    </div>
+                </div>
+            </div>
+
             {{-- Multiple Roles Section (Informational Only) --}}
             <div class="md:col-span-2">
                 <label class="block text-gray-700 font-medium mb-2">Assigned Roles (Informational Only)</label>
@@ -266,6 +311,32 @@
                     item.style.display = 'none';
                 }
             });
+        });
+    }
+
+    // Remove signature
+    const removeSignatureBtn = document.getElementById('removeSignatureBtn');
+    if (removeSignatureBtn) {
+        removeSignatureBtn.addEventListener('click', async function() {
+            if (!confirm('Are you sure you want to remove this signature?')) return;
+
+            try {
+                const response = await fetch('{{ route("users.remove-signature", $user->id) }}', {
+                    method: 'DELETE',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                    }
+                });
+                const result = await response.json();
+                if (result.success) {
+                    window.location.reload();
+                } else {
+                    alert(result.message);
+                }
+            } catch (error) {
+                alert('Failed to remove signature');
+            }
         });
     }
 

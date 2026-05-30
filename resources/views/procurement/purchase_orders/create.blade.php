@@ -28,17 +28,6 @@
         background-color: #f8fafc;
         transition: background-color 0.2s ease;
     }
-    .badge {
-        display: inline-block;
-        padding: 0.25rem 0.75rem;
-        border-radius: 9999px;
-        font-size: 0.75rem;
-        font-weight: 600;
-    }
-    .badge-info {
-        background-color: #dbeafe;
-        color: #1e40af;
-    }
     .required-field::after {
         content: '*';
         color: #ef4444;
@@ -57,6 +46,39 @@
     .field-error {
         border-left: 3px solid #ef4444;
         padding-left: 0.75rem;
+    }
+    .type-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 4px 12px;
+        border-radius: 9999px;
+        font-size: 12px;
+        font-weight: 600;
+    }
+    .type-normal {
+        background: #d1fae5;
+        color: #065f46;
+    }
+    .type-emergency {
+        background: #fee2e2;
+        color: #991b1b;
+    }
+    .vat-section {
+        background: linear-gradient(135deg, #fef3c7 0%, #fffbeb 100%);
+        border: 1px solid #fcd34d;
+        border-radius: 12px;
+        padding: 20px;
+        margin-top: 20px;
+    }
+    .vat-section-title {
+        font-size: 14px;
+        font-weight: bold;
+        color: #92400e;
+        margin-bottom: 15px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
     }
 </style>
 
@@ -149,7 +171,18 @@
             </h2>
         </div>
         <div class="p-6 space-y-6">
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div class="input-group {{ $errors->has('type') ? 'field-error' : '' }}">
+                    <label class="block font-semibold mb-2 text-gray-700 required-field">PO Type</label>
+                    <select name="type" class="form-select w-full border-gray-300 rounded-lg form-enhanced bg-gray-50 focus:bg-white" required>
+                        <option value="normal" {{ old('type') == 'normal' ? 'selected' : '' }}>Normal</option>
+                        <option value="emergency" {{ old('type') == 'emergency' ? 'selected' : '' }}>Emergency</option>
+                    </select>
+                    @error('type')
+                        <span class="error-text">{{ $message }}</span>
+                    @enderror
+                </div>
+
                 <div class="input-group {{ $errors->has('vendor_id') ? 'field-error' : '' }}">
                     <label class="block font-semibold mb-2 text-gray-700 required-field">Vendor</label>
                     <select name="vendor_id" class="form-select w-full border-gray-300 rounded-lg form-enhanced bg-gray-50 focus:bg-white {{ $errors->has('vendor_id') ? 'error-border' : '' }}" required>
@@ -165,7 +198,21 @@
                         <span class="error-text">{{ $message }}</span>
                     @enderror
                 </div>
-                
+
+                <div class="input-group {{ $errors->has('payment_method') ? 'field-error' : '' }}">
+                    <label class="block font-semibold mb-2 text-gray-700 required-field">Payment Method</label>
+                    <select name="payment_method" class="form-select w-full border-gray-300 rounded-lg form-enhanced bg-gray-50 focus:bg-white" required>
+                        <option value="cash" {{ old('payment_method') == 'cash' ? 'selected' : '' }}>Cash</option>
+                        <option value="credit" {{ old('payment_method') == 'credit' ? 'selected' : '' }}>Credit</option>
+                        <option value="bank_transfer" {{ old('payment_method') == 'bank_transfer' ? 'selected' : '' }}>Bank Transfer</option>
+                        <option value="mobile_money" {{ old('payment_method') == 'mobile_money' ? 'selected' : '' }}>Mobile Money</option>
+                        <option value="cheque" {{ old('payment_method') == 'cheque' ? 'selected' : '' }}>Cheque</option>
+                    </select>
+                    @error('payment_method')
+                        <span class="error-text">{{ $message }}</span>
+                    @enderror
+                </div>
+
                 <div class="input-group {{ $errors->has('expected_delivery_date') ? 'field-error' : '' }}">
                     <label class="block font-semibold mb-2 text-gray-700">Expected Delivery Date</label>
                     <input type="date" name="expected_delivery_date"
@@ -175,7 +222,9 @@
                         <span class="error-text">{{ $message }}</span>
                     @enderror
                 </div>
-                
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div class="input-group {{ $errors->has('delivery_address') ? 'field-error' : '' }}">
                     <label class="block font-semibold mb-2 text-gray-700">Delivery Address</label>
                     <input type="text" name="delivery_address"
@@ -186,7 +235,7 @@
                         <span class="error-text">{{ $message }}</span>
                     @enderror
                 </div>
-                
+
                 <div class="input-group {{ $errors->has('delivery_terms') ? 'field-error' : '' }}">
                     <label class="block font-semibold mb-2 text-gray-700">Delivery Terms</label>
                     <input type="text" name="delivery_terms"
@@ -198,12 +247,12 @@
                     @enderror
                 </div>
             </div>
-            
-            <div class="input-group {{ $errors->has('note') ? 'field-error' : '' }}">
+
+            <div class="input-group {{ $errors->has('notes') ? 'field-error' : '' }}">
                 <label class="block font-semibold mb-2 text-gray-700">General Order Note (Optional)</label>
-                <textarea name="note" class="form-textarea w-full border-gray-300 rounded-lg form-enhanced bg-gray-50 focus:bg-white {{ $errors->has('note') ? 'error-border' : '' }}" rows="3"
-                          placeholder="General note for the whole purchase order">{{ old('note') }}</textarea>
-                @error('note')
+                <textarea name="notes" class="form-textarea w-full border-gray-300 rounded-lg form-enhanced bg-gray-50 focus:bg-white {{ $errors->has('notes') ? 'error-border' : '' }}" rows="3"
+                          placeholder="General note for the whole purchase order">{{ old('notes') }}</textarea>
+                @error('notes')
                     <span class="error-text">{{ $message }}</span>
                 @enderror
             </div>
@@ -221,19 +270,14 @@
             </h2>
         </div>
         <div class="p-6 overflow-x-auto">
-            @if($errors->has('items') || $errors->has('items.*'))
-                <div class="mb-4 p-3 bg-red-50 border-l-4 border-red-500 rounded">
-                    <p class="text-red-700 text-sm">Please check the items below for errors.</p>
-                </div>
-            @endif
-            
             <table class="min-w-full border border-gray-200 rounded-lg">
                 <thead>
                     <tr class="bg-gradient-to-r from-gray-100 to-gray-50 text-gray-700">
                         <th class="p-3 border text-left">Item</th>
-                        <th class="p-3 border text-center">Quantity</th>
-                        <th class="p-3 border text-center">Unit Cost (UGX)</th>
-                        <th class="p-3 border text-center">Total (UGX)</th>
+                        <th class="p-3 border text-center">GM Approved Qty</th>
+                        <th class="p-3 border text-center w-24">Order Qty</th>
+                        <th class="p-3 border text-center w-28">Unit Cost (UGX)</th>
+                        <th class="p-3 border text-center w-28">Total (UGX)</th>
                         <th class="p-3 border text-left">Item Notes</th>
                     </tr>
                 </thead>
@@ -244,47 +288,89 @@
                             <td class="p-3 border font-semibold text-gray-800">
                                 {{ $item->inventoryItem->name ?? $item->item_name }}
                                 <input type="hidden" name="items[{{ $k }}][inventory_item_id]" value="{{ $item->inventory_item_id }}">
-                                @error("items.$k.inventory_item_id")
-                                    <span class="error-text">{{ $message }}</span>
-                                @enderror
+                            </td>
+                            <td class="p-3 border text-center font-semibold text-green-600">
+                                {{ number_format($item->quantity_approved, 2) }}
                             </td>
                             <td class="p-3 border text-center">
-                                <input type="number" name="items[{{ $k }}][quantity]" 
-                                       class="form-input w-28 border-gray-300 rounded-lg form-enhanced text-center {{ $errors->has("items.$k.quantity") ? 'error-border' : '' }}"
-                                       value="{{ old("items.$k.quantity", $item->quantity_approved ?? 0) }}" 
+                                <input type="number" name="items[{{ $k }}][quantity]"
+                                       class="form-input w-24 border-gray-300 rounded-lg form-enhanced text-center item-quantity"
+                                       value="{{ old("items.$k.quantity", $item->quantity_approved ?? 0) }}"
                                        min="0.01" step="0.01" required>
-                                @error("items.$k.quantity")
-                                    <span class="error-text">{{ $message }}</span>
-                                @enderror
                             </td>
                             <td class="p-3 border text-center">
                                 <div class="relative">
                                     <span class="absolute left-3 top-2 text-gray-500">UGX</span>
-                                    <input type="number" name="items[{{ $k }}][unit_cost]" 
-                                           class="form-input w-36 border-gray-300 rounded-lg form-enhanced pl-12 {{ $errors->has("items.$k.unit_cost") ? 'error-border' : '' }}"
-                                           value="{{ old("items.$k.unit_cost") }}" 
+                                    <input type="number" name="items[{{ $k }}][unit_cost]"
+                                           class="form-input w-36 border-gray-300 rounded-lg form-enhanced pl-12 item-cost"
+                                           value="{{ old("items.$k.unit_cost") }}"
                                            min="0" step="0.01" required oninput="updateTotals()">
                                 </div>
-                                @error("items.$k.unit_cost")
-                                    <span class="error-text">{{ $message }}</span>
-                                @enderror
                             </td>
-                            <td class="p-3 border text-center js-total font-semibold text-green-600">
+                            <td class="p-3 border text-center item-total font-semibold text-green-600">
                                 UGX 0.00
                             </td>
                             <td class="p-3 border">
-                                <textarea name="items[{{ $k }}][notes]" 
+                                <textarea name="items[{{ $k }}][notes]"
                                           class="form-textarea w-48 border-gray-300 rounded-lg form-enhanced"
                                           rows="2" placeholder="Item notes...">{{ old("items.$k.notes", $item->notes ?? '') }}</textarea>
-                                @error("items.$k.notes")
-                                    <span class="error-text">{{ $message }}</span>
-                                @enderror
                             </td>
                         </tr>
                         @endif
                     @endforeach
                 </tbody>
             </table>
+        </div>
+    </div>
+
+    {{-- VAT SECTION - Prominent and Clear --}}
+    <div class="vat-section">
+        <div class="vat-section-title">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 14l6-6m-5.5.5h.01m4.99 5h.01M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11.172a2 2 0 011.414.586l2.828 2.828a2 2 0 01.586 1.414V19a2 2 0 01-2 2z"></path>
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M12 16h.01M12 20h.01"></path>
+            </svg>
+            VAT CALCULATION
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 items-end">
+            <div class="input-group">
+                <label class="block font-semibold mb-2 text-gray-700">VAT Rate (%)</label>
+                <input type="number" name="vat_rate" id="vat_rate" step="0.01" min="0" max="100"
+                       class="form-input w-full border-gray-300 rounded-lg form-enhanced bg-yellow-50 focus:bg-white text-lg font-bold"
+                       value="{{ old('vat_rate', 0) }}" oninput="updateTotals()">
+                @error('vat_rate')
+                    <span class="error-text">{{ $message }}</span>
+                @enderror
+            </div>
+            <div class="text-center">
+                <div class="text-sm text-gray-600 mb-1">VAT Amount</div>
+                <div class="text-2xl font-bold text-yellow-700" id="vat_amount_display">UGX 0.00</div>
+            </div>
+            <div class="text-center bg-yellow-100 rounded-lg p-3">
+                <div class="text-sm text-gray-600 mb-1">Total Including VAT</div>
+                <div class="text-2xl font-bold text-green-700" id="total_display">UGX 0.00</div>
+            </div>
+        </div>
+    </div>
+
+    {{-- Totals Summary Table --}}
+    <div class="bg-white rounded-xl shadow-lg overflow-hidden">
+        <div class="bg-gradient-to-r from-gray-700 to-gray-600 px-6 py-3">
+            <h3 class="text-md font-semibold text-white">Order Summary</h3>
+        </div>
+        <div class="p-4">
+            <div class="flex justify-between items-center py-2 border-b">
+                <span class="text-gray-600">Subtotal:</span>
+                <span class="font-semibold" id="subtotal_display">UGX 0.00</span>
+            </div>
+            <div class="flex justify-between items-center py-2 border-b">
+                <span class="text-gray-600">VAT (<span id="vat_rate_display">0</span>%):</span>
+                <span class="font-semibold" id="vat_amount_summary">UGX 0.00</span>
+            </div>
+            <div class="flex justify-between items-center py-2 text-lg font-bold">
+                <span class="text-green-700">GRAND TOTAL:</span>
+                <span class="text-green-700" id="grand_total_display">UGX 0.00</span>
+            </div>
         </div>
     </div>
 
@@ -302,7 +388,7 @@
             <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"></path>
             </svg>
-            Save Purchase Order
+            Create & Send Purchase Order
         </button>
     </div>
 
@@ -324,194 +410,160 @@
                         <svg class="w-5 h-5 text-blue-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
                         </svg>
-                        <span class="font-semibold text-gray-800">Vendor:</span>
-                        <span id="pv_vendor" class="ml-2 text-gray-700"></span>
+                        <span class="font-semibold text-gray-800">PO Type:</span>
+                        <span id="pv_type" class="ml-2 text-gray-700">Normal</span>
                     </div>
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-3">
-                        <div class="flex items-center">
-                            <svg class="w-4 h-4 text-gray-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
-                            </svg>
-                            <span class="font-medium text-gray-600">Delivery Date:</span>
-                            <span id="pv_delivery_date" class="ml-2 text-gray-700"></span>
+                    <div class="flex items-center mb-2">
+                        <span class="font-semibold text-gray-800 w-32">Vendor:</span>
+                        <span id="pv_vendor" class="text-gray-700"></span>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mt-3">
+                        <div>
+                            <span class="font-medium text-gray-600 text-xs">Delivery Date:</span>
+                            <div id="pv_delivery_date" class="text-gray-700 text-sm">—</div>
                         </div>
-                        <div class="flex items-center">
-                            <svg class="w-4 h-4 text-gray-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path>
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path>
-                            </svg>
-                            <span class="font-medium text-gray-600">Delivery Address:</span>
-                            <span id="pv_delivery_address" class="ml-2 text-gray-700"></span>
+                        <div>
+                            <span class="font-medium text-gray-600 text-xs">Delivery Address:</span>
+                            <div id="pv_delivery_address" class="text-gray-700 text-sm">—</div>
                         </div>
-                        <div class="flex items-center">
-                            <svg class="w-4 h-4 text-gray-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path>
-                            </svg>
-                            <span class="font-medium text-gray-600">Delivery Terms:</span>
-                            <span id="pv_delivery_terms" class="ml-2 text-gray-700"></span>
+                        <div>
+                            <span class="font-medium text-gray-600 text-xs">Delivery Terms:</span>
+                            <div id="pv_delivery_terms" class="text-gray-700 text-sm">—</div>
+                        </div>
+                        <div>
+                            <span class="font-medium text-gray-600 text-xs">Payment Method:</span>
+                            <div id="pv_payment_method" class="text-gray-700 text-sm">—</div>
                         </div>
                     </div>
                     <div class="mt-3 pt-3 border-t border-blue-200">
-                        <div class="flex items-start">
-                            <svg class="w-4 h-4 text-gray-500 mr-2 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
-                            </svg>
-                            <span class="font-medium text-gray-600">General Order Note:</span>
-                        </div>
-                        <span id="pv_note" class="block mt-1 ml-6 text-gray-700 italic"></span>
+                        <span class="font-medium text-gray-600 text-xs">General Order Note:</span>
+                        <div id="pv_note" class="text-gray-700 text-sm italic">—</div>
                     </div>
                 </div>
 
                 <div class="mt-4">
-                    <h3 class="font-bold text-gray-800 mb-3 flex items-center">
-                        <svg class="w-5 h-5 text-green-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
-                        </svg>
-                        Order Items
-                    </h3>
+                    <h3 class="font-bold text-gray-800 mb-3">Order Items</h3>
                     <div class="overflow-x-auto">
                         <table class="w-full border border-gray-200 rounded-lg">
                             <thead class="bg-gray-100">
                                 <tr>
-                                    <th class="p-3 border text-left">Item</th>
-                                    <th class="p-3 border text-center">Quantity</th>
-                                    <th class="p-3 border text-center">Unit Cost</th>
-                                    <th class="p-3 border text-center">Total</th>
-                                    <th class="p-3 border text-left">Item Notes</th>
+                                    <th class="p-2 border text-left text-xs">Item</th>
+                                    <th class="p-2 border text-center text-xs w-20">Qty</th>
+                                    <th class="p-2 border text-center text-xs w-28">Unit Cost</th>
+                                    <th class="p-2 border text-center text-xs w-28">Total</th>
+                                    <th class="p-2 border text-left text-xs">Notes</th>
                                 </tr>
                             </thead>
                             <tbody id="pv_items" class="text-sm"></tbody>
+                            <tfoot class="bg-gray-50">
+                                <tr>
+                                    <td colspan="3" class="p-2 text-right font-bold">Subtotal:</td>
+                                    <td class="p-2 text-right font-bold" id="pv_subtotal">UGX 0.00</td>
+                                    <td class="p-2"></td>
+                                </tr>
+                                <tr>
+                                    <td colspan="3" class="p-2 text-right">VAT (<span id="pv_vat_rate">0</span>%):</td>
+                                    <td class="p-2 text-right" id="pv_vat_amount">UGX 0.00</td>
+                                    <td class="p-2"></td>
+                                </tr>
+                                <tr class="bg-green-50">
+                                    <td colspan="3" class="p-2 text-right font-bold text-green-800">GRAND TOTAL:</td>
+                                    <td class="p-2 text-right font-bold text-green-800" id="pv_total">UGX 0.00</td>
+                                    <td class="p-2"></td>
+                                </tr>
+                            </tfoot>
                         </table>
                     </div>
                 </div>
             </div>
             <div class="sticky bottom-0 bg-gray-50 px-6 py-4 rounded-b-xl flex justify-end space-x-3 border-t">
-                <button onclick="hidePreview()" type="button" class="px-6 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition-all duration-200">
-                    Close Preview
-                </button>
+                <button onclick="hidePreview()" type="button" class="px-6 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400">Close Preview</button>
             </div>
         </div>
     </div>
 </form>
 
-{{-- JavaScript for localStorage persistence --}}
 <script>
-// Save form data to localStorage on input
-function saveFormData() {
-    const form = document.getElementById('poForm');
-    if (!form) return;
-    
-    const formData = {};
-    const inputs = form.querySelectorAll('input, select, textarea');
-    
-    inputs.forEach(input => {
-        if (input.name && input.type !== 'submit' && input.type !== 'button') {
-            if (input.type === 'checkbox' || input.type === 'radio') {
-                formData[input.name] = input.checked;
-            } else {
-                formData[input.name] = input.value;
-            }
+function updateTotals() {
+    let subtotal = 0;
+    document.querySelectorAll('.table-row-hover').forEach(function(row) {
+        let qty = row.querySelector('.item-quantity')?.value;
+        let cost = row.querySelector('.item-cost')?.value;
+        let totalCell = row.querySelector('.item-total');
+        if (totalCell && qty && cost) {
+            let total = parseFloat(qty) * parseFloat(cost);
+            totalCell.innerText = `UGX ${total.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+            subtotal += total;
         }
     });
-    
-    localStorage.setItem('po_form_data', JSON.stringify(formData));
-    localStorage.setItem('po_form_timestamp', new Date().getTime());
+
+    const vatRate = parseFloat(document.getElementById('vat_rate')?.value) || 0;
+    const vatAmount = (subtotal * vatRate) / 100;
+    const total = subtotal + vatAmount;
+
+    document.getElementById('subtotal_display').innerHTML = `UGX ${subtotal.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+    document.getElementById('vat_rate_display').innerHTML = vatRate;
+    document.getElementById('vat_amount_display').innerHTML = `UGX ${vatAmount.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+    document.getElementById('vat_amount_summary').innerHTML = `UGX ${vatAmount.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+    document.getElementById('total_display').innerHTML = `UGX ${total.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+    document.getElementById('grand_total_display').innerHTML = `UGX ${total.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
 }
 
-// Load form data from localStorage
-function loadFormData() {
-    const savedData = localStorage.getItem('po_form_data');
-    if (!savedData) return;
-    
-    const formData = JSON.parse(savedData);
-    const form = document.getElementById('poForm');
-    if (!form) return;
-    
-    // Check if data is less than 1 hour old
-    const timestamp = localStorage.getItem('po_form_timestamp');
-    if (timestamp && (new Date().getTime() - parseInt(timestamp)) > 3600000) {
-        localStorage.removeItem('po_form_data');
-        localStorage.removeItem('po_form_timestamp');
-        return;
-    }
-    
-    // Only load if there are no old values (fresh form)
-    const hasOldValues = form.querySelector('input[name="vendor_id"]')?.value;
-    if (!hasOldValues || hasOldValues === '') {
-        for (const [name, value] of Object.entries(formData)) {
-            const input = form.querySelector(`[name="${name}"]`);
-            if (input && value) {
-                if (input.type === 'checkbox' || input.type === 'radio') {
-                    input.checked = value;
-                } else {
-                    input.value = value;
-                }
-            }
-        }
-        updateTotals();
-    }
-}
-
-// Clear saved form data after successful submission
-function clearSavedFormData() {
-    localStorage.removeItem('po_form_data');
-    localStorage.removeItem('po_form_timestamp');
-}
-
-// Auto-save on input
-document.addEventListener('DOMContentLoaded', function() {
-    loadFormData();
-    updateTotals();
-    
-    const form = document.getElementById('poForm');
-    if (form) {
-        const inputs = form.querySelectorAll('input, select, textarea');
-        inputs.forEach(input => {
-            input.addEventListener('input', function() {
-                saveFormData();
-                updateTotals();
-            });
-            input.addEventListener('change', saveFormData);
-        });
-    }
-    
-    // Check if we have a success message and clear storage
-    if(session('success'))
-        clearSavedFormData();
-    endif
+document.getElementById('vat_rate')?.addEventListener('input', updateTotals);
+document.querySelectorAll('.item-quantity, .item-cost').forEach(el => {
+    el.addEventListener('input', updateTotals);
 });
 
 function showPreview() {
-    // Get vendor
-    let vendor = document.querySelector('select[name="vendor_id"]');
-    let vendorText = vendor ? vendor.options[vendor.selectedIndex]?.text || '--' : '--';
-    document.getElementById('pv_vendor').innerText = vendorText;
+    let type = document.querySelector('select[name="type"]');
+    let typeText = type?.value === 'emergency' ? 'EMERGENCY' : 'Normal';
+    let typeClass = type?.value === 'emergency' ? 'type-emergency' : 'type-normal';
+    document.getElementById('pv_type').innerHTML = `<span class="type-badge ${typeClass}">${typeText}</span>`;
 
-    // Delivery date, address, terms, note
+    let vendor = document.querySelector('select[name="vendor_id"]');
+    document.getElementById('pv_vendor').innerText = vendor ? vendor.options[vendor.selectedIndex]?.text || '--' : '--';
+
+    let paymentMethod = document.querySelector('select[name="payment_method"]');
+    document.getElementById('pv_payment_method').innerText = paymentMethod ? paymentMethod.options[paymentMethod.selectedIndex]?.text || '--' : '--';
+
     document.getElementById('pv_delivery_date').innerText = document.querySelector('input[name="expected_delivery_date"]')?.value || '--';
     document.getElementById('pv_delivery_address').innerText = document.querySelector('input[name="delivery_address"]')?.value || '--';
     document.getElementById('pv_delivery_terms').innerText = document.querySelector('input[name="delivery_terms"]')?.value || '--';
-    document.getElementById('pv_note').innerText = document.querySelector('textarea[name="note"]')?.value || '--';
+    document.getElementById('pv_note').innerText = document.querySelector('textarea[name="notes"]')?.value || '--';
 
-    // Items
-    let rows = document.querySelectorAll('table tbody tr');
+    let rows = document.querySelectorAll('.table-row-hover');
     let html = '';
+    let subtotal = 0;
+
     rows.forEach(function(row) {
-        let cells = row.querySelectorAll('td');
-        let itemName = cells[0]?.innerText.trim();
-        let qty = cells[1]?.querySelector('input')?.value || 0;
-        let unitCost = cells[2]?.querySelector('input')?.value || 0;
-        let note = cells[4]?.querySelector('textarea')?.value || '';
-        let total = qty && unitCost ? (parseFloat(qty) * parseFloat(unitCost)).toFixed(2) : '0.00';
-        html += `<tr class="border-b hover:bg-gray-50">
-            <td class="p-3 border">${itemName || '--'}</td>
-            <td class="p-3 border text-center">${qty}</td>
-            <td class="p-3 border text-center">UGX ${parseFloat(unitCost).toLocaleString()}</td>
-            <td class="p-3 border text-center font-semibold text-green-600">UGX ${parseFloat(total).toLocaleString()}</td>
-            <td class="p-3 border">${note || '--'}</td>
-        </tr>`;
+        let itemName = row.querySelector('td:first-child')?.innerText.trim();
+        let qty = row.querySelector('.item-quantity')?.value || 0;
+        let cost = row.querySelector('.item-cost')?.value || 0;
+        let note = row.querySelector('textarea[name*="[notes]"]')?.value || '';
+        let total = qty && cost ? (parseFloat(qty) * parseFloat(cost)).toFixed(2) : '0.00';
+        subtotal += parseFloat(total);
+
+        if (itemName && qty > 0 && cost > 0) {
+            html += `<tr>
+                <td class="p-2 border">${itemName}</td>
+                <td class="p-2 border text-center">${qty}</td>
+                <td class="p-2 border text-center">UGX ${parseFloat(cost).toLocaleString()}</td>
+                <td class="p-2 border text-center">UGX ${parseFloat(total).toLocaleString()}</td>
+                <td class="p-2 border">${note || '--'}</td>
+            </tr>`;
+        }
     });
+
     document.getElementById('pv_items').innerHTML = html;
+
+    const vatRate = parseFloat(document.getElementById('vat_rate')?.value) || 0;
+    const vatAmount = (subtotal * vatRate) / 100;
+    const total = subtotal + vatAmount;
+
+    document.getElementById('pv_subtotal').innerHTML = `UGX ${subtotal.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+    document.getElementById('pv_vat_rate').innerHTML = vatRate;
+    document.getElementById('pv_vat_amount').innerHTML = `UGX ${vatAmount.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+    document.getElementById('pv_total').innerHTML = `UGX ${total.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
 
     document.getElementById('previewModal').classList.remove('hidden');
 }
@@ -520,19 +572,9 @@ function hidePreview() {
     document.getElementById('previewModal').classList.add('hidden');
 }
 
-function updateTotals() {
-    document.querySelectorAll('table tbody tr').forEach(function(row) {
-        let qty = row.querySelector('input[name*="[quantity]"]')?.value;
-        let unitCost = row.querySelector('input[name*="[unit_cost]"]')?.value;
-        let cell = row.querySelector('.js-total');
-        if (cell && qty && unitCost) {
-            let total = (parseFloat(qty) * parseFloat(unitCost)).toFixed(2);
-            cell.innerText = `UGX ${parseFloat(total).toLocaleString()}`;
-        } else if (cell) {
-            cell.innerText = 'UGX 0.00';
-        }
-    });
-}
+document.addEventListener('DOMContentLoaded', function() {
+    updateTotals();
+});
 </script>
 @endif
 @endsection

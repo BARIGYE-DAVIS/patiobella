@@ -102,7 +102,7 @@
 @endif
 
 <div class="mb-4">
-    <a href="{{ route('procurement.purchase-orders.show', $purchaseOrder->id) }}" 
+    <a href="{{ route('procurement.purchase-orders.show', $purchaseOrder->id) }}"
        class="text-blue-600 hover:text-blue-800 flex items-center">
         <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
@@ -153,7 +153,7 @@
                         <span class="error-text">{{ $message }}</span>
                     @enderror
                 </div>
-                
+
                 <div class="input-group {{ $errors->has('expected_delivery_date') ? 'field-error' : '' }}">
                     <label class="block font-semibold mb-2 text-gray-700">Expected Delivery Date</label>
                     <input type="date" name="expected_delivery_date"
@@ -163,7 +163,7 @@
                         <span class="error-text">{{ $message }}</span>
                     @enderror
                 </div>
-                
+
                 <div class="input-group {{ $errors->has('delivery_address') ? 'field-error' : '' }}">
                     <label class="block font-semibold mb-2 text-gray-700">Delivery Address</label>
                     <input type="text" name="delivery_address"
@@ -174,7 +174,7 @@
                         <span class="error-text">{{ $message }}</span>
                     @enderror
                 </div>
-                
+
                 <div class="input-group {{ $errors->has('delivery_terms') ? 'field-error' : '' }}">
                     <label class="block font-semibold mb-2 text-gray-700">Delivery Terms</label>
                     <input type="text" name="delivery_terms"
@@ -186,7 +186,7 @@
                     @enderror
                 </div>
             </div>
-            
+
             <div class="input-group {{ $errors->has('notes') ? 'field-error' : '' }}">
                 <label class="block font-semibold mb-2 text-gray-700">General Order Note (Optional)</label>
                 <textarea name="notes" class="form-textarea w-full border-gray-300 rounded-lg form-enhanced bg-gray-50 focus:bg-white {{ $errors->has('notes') ? 'error-border' : '' }}" rows="3"
@@ -214,7 +214,7 @@
                     <p class="text-red-700 text-sm">Please check the items below for errors.</p>
                 </div>
             @endif
-            
+
             <table class="min-w-full border border-gray-200 rounded-lg">
                 <thead>
                     <tr class="bg-gradient-to-r from-gray-100 to-gray-50 text-gray-700">
@@ -235,9 +235,9 @@
                                 <input type="hidden" name="items[{{ $index }}][unit_id]" value="{{ $item->unit_id }}">
                             </td>
                             <td class="p-3 border text-center">
-                                <input type="number" name="items[{{ $index }}][quantity]" 
+                                <input type="number" name="items[{{ $index }}][quantity]"
                                        class="form-input w-28 border-gray-300 rounded-lg form-enhanced text-center item-quantity"
-                                       value="{{ old("items.$index.quantity", $item->quantity_ordered) }}" 
+                                       value="{{ old("items.$index.quantity", $item->quantity_ordered) }}"
                                        min="0.01" step="0.01" required>
                                 @error("items.$index.quantity")
                                     <span class="error-text">{{ $message }}</span>
@@ -246,9 +246,9 @@
                             <td class="p-3 border text-center">
                                 <div class="relative">
                                     <span class="absolute left-3 top-2 text-gray-500">UGX</span>
-                                    <input type="number" name="items[{{ $index }}][unit_cost]" 
+                                    <input type="number" name="items[{{ $index }}][unit_cost]"
                                            class="form-input w-36 border-gray-300 rounded-lg form-enhanced pl-12 item-cost"
-                                           value="{{ old("items.$index.unit_cost", $item->unit_cost) }}" 
+                                           value="{{ old("items.$index.unit_cost", $item->unit_cost) }}"
                                            min="0" step="0.01" required>
                                 </div>
                                 @error("items.$index.unit_cost")
@@ -259,7 +259,7 @@
                                 UGX {{ number_format($item->total_cost, 2) }}
                             </td>
                             <td class="p-3 border">
-                                <textarea name="items[{{ $index }}][notes]" 
+                                <textarea name="items[{{ $index }}][notes]"
                                           class="form-textarea w-48 border-gray-300 rounded-lg form-enhanced"
                                           rows="2" placeholder="Item notes...">{{ old("items.$index.notes", $item->notes) }}</textarea>
                                 @error("items.$index.notes")
@@ -294,7 +294,7 @@
 
     {{-- Action Buttons --}}
     <div class="flex justify-end space-x-4 sticky bottom-4 bg-white p-4 rounded-lg shadow-lg">
-        <a href="{{ route('procurement.purchase-orders.show', $purchaseOrder->id) }}" 
+        <a href="{{ route('procurement.purchase-orders.show', $purchaseOrder->id) }}"
            class="px-8 py-2.5 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-all duration-200 shadow-md flex items-center">
             <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
@@ -427,24 +427,24 @@ let itemCounter = {{ count($purchaseOrder->items) }};
 document.getElementById('add-item-btn')?.addEventListener('click', function() {
     const tbody = document.getElementById('items-table-body');
     const newIndex = itemCounter++;
-    
+
     const newRow = `
         <tr class="table-row-hover border-b item-row" data-index="${newIndex}">
             <td class="p-3 border">
-                <input type="text" name="items[${newIndex}][item_name]" 
+                <input type="text" name="items[${newIndex}][item_name]"
                        class="form-input w-full border-gray-300 rounded-lg form-enhanced"
                        placeholder="Enter item name" required>
                 <input type="hidden" name="items[${newIndex}][inventory_item_id]" value="">
             </td>
             <td class="p-3 border text-center">
-                <input type="number" name="items[${newIndex}][quantity]" 
+                <input type="number" name="items[${newIndex}][quantity]"
                        class="form-input w-28 border-gray-300 rounded-lg form-enhanced text-center item-quantity"
                        value="1" min="0.01" step="0.01" required>
             </td>
             <td class="p-3 border text-center">
                 <div class="relative">
                     <span class="absolute left-3 top-2 text-gray-500">UGX</span>
-                    <input type="number" name="items[${newIndex}][unit_cost]" 
+                    <input type="number" name="items[${newIndex}][unit_cost]"
                            class="form-input w-36 border-gray-300 rounded-lg form-enhanced pl-12 item-cost"
                            value="0" min="0" step="0.01" required>
                 </div>
@@ -453,7 +453,7 @@ document.getElementById('add-item-btn')?.addEventListener('click', function() {
                 UGX 0.00
             </td>
             <td class="p-3 border">
-                <textarea name="items[${newIndex}][notes]" 
+                <textarea name="items[${newIndex}][notes]"
                           class="form-textarea w-48 border-gray-300 rounded-lg form-enhanced"
                           rows="2" placeholder="Item notes..."></textarea>
             </td>
@@ -466,9 +466,9 @@ document.getElementById('add-item-btn')?.addEventListener('click', function() {
             </td>
         </tr>
     `;
-    
+
     tbody.insertAdjacentHTML('beforeend', newRow);
-    
+
     // Add event listeners to new inputs
     const newRowElement = tbody.lastElementChild;
     newRowElement.querySelectorAll('.item-quantity, .item-cost').forEach(input => {
@@ -478,7 +478,7 @@ document.getElementById('add-item-btn')?.addEventListener('click', function() {
         this.closest('.item-row').remove();
         updateTotals();
     });
-    
+
     updateTotals();
 });
 
@@ -507,13 +507,13 @@ function showPreview() {
     let rows = document.querySelectorAll('.item-row');
     let html = '';
     rows.forEach(function(row) {
-        let itemName = row.querySelector('input[name*="[item_name]"], td:first-child')?.innerText.trim() || 
+        let itemName = row.querySelector('input[name*="[item_name]"], td:first-child')?.innerText.trim() ||
                       row.querySelector('input[name*="[item_name]"]')?.value || 'New Item';
         let qty = row.querySelector('.item-quantity')?.value || 0;
         let cost = row.querySelector('.item-cost')?.value || 0;
         let note = row.querySelector('textarea[name*="[notes]"]')?.value || '';
         let total = qty && cost ? (parseFloat(qty) * parseFloat(cost)).toFixed(2) : '0.00';
-        
+
         html += `<tr class="border-b hover:bg-gray-50">
             <td class="p-3 border">${itemName}</td>
             <td class="p-3 border text-center">${qty}</td>

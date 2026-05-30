@@ -83,118 +83,124 @@ public function index(Request $request)
     }
 
     // Store PO and send email with PDF
-    public function store(Request $request)
-    {
-        $user = Auth::user();
-        if (!$user->department || $user->department->name !== 'PROCUREMENT') {
-            return redirect()->route('dashboard')->with('error', 'Unauthorized access');
-        }
-
-        $request->validate([
-            'requisition_id' => 'nullable|exists:requisitions,id',
-            'vendor_id' => 'required|exists:vendors,id',
-            'expected_delivery_date' => 'nullable|date',
-            'delivery_address' => 'nullable|string|max:255',
-            'delivery_terms' => 'nullable|string|max:255',
-            'notes' => 'nullable|string|max:1000',
-            'items' => 'required|array|min:1',
-            'items.*.inventory_item_id' => 'nullable|exists:inventory_items,id',
-            'items.*.quantity' => 'required|numeric|min:0.01',
-            'items.*.unit_cost' => 'required|numeric|min:0',
-            'items.*.notes' => 'nullable|string|max:1000',
-        ]);
-
-        DB::beginTransaction();
-
-        try {
-            $poNumber = 'PO-' . date('Ymd') . '-' . str_pad(rand(0, 9999), 4, '0', STR_PAD_LEFT);
-
-            $po = new PurchaseOrder();
-            $po->po_number = $poNumber;
-            $po->vendor_id = $request->vendor_id;
-            $po->store_id = null;
-            $po->ordered_by = Auth::id();
-            $po->po_date = now();
-            $po->expected_delivery_date = $request->expected_delivery_date ?? null;
-            $po->subtotal = 0;
-            $po->tax_amount = 0;
-            $po->total_amount = 0;
-
-            // Set status as 'sent' immediately
-            $po->status = 'sent';
-
-            $po->created_by = Auth::id();
-            $po->delivery_address = $request->delivery_address;
-            $po->delivery_terms = $request->delivery_terms;
-            $po->notes = $request->notes;
-            $po->save();
-
-            $subtotal = 0;
-            $reqItemsByInvId = [];
-            $requisition = null;
-
-            if ($request->filled('requisition_id')) {
-                $requisition = Requisition::with('items')->find($request->requisition_id);
-                if ($requisition) {
-                    foreach ($requisition->items as $ri) {
-                        if ($ri->inventory_item_id) {
-                            $reqItemsByInvId[$ri->inventory_item_id] = $ri;
-                        }
-                    }
-                    $requisition->status = 'ordered';
-                    $requisition->save();
-                }
-            }
-
-            foreach ($request->items as $itemArr) {
-                $notes = $itemArr['notes'] ?? null;
-                if ((!$notes || trim($notes) == "") && !empty($itemArr['inventory_item_id']) && isset($reqItemsByInvId[$itemArr['inventory_item_id']])) {
-                    $notes = $reqItemsByInvId[$itemArr['inventory_item_id']]->notes ?? null;
-                }
-
-                $line = new PurchaseOrderItem();
-                $line->purchase_order_id = $po->id;
-                $line->inventory_item_id = $itemArr['inventory_item_id'] ?? null;
-                $line->unit_id = $itemArr['unit_id'] ?? null;
-                $line->quantity_ordered = $itemArr['quantity'];
-                $line->unit_cost = $itemArr['unit_cost'];
-                $line->total_cost = $itemArr['quantity'] * $itemArr['unit_cost'];
-                $line->quantity_received = 0;
-                $line->notes = $notes;
-                $line->created_by = Auth::id();
-                $line->save();
-
-                $subtotal += $line->total_cost;
-            }
-
-            $po->subtotal = $subtotal;
-            $po->tax_amount = 0;
-            $po->total_amount = $subtotal;
-            $po->save();
-
-            DB::commit();
-
-            // Send email with PDF attachment
-            $this->sendPurchaseOrderEmail($po);
-
-            return redirect()->route('procurement.purchase-orders.show', $po->id)
-                ->with('success', 'Purchase Order created successfully and sent to vendor.');
-
-        } catch (\Exception $e) {
-            DB::rollBack();
-            Log::error('Error creating PO', [
-                'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString(),
-                'user_id' => Auth::id(),
-                'request' => $request->all()
-            ]);
-
-            return redirect()->back()
-                ->withInput()
-                ->with('error', 'Error creating PO: ' . $e->getMessage());
-        }
+    // Store PO and send email with PDF
+public function store(Request $request)
+{
+    $user = Auth::user();
+    if (!$user->department || $user->department->name !== 'PROCUREMENT') {
+        return redirect()->route('dashboard')->with('error', 'Unauthorized access');
     }
 
+    $request->validate([
+        'requisition_id' => 'nullable|exists:requisitions,id',
+        'vendor_id' => 'required|exists:vendors,id',
+        'type' => 'required|in:normal,emergency',
+        'payment_method' => 'required|in:cash,credit,bank_transfer,mobile_money,cheque',
+        'vat_rate' => 'nullable|numeric|min:0|max:100',
+        'expected_delivery_date' => 'nullable|date',
+        'delivery_address' => 'nullable|string|max:255',
+        'delivery_terms' => 'nullable|string|max:255',
+        'notes' => 'nullable|string|max:1000',
+        'items' => 'required|array|min:1',
+        'items.*.inventory_item_id' => 'nullable|exists:inventory_items,id',
+        'items.*.quantity' => 'required|numeric|min:0.01',
+        'items.*.unit_cost' => 'required|numeric|min:0',
+        'items.*.notes' => 'nullable|string|max:1000',
+    ]);
+
+    DB::beginTransaction();
+
+    try {
+        $poNumber = 'PO-' . date('Ymd') . '-' . str_pad(rand(0, 9999), 4, '0', STR_PAD_LEFT);
+
+        // Calculate subtotal
+        $subtotal = 0;
+        foreach ($request->items as $item) {
+            $subtotal += $item['quantity'] * $item['unit_cost'];
+        }
+
+        // Calculate VAT
+        $vatRate = $request->vat_rate ?? 0;
+        $vatAmount = ($subtotal * $vatRate) / 100;
+        $totalAmount = $subtotal + $vatAmount;
+
+        $po = new PurchaseOrder();
+        $po->po_number = $poNumber;
+        $po->type = $request->type;
+        $po->vendor_id = $request->vendor_id;
+        $po->store_id = null;
+        $po->ordered_by = Auth::id();
+        $po->po_date = now();
+        $po->expected_delivery_date = $request->expected_delivery_date ?? null;
+        $po->subtotal = $subtotal;
+        $po->vat_rate = $vatRate;
+        $po->vat_amount = $vatAmount;
+        $po->total_amount = $totalAmount;
+        $po->status = 'sent';
+        $po->payment_method = $request->payment_method;
+        $po->created_by = Auth::id();
+        $po->delivery_address = $request->delivery_address;
+        $po->delivery_terms = $request->delivery_terms;
+        $po->notes = $request->notes;
+        $po->save();
+
+        $reqItemsByInvId = [];
+        $requisition = null;
+
+        if ($request->filled('requisition_id')) {
+            $requisition = Requisition::with('items')->find($request->requisition_id);
+            if ($requisition) {
+                foreach ($requisition->items as $ri) {
+                    if ($ri->inventory_item_id) {
+                        $reqItemsByInvId[$ri->inventory_item_id] = $ri;
+                    }
+                }
+                $requisition->status = 'ordered';
+                $requisition->save();
+            }
+        }
+
+        foreach ($request->items as $itemArr) {
+            $notes = $itemArr['notes'] ?? null;
+            if ((!$notes || trim($notes) == "") && !empty($itemArr['inventory_item_id']) && isset($reqItemsByInvId[$itemArr['inventory_item_id']])) {
+                $notes = $reqItemsByInvId[$itemArr['inventory_item_id']]->notes ?? null;
+            }
+
+            $line = new PurchaseOrderItem();
+            $line->purchase_order_id = $po->id;
+            $line->inventory_item_id = $itemArr['inventory_item_id'] ?? null;
+            $line->unit_id = $itemArr['unit_id'] ?? null;
+            $line->quantity_ordered = $itemArr['quantity'];
+            $line->unit_cost = $itemArr['unit_cost'];
+            $line->total_cost = $itemArr['quantity'] * $itemArr['unit_cost'];
+            $line->quantity_received = 0;
+            $line->notes = $notes;
+            $line->created_by = Auth::id();
+            $line->save();
+        }
+
+        DB::commit();
+
+        // Send email with PDF attachment
+        $this->sendPurchaseOrderEmail($po);
+
+        return redirect()->route('procurement.purchase-orders.show', $po->id)
+            ->with('success', 'Purchase Order created successfully and sent to vendor.');
+
+    } catch (\Exception $e) {
+        DB::rollBack();
+        Log::error('Error creating PO', [
+            'error' => $e->getMessage(),
+            'trace' => $e->getTraceAsString(),
+            'user_id' => Auth::id(),
+            'request' => $request->all()
+        ]);
+
+        return redirect()->back()
+            ->withInput()
+            ->with('error', 'Error creating PO: ' . $e->getMessage());
+    }
+}
     // Send PO email with PDF attachment
     private function sendPurchaseOrderEmail($purchaseOrder)
     {
@@ -224,17 +230,24 @@ public function index(Request $request)
         }
     }
 
-    public function show($id)
-    {
-        $user = Auth::user();
-        if (!$user->department || $user->department->name !== 'PROCUREMENT') {
-            return redirect()->route('dashboard')->with('error', 'Unauthorized access');
-        }
-
-        $purchaseOrder = PurchaseOrder::with(['vendor', 'items.inventoryItem'])->findOrFail($id);
-
-        return view('procurement.purchase_orders.show', compact('purchaseOrder'));
+public function show($id)
+{
+    $user = Auth::user();
+    if (!$user->department || $user->department->name !== 'PROCUREMENT') {
+        return redirect()->route('dashboard')->with('error', 'Unauthorized access');
     }
+
+    $purchaseOrder = PurchaseOrder::with([
+        'vendor',
+        'items.inventoryItem',
+        'creator',              // created_by  — Prepared By signature
+        'orderedBy',            // ordered_by  — person who raised the PO
+        'approvedBy',           // approved_by — set if PO itself was approved (may be null)
+        'lpo.approvedBy',       // source LPO's director approver — THIS is the real "Approved By"
+    ])->findOrFail($id);
+
+    return view('procurement.purchase_orders.show', compact('purchaseOrder'));
+}
 
     public function edit($id)
     {

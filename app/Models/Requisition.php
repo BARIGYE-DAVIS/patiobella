@@ -15,6 +15,7 @@ class Requisition extends Model
         'store_id',
         'requested_by',
         'approved_by',
+        'requisition_type',
         'date_needed',
         'status',
         'notes',

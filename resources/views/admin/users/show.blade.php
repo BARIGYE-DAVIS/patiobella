@@ -71,6 +71,33 @@
                 </div>
             </div>
 
+            {{-- Digital Signature --}}
+            <div class="border-2 border-gray-200 rounded-lg overflow-hidden">
+                <div class="bg-indigo-50 px-4 py-3 border-b border-indigo-200">
+                    <h3 class="font-semibold text-gray-800">
+                        <i class="fas fa-signature mr-2 text-indigo-600"></i> Digital Signature
+                    </h3>
+                </div>
+                <div class="p-4 text-center">
+                    @if($user->signature_url)
+                        <div class="inline-block p-4 border border-gray-200 rounded-lg bg-gray-50">
+                            <img src="{{ $user->signature_url }}?v={{ time() }}" alt="Signature" class="max-w-md max-h-24">
+                        </div>
+                        <div class="mt-3">
+                            <p class="text-xs text-gray-500">
+                                Last updated: {{ $user->signature_updated_at ? \Carbon\Carbon::parse($user->signature_updated_at)->format('d M Y H:i') : 'Never' }}
+                            </p>
+                        </div>
+                    @else
+                        <div class="text-gray-400 py-4">
+                            <i class="fas fa-signature text-4xl mb-2 block"></i>
+                            <p>No signature uploaded yet</p>
+                            <p class="text-xs mt-1">User can add signature from edit page</p>
+                        </div>
+                    @endif
+                </div>
+            </div>
+
             {{-- Roles Information (Display only, not used for permissions) --}}
             <div class="border-2 border-gray-200 rounded-lg overflow-hidden">
                 <div class="bg-green-50 px-4 py-3 border-b border-green-200">
@@ -160,6 +187,22 @@
                         <p class="text-gray-700">{{ $user->updater ? $user->updater->first_name . ' ' . $user->updater->last_name : 'Never updated' }}</p>
                         @if($user->updated_at)
                             <p class="text-xs text-gray-400">{{ $user->updated_at->format('M d, Y H:i') }}</p>
+                        @endif
+                    </div>
+                    <div>
+                        <label class="text-xs text-gray-500 uppercase block">Signature Updated By</label>
+                        <p class="text-gray-700">
+                            @if($user->signature_updated_by)
+                                @php
+                                    $signatureUpdater = \App\Models\User::find($user->signature_updated_by);
+                                @endphp
+                                {{ $signatureUpdater ? $signatureUpdater->first_name . ' ' . $signatureUpdater->last_name : 'Unknown' }}
+                            @else
+                                Never updated
+                            @endif
+                        </p>
+                        @if($user->signature_updated_at)
+                            <p class="text-xs text-gray-400">{{ \Carbon\Carbon::parse($user->signature_updated_at)->format('M d, Y H:i') }}</p>
                         @endif
                     </div>
                     @if($user->last_login_at)

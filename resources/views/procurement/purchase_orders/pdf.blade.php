@@ -151,31 +151,110 @@
         .clearfix {
             overflow: auto;
         }
-        .signature {
+        .signature-section {
             margin-top: 50px;
+            display: flex;
+            justify-content: space-between;
+        }
+        .signature-box {
+            text-align: center;
+            width: 45%;
         }
         .signature-line {
-            display: inline-block;
-            width: 200px;
-            border-top: 1px solid #333;
             margin-top: 30px;
             padding-top: 5px;
+            border-top: 1px solid #333;
             font-size: 11px;
             text-align: center;
         }
+        .signature-img {
+            max-height: 50px;
+            max-width: 150px;
+            margin-bottom: 10px;
+        }
+        .company-logo {
+            max-height: 60px;
+            max-width: 200px;
+        }
         .page-break {
             page-break-before: always;
+        }
+        .type-badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 10px;
+            font-weight: bold;
+        }
+        .type-normal {
+            background: #d1fae5;
+            color: #065f46;
+        }
+        .type-emergency {
+            background: #fee2e2;
+            color: #991b1b;
         }
     </style>
 </head>
 <body>
     <div class="header">
-        <h1>PURCHASE ORDER</h1>
+        @php
+            $logo = \App\Models\BusinessSetting::getLogo();
+            $companyName = \App\Models\BusinessSetting::get('company_name', 'PaitoBella Restaurant');
+            $companyPhone = \App\Models\BusinessSetting::get('phone', '+256 XXX XXX XXX');
+            $companyEmail = \App\Models\BusinessSetting::get('email', 'procurement@patiobella.com');
+            $companyAddress = \App\Models\BusinessSetting::get('address', 'Kampala, Uganda');
+            $companyStamp = \App\Models\BusinessSetting::getStamp();
+
+            // Convert logo to base64 for PDF
+            $logoBase64 = null;
+            if ($logo) {
+                $logoPath = public_path(parse_url($logo, PHP_URL_PATH));
+                if (file_exists($logoPath)) {
+                    $logoMime = mime_content_type($logoPath);
+                    $logoData = base64_encode(file_get_contents($logoPath));
+                    $logoBase64 = 'data:' . $logoMime . ';base64,' . $logoData;
+                }
+            }
+
+            // Convert stamp to base64 for PDF
+            $stampBase64 = null;
+            if ($companyStamp) {
+                $stampPath = public_path(parse_url($companyStamp, PHP_URL_PATH));
+                if (file_exists($stampPath)) {
+                    $stampMime = mime_content_type($stampPath);
+                    $stampData = base64_encode(file_get_contents($stampPath));
+                    $stampBase64 = 'data:' . $stampMime . ';base64,' . $stampData;
+                }
+            }
+
+            // Get creator signature
+            $creator = $po->creator;
+            $creatorSignature = null;
+            $creatorName = '';
+            if ($creator) {
+                $creatorName = trim(($creator->first_name ?? '') . ' ' . ($creator->last_name ?? ''));
+                if ($creator->signature_path) {
+                    $sigPath = storage_path('app/public/' . $creator->signature_path);
+                    if (file_exists($sigPath)) {
+                        $sigMime = mime_content_type($sigPath);
+                        $sigData = base64_encode(file_get_contents($sigPath));
+                        $creatorSignature = 'data:' . $sigMime . ';base64,' . $sigData;
+                    }
+                }
+            }
+        @endphp
+
+        @if($logoBase64)
+            <img src="{{ $logoBase64 }}" class="company-logo" alt="Logo">
+        @else
+            <h1>PURCHASE ORDER</h1>
+        @endif
         <h2>{{ $po->po_number }}</h2>
         <div class="company-info">
-            <strong>PaitoBella Restaurant</strong><br>
-            Kampala, Uganda<br>
-            Phone: +256 XXX XXX XXX | Email: procurement@patiobella.com
+            <strong>{{ $companyName }}</strong><br>
+            {{ $companyAddress }}<br>
+            Phone: {{ $companyPhone }} | Email: {{ $companyEmail }}
         </div>
     </div>
 
@@ -190,8 +269,26 @@
             <tr>
                 <td class="info-label">PO Number:</td>
                 <td class="info-value">{{ $po->po_number }}</td>
+                <td class="info-label">PO Type:</td>
+                <td class="info-value">
+                    <span class="type-badge {{ $po->type == 'emergency' ? 'type-emergency' : 'type-normal' }}">
+                        {{ $po->type == 'emergency' ? 'EMERGENCY' : 'Normal' }}
+                    </span>
+                </td>
+            </tr>
+            <tr>
                 <td class="info-label">Order Date:</td>
                 <td class="info-value">{{ $po->po_date->format('F d, Y') }}</td>
+                <td class="info-label">Payment Method:</td>
+                <td class="info-value">
+                    @if($po->payment_method == 'cash') Cash
+                    @elseif($po->payment_method == 'credit') Credit
+                    @elseif($po->payment_method == 'bank_transfer') Bank Transfer
+                    @elseif($po->payment_method == 'mobile_money') Mobile Money
+                    @elseif($po->payment_method == 'cheque') Cheque
+                    @else {{ ucfirst(str_replace('_', ' ', $po->payment_method)) }}
+                    @endif
+                </td>
             </tr>
             <tr>
                 <td class="info-label">Status:</td>
@@ -200,10 +297,10 @@
                 <td class="info-value">{{ $po->expected_delivery_date ? date('F d, Y', strtotime($po->expected_delivery_date)) : 'Not specified' }}</td>
             </tr>
             <tr>
-                <td class="info-label">Payment Terms:</td>
-                <td class="info-value">Upon Delivery</td>
                 <td class="info-label">Currency:</td>
                 <td class="info-value">Ugandan Shilling (UGX)</td>
+                <td class="info-label"></td>
+                <td class="info-value"></td>
             </tr>
         </table>
     </div>
@@ -263,30 +360,39 @@
                 </tr>
             </thead>
             <tbody>
-                @php $itemCounter = 1; @endphp
+                @php $itemCounter = 1; $subtotal = 0; @endphp
                 @foreach($po->items as $item)
+                @php
+                    $total = $item->quantity_ordered * $item->unit_cost;
+                    $subtotal += $total;
+                @endphp
                 <tr>
                     <td>
-                        <strong>{{ $itemCounter++ }}.</strong> {{ $item->inventoryItem->name ?? 'N/A' }}
+                        <strong>{{ $itemCounter++ }}.</strong> {{ $item->inventoryItem ? $item->inventoryItem->name : 'N/A' }}
+                        @if($item->inventoryItem && $item->inventoryItem->item_code)
+                            <br><span style="font-size: 10px; color: #666;">Code: {{ $item->inventoryItem->item_code }}</span>
+                        @endif
                         @if($item->notes)
                             <div class="item-notes">📝 Note: {{ $item->notes }}</div>
                         @endif
                     </td>
                     <td class="text-center">{{ number_format($item->quantity_ordered, 2) }}</td>
                     <td class="text-right">{{ number_format($item->unit_cost, 2) }}</td>
-                    <td class="text-right">{{ number_format($item->total_cost, 2) }}</td>
+                    <td class="text-right">{{ number_format($total, 2) }}</td>
                 </tr>
                 @endforeach
             </tbody>
             <tfoot>
                 <tr>
                     <td colspan="3" class="text-right"><strong>Subtotal:</strong></td>
-                    <td class="text-right"><strong>{{ number_format($po->subtotal, 2) }}</strong></td>
+                    <td class="text-right"><strong>{{ number_format($subtotal, 2) }}</strong></td>
                 </tr>
+                @if($po->vat_rate > 0)
                 <tr>
-                    <td colspan="3" class="text-right">Tax (0%):</td>
-                    <td class="text-right">{{ number_format($po->tax_amount, 2) }}</td>
+                    <td colspan="3" class="text-right">VAT ({{ $po->vat_rate }}%):</td>
+                    <td class="text-right">{{ number_format($po->vat_amount, 2) }}</td>
                 </tr>
+                @endif
                 <tr style="border-top: 2px solid #333;">
                     <td colspan="3" class="text-right"><strong>GRAND TOTAL:</strong></td>
                     <td class="text-right"><strong style="color: #2a5298;">UGX {{ number_format($po->total_amount, 2) }}</strong></td>
@@ -298,7 +404,7 @@
     {{-- General Order Notes --}}
     @if($po->notes)
     <div class="notes-box">
-        <strong>📋 GENERAL ORDER NOTES</strong><br>
+        <strong> <i class="fas fa-info-circle"></i> GENERAL ORDER NOTES</strong><br>
         {{ $po->notes }}
     </div>
     @endif
@@ -317,31 +423,32 @@
     </div>
 
     {{-- Signature Section --}}
-    <div class="signature">
-        <table style="width: 100%; margin-top: 40px;">
-            <tr>
-                <td style="text-align: center;">
-                    <div class="signature-line">
-                        Authorized Signature
-                    </div>
-                    <div style="margin-top: 10px; font-size: 11px;">(Procurement Department)</div>
-                </td>
-                <td style="text-align: center;">
-                    <div class="signature-line">
-                        Company Stamp
-                    </div>
-                </td>
-                <td style="text-align: center;">
-                    <div class="signature-line">
-                        Date: {{ date('Y-m-d') }}
-                    </div>
-                </td>
-            </tr>
-        </table>
+    <div class="signature-section">
+        <div class="signature-box">
+            <div class="signature-label">Prepared By:</div>
+            @if($creatorSignature)
+                <img src="{{ $creatorSignature }}" class="signature-img" alt="Signature">
+            @else
+                <div style="height: 50px;"></div>
+            @endif
+            <div class="signature-line"></div>
+            <div class="signature-label">{{ $creatorName }}</div>
+            <div class="signature-label">{{ $po->created_at ? $po->created_at->format('d M Y') : date('Y-m-d') }}</div>
+        </div>
+        <div class="signature-box">
+            <div class="signature-label">Company Stamp:</div>
+            @if($stampBase64)
+                <img src="{{ $stampBase64 }}" class="signature-img" alt="Stamp">
+            @else
+                <div style="height: 50px;"></div>
+            @endif
+            <div class="signature-line"></div>
+            <div class="signature-label">Authorized Signature</div>
+        </div>
     </div>
 
     <div class="footer">
-        <p>This is a computer-generated document and requires no signature. For any queries, please contact procurement department.</p>
+        <p>This is a computer-generated document. For any queries, please contact procurement department.</p>
         <p>Thank you for your business!</p>
     </div>
 </body>

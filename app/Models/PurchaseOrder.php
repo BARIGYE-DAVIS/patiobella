@@ -12,9 +12,11 @@ class PurchaseOrder extends Model
 
     protected $fillable = [
         'po_number',
+        'type',
         'vendor_id',
         'delivery_address',
         'delivery_terms',
+        'payment_method',
         'notes',
         'store_id',
         'ordered_by',
@@ -23,7 +25,8 @@ class PurchaseOrder extends Model
         'po_date',
         'expected_delivery_date',
         'subtotal',
-        'tax_amount',
+        'vat_rate',
+        'vat_amount',
         'total_amount',
         'status',
         'created_by',
@@ -37,13 +40,25 @@ class PurchaseOrder extends Model
             'po_date' => 'date',
             'expected_delivery_date' => 'date',
             'subtotal' => 'decimal:2',
-            'tax_amount' => 'decimal:2',
+            'vat_rate' => 'decimal:2',
+            'vat_amount' => 'decimal:2',
             'total_amount' => 'decimal:2',
             'created_at' => 'datetime',
             'updated_at' => 'datetime',
             'deleted_at' => 'datetime',
         ];
     }
+
+    // Type constants
+    const TYPE_NORMAL = 'normal';
+    const TYPE_EMERGENCY = 'emergency';
+
+    // Payment method constants
+    const PAYMENT_CASH = 'cash';
+    const PAYMENT_CREDIT = 'credit';
+    const PAYMENT_BANK_TRANSFER = 'bank_transfer';
+    const PAYMENT_MOBILE_MONEY = 'mobile_money';
+    const PAYMENT_CHEQUE = 'cheque';
 
     // Status constants
     const STATUS_DRAFT = 'draft';
@@ -118,7 +133,6 @@ class PurchaseOrder extends Model
         $totalReceived = $this->items->sum('quantity_received');
 
         if ($totalReceived == 0) {
-            // Keep current status (approved/sent)
             return;
         }
 
@@ -172,19 +186,21 @@ class PurchaseOrder extends Model
         return $this->hasMany(GoodsReceivedNote::class, 'purchase_order_id');
     }
 
+    public function getTotalReceivedQuantityAttribute()
+    {
+        return $this->items->sum('quantity_received');
+    }
 
-    // In app/Models/PurchaseOrder.php
+    public function getIsFullyReceivedAttribute()
+    {
+        return $this->items->every(function($item) {
+            return $item->quantity_received >= $item->quantity_ordered;
+        });
+    }
 
 
-public function getTotalReceivedQuantityAttribute()
+    public function lpo()
 {
-    return $this->items->sum('quantity_received');
-}
-
-public function getIsFullyReceivedAttribute()
-{
-    return $this->items->every(function($item) {
-        return $item->quantity_received >= $item->quantity_ordered;
-    });
+    return $this->belongsTo(\App\Models\Lpo::class, 'lpo_id');
 }
 }

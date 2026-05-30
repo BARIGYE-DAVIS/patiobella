@@ -1,772 +1,592 @@
 @extends('layouts.procurement')
+
 @section('title', 'Purchase Order Details')
 @section('page-title', 'Purchase Order Details')
 
 @section('content')
 <style>
-    .status-badge {
-        display: inline-block;
-        padding: 2px 8px;
-        border-radius: 20px;
-        font-size: 10px;
-        font-weight: 600;
-        text-transform: uppercase;
+    /* Professional Document Styling */
+    @media print {
+        body * {
+            visibility: hidden;
+        }
+        #print-section, #print-section * {
+            visibility: visible;
+        }
+        #print-section {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            padding: 20px;
+            background: white;
+        }
+        .no-print {
+            display: none !important;
+        }
+        button, .btn, .action-buttons, .share-buttons {
+            display: none !important;
+        }
+        .company-logo {
+            max-height: 50px !important;
+            width: auto !important;
+        }
+        .signature-img {
+            max-height: 60px !important;
+            max-width: 180px !important;
+        }
+        body, p, span, td, th, div {
+            font-size: 11px !important;
+        }
+        h1, h2, h3, h4 {
+            font-size: 14px !important;
+        }
     }
-    .status-sent { background: #dbeafe; color: #1e40af; }
-    .status-draft { background: #fef3c7; color: #92400e; }
-    .status-partially_received { background: #fed7aa; color: #9a3412; }
-    .status-fully_received { background: #d1fae5; color: #065f46; }
-    .status-cancelled { background: #fee2e2; color: #991b1b; }
+
+    /* Document Layout */
+    .po-container {
+        max-width: 1100px;
+        margin: 0 auto;
+        background: white;
+        box-shadow: 0 10px 25px -5px rgba(0,0,0,0.1);
+        border-radius: 12px;
+    }
+
+    .company-logo {
+        max-height: 60px;
+        width: auto;
+    }
+
+    .signature-img {
+        max-height: 60px;
+        max-width: 180px;
+        object-fit: contain;
+    }
+
+    .document-header {
+        border-bottom: 2px solid #1e40af;
+    }
+
+    .po-title {
+        color: #1e40af;
+        font-weight: 700;
+        letter-spacing: 1px;
+    }
 
     .info-label {
         font-weight: 600;
-        color: #64748b;
-        width: 130px;
-        display: inline-block;
+        color: #4b5563;
+        background: #f3f4f6;
+        padding: 4px 8px;
+        border-radius: 6px;
         font-size: 11px;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-    }
-    .document-badge {
-        display: inline-flex;
-        align-items: center;
-        gap: 4px;
-        background: #f3e8ff;
-        color: #7e22ce;
-        padding: 2px 6px;
-        border-radius: 12px;
-        font-size: 9px;
-        font-weight: 500;
-        cursor: pointer;
-    }
-    .document-badge:hover {
-        background: #e9d5ff;
-    }
-    .attach-btn {
-        display: inline-flex;
-        align-items: center;
-        gap: 4px;
-        background: #e0e7ff;
-        color: #4338ca;
-        padding: 2px 6px;
-        border-radius: 12px;
-        font-size: 9px;
-        font-weight: 500;
-        cursor: pointer;
-        border: none;
-    }
-    .attach-btn:hover {
-        background: #c7d2fe;
-    }
-    .btn-orange {
-        background: #ea580c;
-        color: white;
-        transition: all 0.2s;
-    }
-    .btn-orange:hover {
-        background: #c2410c;
-    }
-    .btn-outline-orange {
-        border: 1px solid #ea580c;
-        color: #ea580c;
-        background: transparent;
-        transition: all 0.2s;
-    }
-    .btn-outline-orange:hover {
-        background: #ea580c;
-        color: white;
+        display: inline-block;
     }
 
-    /* Custom Document Preview Modal */
-    #docPreviewModal {
-        font-family: inherit;
-    }
-    .preview-toolbar {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        padding: 10px 16px;
-        background: #1e293b;
-        border-bottom: 1px solid #334155;
-        user-select: none;
-    }
-    .preview-toolbar-left {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        flex: 1;
-        min-width: 0;
-    }
-    .preview-toolbar-right {
-        display: flex;
-        align-items: center;
-        gap: 6px;
-        flex-shrink: 0;
-    }
-    .preview-doc-icon {
-        width: 28px;
-        height: 28px;
-        background: #ea580c;
-        border-radius: 6px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        flex-shrink: 0;
-    }
-    .preview-doc-title {
-        font-size: 13px;
+    .status-badge {
+        display: inline-flex;
+        padding: 4px 12px;
+        border-radius: 20px;
+        font-size: 12px;
         font-weight: 600;
-        color: #f1f5f9;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        max-width: 400px;
     }
-    .preview-doc-meta {
+
+    .status-draft { background: #fef3c7; color: #d97706; }
+    .status-approved { background: #d1fae5; color: #065f46; }
+    .status-sent { background: #dbeafe; color: #1d4ed8; }
+    .status-received { background: #e0e7ff; color: #3730a3; }
+    .status-cancelled { background: #fee2e2; color: #dc2626; }
+
+    .signature-box {
+        border-top: 1px solid #e5e7eb;
+        padding-top: 20px;
+        margin-top: 20px;
+    }
+
+    .share-btn {
+        transition: all 0.2s ease;
+    }
+
+    .share-btn:hover {
+        transform: translateY(-2px);
+    }
+
+    .footer-note {
         font-size: 10px;
-        color: #94a3b8;
-        margin-top: 1px;
-    }
-    .preview-close-btn {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        width: 30px;
-        height: 30px;
-        background: #334155;
-        border: none;
-        border-radius: 6px;
-        color: #94a3b8;
-        cursor: pointer;
-        transition: all 0.15s;
-    }
-    .preview-close-btn:hover {
-        background: #ef4444;
-        color: white;
-    }
-    .preview-body {
-        background: #0f172a;
-        min-height: 300px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        overflow: auto;
-        max-height: calc(90vh - 60px);
-        position: relative;
-    }
-    .preview-loading {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        gap: 10px;
-        color: #64748b;
-    }
-    .preview-loading svg {
-        width: 32px;
-        height: 32px;
-        animation: spin 1s linear infinite;
-    }
-    @keyframes spin { to { transform: rotate(360deg); } }
-    .preview-loading p {
-        font-size: 12px;
-    }
-    /* PDF rendered inside custom container — no browser chrome */
-    .preview-body iframe {
-        width: 100%;
-        height: 70vh;
-        border: none;
-        display: block;
-        /* pointer-events trick to block right-click context menu on iframe */
-    }
-    .preview-body img {
-        max-width: 100%;
-        max-height: 70vh;
-        object-fit: contain;
-        display: block;
-        border-radius: 4px;
-        box-shadow: 0 4px 32px rgba(0,0,0,0.5);
-        margin: 16px;
-    }
-    .preview-unsupported {
+        color: #9ca3af;
         text-align: center;
-        color: #64748b;
-        padding: 40px;
-    }
-    .preview-unsupported svg {
-        width: 40px;
-        height: 40px;
-        margin: 0 auto 12px;
-        opacity: 0.4;
-    }
-    .preview-unsupported p {
-        font-size: 12px;
-    }
-    /* Overlay on top of iframe to block right-click / selection */
-    .iframe-overlay {
-        position: absolute;
-        inset: 0;
-        z-index: 1;
-        background: transparent;
-        pointer-events: none;
+        border-top: 1px solid #e5e7eb;
+        padding-top: 16px;
+        margin-top: 24px;
     }
 </style>
 
-@if(session('success'))
-    <div class="mb-3 bg-green-50 border-l-4 border-green-500 text-green-700 p-2 rounded text-xs">
-        {{ session('success') }}
+@php
+    /**
+     * Helper: resolve a user's signature to a base64 data URI.
+     * Handles paths that may or may not be prefixed with "public/".
+     */
+    function resolveSignatureBase64($user): ?string {
+        if (!$user || !$user->signature_path) {
+            return null;
+        }
+        // Strip any leading slashes and a leading "public/" segment
+        $clean = ltrim($user->signature_path, '/');
+        $clean = preg_replace('#^public/#', '', $clean);
+        $sigPath = storage_path('app/public/' . $clean);
+        if (file_exists($sigPath)) {
+            $mime = mime_content_type($sigPath);
+            $data = base64_encode(file_get_contents($sigPath));
+            return 'data:' . $mime . ';base64,' . $data;
+        }
+        return null;
+    }
+@endphp
+
+<div class="po-container">
+    {{-- Header with Action Buttons --}}
+    <div class="px-6 py-4 border-b border-gray-200 bg-gray-50 flex justify-between items-center no-print rounded-t-xl">
+        <div>
+            <h3 class="text-lg font-semibold text-gray-800">PO #{{ $purchaseOrder->po_number }}</h3>
+            <p class="text-xs text-gray-500">Created on {{ $purchaseOrder->created_at->format('F d, Y g:i A') }}</p>
+        </div>
+        <div class="flex gap-2">
+            <a href="{{ route('procurement.purchase-orders.index') }}" class="text-gray-600 hover:text-gray-800 flex items-center gap-1 text-sm">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
+                </svg>
+                Back
+            </a>
+
+            {{-- Share Dropdown --}}
+            <div class="relative inline-block text-left ml-2">
+                <button type="button" onclick="toggleShareMenu()" class="bg-green-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-green-700 share-btn flex items-center gap-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"/>
+                    </svg>
+                    Share
+                </button>
+                <div id="shareMenu" class="hidden absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 z-50">
+                    <div class="py-1">
+                        <button onclick="shareViaEmail()" class="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2">
+                            <svg class="w-4 h-4 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+                            </svg>
+                            Email via Gmail
+                        </button>
+                        <button onclick="shareViaWhatsApp()" class="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2">
+                            <svg class="w-4 h-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/>
+                            </svg>
+                            WhatsApp
+                        </button>
+                        <button onclick="downloadPDF()" class="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2">
+                            <svg class="w-4 h-4 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                            </svg>
+                            Download PDF
+                        </button>
+                        <button onclick="printPO()" class="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2">
+                            <svg class="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/>
+                            </svg>
+                            Print
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
-@endif
 
-@if(session('error'))
-    <div class="mb-3 bg-red-50 border-l-4 border-red-500 text-red-700 p-2 rounded text-xs">
-        {{ session('error') }}
-    </div>
-@endif
+    {{-- Printable Document Section --}}
+    <div id="print-section" class="p-8">
 
-<div class="space-y-4">
-
-    {{-- Header with Actions --}}
-    <div class="bg-white rounded-lg shadow-md overflow-hidden">
-        <div class="bg-gradient-to-r from-orange-700 to-orange-600 px-4 py-3 flex justify-between items-center">
+        {{-- Header with Logo and Title --}}
+        <div class="document-header flex justify-between items-start pb-4 mb-6">
             <div>
-                <h2 class="text-sm font-bold text-white">PO #{{ $purchaseOrder->po_number }}</h2>
-                <p class="text-orange-100 text-[11px] mt-0.5">Created: {{ $purchaseOrder->created_at->format('d M Y H:i') }}</p>
-            </div>
-            <div class="flex gap-2">
-                @if($purchaseOrder->status == 'draft')
-                    <a href="{{ route('procurement.purchase-orders.edit', $purchaseOrder->id) }}"
-                       class="px-2 py-1 bg-yellow-500 text-white rounded text-[11px] font-semibold hover:bg-yellow-600 transition">
-                        Edit
-                    </a>
-                    <form action="{{ route('procurement.purchase-orders.send', $purchaseOrder->id) }}" method="POST" class="inline">
-                        @csrf
-                        <button type="submit" class="px-2 py-1 bg-blue-600 text-white rounded text-[11px] font-semibold hover:bg-blue-700 transition">
-                            Send
-                        </button>
-                    </form>
+                @php
+                    $logo = \App\Models\BusinessSetting::getLogo();
+                    $companyName = \App\Models\BusinessSetting::get('company_name', 'Company Name');
+                    $companyAddress = \App\Models\BusinessSetting::get('address', '');
+                    $companyCity = \App\Models\BusinessSetting::get('city', '');
+                    $companyCountry = \App\Models\BusinessSetting::get('country', '');
+                    $companyPhone = \App\Models\BusinessSetting::get('phone', '');
+                    $companyEmail = \App\Models\BusinessSetting::get('email', '');
+
+                    $logoBase64 = null;
+                    if ($logo) {
+                        $logoPath = public_path(parse_url($logo, PHP_URL_PATH));
+                        if (file_exists($logoPath)) {
+                            $logoMime = mime_content_type($logoPath);
+                            $logoData = base64_encode(file_get_contents($logoPath));
+                            $logoBase64 = 'data:' . $logoMime . ';base64,' . $logoData;
+                        }
+                    }
+                @endphp
+                @if($logoBase64)
+                    <img src="{{ $logoBase64 }}" class="company-logo" alt="Logo">
+                @elseif($logo)
+                    <img src="{{ $logo }}" class="company-logo" alt="Logo">
+                @else
+                    <h2 class="text-2xl font-bold text-gray-800">{{ $companyName }}</h2>
                 @endif
-                @if(in_array($purchaseOrder->status, ['draft', 'sent']))
-                    <form action="{{ route('procurement.purchase-orders.destroy', $purchaseOrder->id) }}" method="POST" class="inline"
-                          onsubmit="return confirm('Delete this PO? Cannot be undone.')">
-                        @csrf
-                        @method('DELETE')
-                        <button type="submit" class="px-2 py-1 bg-red-600 text-white rounded text-[11px] font-semibold hover:bg-red-700 transition">
-                            Delete
-                        </button>
-                    </form>
-                @endif
-                <a href="{{ route('procurement.purchase-orders.index') }}"
-                   class="px-2 py-1 bg-gray-600 text-white rounded text-[11px] font-semibold hover:bg-gray-700 transition">
-                    Back
-                </a>
+                <div class="text-xs text-gray-500 mt-2">
+                    @if($companyAddress)<p>{{ $companyAddress }}</p>@endif
+                    @if($companyCity || $companyCountry)<p>{{ $companyCity }}{{ $companyCity && $companyCountry ? ', ' : '' }}{{ $companyCountry }}</p>@endif
+                    @if($companyPhone)<p>Tel: {{ $companyPhone }}</p>@endif
+                    @if($companyEmail)<p>Email: {{ $companyEmail }}</p>@endif
+                </div>
             </div>
-        </div>
-    </div>
-
-    {{-- Status Banner --}}
-    <div class="bg-white rounded-lg shadow-md p-3">
-        <div class="flex items-center justify-between">
-            <div class="flex items-center gap-2">
-                <span class="text-[11px] font-semibold text-gray-500">Status:</span>
-                <span class="status-badge status-{{ str_replace('_', '-', $purchaseOrder->status) }}">
-                    {{ ucfirst(str_replace('_', ' ', $purchaseOrder->status)) }}
-                </span>
-            </div>
-            <span class="text-[10px] text-gray-400">Updated: {{ $purchaseOrder->updated_at->diffForHumans() }}</span>
-        </div>
-    </div>
-
-    {{-- Main Content Grid --}}
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        {{-- Vendor Information --}}
-        <div class="bg-white rounded-lg shadow-md overflow-hidden lg:col-span-2">
-            <div class="bg-gradient-to-r from-orange-600 to-orange-500 px-3 py-2">
-                <h3 class="text-xs font-semibold text-white flex items-center gap-1">
-                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/>
-                    </svg>
-                    Vendor
-                </h3>
-            </div>
-            <div class="p-3 space-y-2">
-                <div class="flex">
-                    <span class="info-label">Name:</span>
-                    <span class="text-xs text-gray-700">{{ $purchaseOrder->vendor->name ?? 'N/A' }}</span>
-                </div>
-                <div class="flex">
-                    <span class="info-label">Contact:</span>
-                    <span class="text-xs text-gray-700">{{ $purchaseOrder->vendor->contact_person ?? 'N/A' }}</span>
-                </div>
-                <div class="flex">
-                    <span class="info-label">Phone:</span>
-                    <span class="text-xs text-gray-700">{{ $purchaseOrder->vendor->phone ?? 'N/A' }}</span>
-                </div>
-                <div class="flex">
-                    <span class="info-label">Email:</span>
-                    <span class="text-xs text-blue-600">{{ $purchaseOrder->vendor->email ?? 'N/A' }}</span>
-                </div>
-                <div class="flex">
-                    <span class="info-label">Address:</span>
-                    <span class="text-xs text-gray-700">{{ $purchaseOrder->vendor->address ?? 'N/A' }}</span>
+            <div class="text-right">
+                <h1 class="text-2xl font-bold po-title">PURCHASE ORDER</h1>
+                <p class="text-sm font-mono text-gray-600 mt-1">{{ $purchaseOrder->po_number }}</p>
+                <div class="mt-2">
+                    @php
+                        $statusClass = 'status-draft';
+                        $statusText = ucfirst($purchaseOrder->status);
+                        if ($purchaseOrder->status == 'approved') { $statusClass = 'status-approved'; $statusText = 'APPROVED'; }
+                        elseif ($purchaseOrder->status == 'sent') { $statusClass = 'status-sent'; $statusText = 'SENT TO VENDOR'; }
+                        elseif ($purchaseOrder->status == 'fully_received') { $statusClass = 'status-received'; $statusText = 'FULLY RECEIVED'; }
+                        elseif ($purchaseOrder->status == 'partially_received') { $statusClass = 'status-received'; $statusText = 'PARTIALLY RECEIVED'; }
+                        elseif ($purchaseOrder->status == 'cancelled') { $statusClass = 'status-cancelled'; $statusText = 'CANCELLED'; }
+                    @endphp
+                    <span class="status-badge {{ $statusClass }}">{{ $statusText }}</span>
                 </div>
             </div>
         </div>
 
-        {{-- Order Summary --}}
-        <div class="bg-white rounded-lg shadow-md overflow-hidden">
-            <div class="bg-gradient-to-r from-orange-600 to-orange-500 px-3 py-2">
-                <h3 class="text-xs font-semibold text-white flex items-center gap-1">
-                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                    </svg>
-                    Summary
-                </h3>
+        {{-- Vendor & PO Information --}}
+        <div class="grid grid-cols-2 gap-8 mb-6">
+            <div>
+                <div class="info-label mb-2">VENDOR INFORMATION</div>
+                <div class="bg-gray-50 p-3 rounded-lg">
+                    <p class="font-semibold text-gray-800">{{ $purchaseOrder->vendor->name ?? 'N/A' }}</p>
+                    <p class="text-sm text-gray-600">{{ $purchaseOrder->vendor->contact_person ?? '' }}</p>
+                    <p class="text-sm text-gray-600">{{ $purchaseOrder->vendor->phone ?? '' }}</p>
+                    <p class="text-sm text-gray-600">{{ $purchaseOrder->vendor->email ?? '' }}</p>
+                    <p class="text-sm text-gray-600">{{ $purchaseOrder->vendor->address ?? '' }}</p>
+                </div>
             </div>
-            <div class="p-3 space-y-2">
-                <div class="flex justify-between">
-                    <span class="text-[11px] text-gray-500">Subtotal:</span>
-                    <span class="text-[11px] font-mono">UGX {{ number_format($purchaseOrder->subtotal, 0) }}</span>
-                </div>
-                <div class="flex justify-between">
-                    <span class="text-[11px] text-gray-500">Tax:</span>
-                    <span class="text-[11px] font-mono">UGX {{ number_format($purchaseOrder->tax_amount, 0) }}</span>
-                </div>
-                <div class="border-t pt-2 flex justify-between">
-                    <span class="text-xs font-bold text-gray-700">Total:</span>
-                    <span class="text-sm font-bold text-orange-600">UGX {{ number_format($purchaseOrder->total_amount, 0) }}</span>
+            <div>
+                <div class="info-label mb-2">ORDER DETAILS</div>
+                <div class="bg-gray-50 p-3 rounded-lg space-y-1">
+                    <div class="flex justify-between">
+                        <span class="text-sm text-gray-500">PO Date:</span>
+                        <span class="text-sm font-medium">{{ $purchaseOrder->po_date ? \Carbon\Carbon::parse($purchaseOrder->po_date)->format('d M Y') : '—' }}</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-sm text-gray-500">Expected Delivery:</span>
+                        <span class="text-sm font-medium">{{ $purchaseOrder->expected_delivery_date ? \Carbon\Carbon::parse($purchaseOrder->expected_delivery_date)->format('d M Y') : '—' }}</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-sm text-gray-500">Payment Terms:</span>
+                        <span class="text-sm font-medium">{{ ucfirst(str_replace('_', ' ', $purchaseOrder->payment_method ?? 'Cash')) }}</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-sm text-gray-500">PO Type:</span>
+                        <span class="text-sm font-medium">
+                            <span class="px-2 py-0.5 rounded text-xs {{ $purchaseOrder->type == 'emergency' ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700' }}">
+                                {{ $purchaseOrder->type == 'emergency' ? 'EMERGENCY' : 'NORMAL' }}
+                            </span>
+                        </span>
+                    </div>
                 </div>
             </div>
         </div>
-    </div>
 
-    {{-- Delivery Details --}}
-    <div class="bg-white rounded-lg shadow-md overflow-hidden">
-        <div class="bg-gradient-to-r from-orange-600 to-orange-500 px-3 py-2">
-            <h3 class="text-xs font-semibold text-white flex items-center gap-1">
-                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/>
-                </svg>
-                Delivery
-            </h3>
-        </div>
-        <div class="p-3">
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
-                <div>
-                    <span class="text-[10px] font-semibold text-gray-500 block">Expected Delivery</span>
-                    <span class="text-xs text-gray-700">{{ $purchaseOrder->expected_delivery_date ? date('d M Y', strtotime($purchaseOrder->expected_delivery_date)) : '—' }}</span>
-                </div>
-                <div>
-                    <span class="text-[10px] font-semibold text-gray-500 block">Address</span>
-                    <span class="text-xs text-gray-700">{{ $purchaseOrder->delivery_address ?: '—' }}</span>
-                </div>
-                <div>
-                    <span class="text-[10px] font-semibold text-gray-500 block">Terms</span>
-                    <span class="text-xs text-gray-700">{{ $purchaseOrder->delivery_terms ?: '—' }}</span>
-                </div>
+        {{-- Delivery Address --}}
+        @if($purchaseOrder->delivery_address)
+        <div class="mb-6">
+            <div class="info-label mb-2">DELIVERY ADDRESS</div>
+            <div class="bg-gray-50 p-3 rounded-lg">
+                <p class="text-sm text-gray-700">{{ $purchaseOrder->delivery_address }}</p>
             </div>
-            @if($purchaseOrder->notes)
-                <div class="mt-2 pt-2 border-t">
-                    <span class="text-[10px] font-semibold text-gray-500 block">Notes</span>
-                    <span class="text-xs text-gray-700">{{ $purchaseOrder->notes }}</span>
-                </div>
-            @endif
         </div>
-    </div>
+        @endif
 
-    {{-- Items Table --}}
-    <div class="bg-white rounded-lg shadow-md overflow-hidden">
-        <div class="bg-gradient-to-r from-orange-600 to-orange-500 px-3 py-2">
-            <h3 class="text-xs font-semibold text-white flex items-center gap-1">
-                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
-                </svg>
-                Items
-            </h3>
-        </div>
-        <div class="p-3 overflow-x-auto">
-            <table class="w-full border border-gray-200 text-xs">
-                <thead class="bg-gray-50">
-                    <tr>
-                        <th class="p-2 border text-left">Item</th>
-                        <th class="p-2 border text-center w-20">Qty</th>
-                        <th class="p-2 border text-right w-28">Unit Cost</th>
-                        <th class="p-2 border text-right w-28">Total</th>
-                        <th class="p-2 border text-left">Notes</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @forelse($purchaseOrder->items as $item)
-                        <tr class="border-b hover:bg-gray-50">
-                            <td class="p-2 border">
-                                <span class="font-semibold">{{ $item->inventoryItem->name ?? 'N/A' }}</span>
+        {{-- Items Table --}}
+        <div class="mb-6">
+            <div class="info-label mb-2">ORDER ITEMS</div>
+            <div class="overflow-x-auto border border-gray-200 rounded-lg">
+                <table class="w-full">
+                    <thead class="bg-gray-100">
+                        <tr>
+                            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600">#</th>
+                            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600">Item Description</th>
+                            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600">Unit</th>
+                            <th class="px-4 py-3 text-right text-xs font-semibold text-gray-600">Quantity</th>
+                            <th class="px-4 py-3 text-right text-xs font-semibold text-gray-600">Unit Price (UGX)</th>
+                            <th class="px-4 py-3 text-right text-xs font-semibold text-gray-600">Total (UGX)</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-200">
+                        @php $subtotal = 0; $counter = 1; @endphp
+                        @foreach($purchaseOrder->items as $item)
+                        @php
+                            $total = $item->quantity_ordered * $item->unit_cost;
+                            $subtotal += $total;
+                        @endphp
+                        <tr class="hover:bg-gray-50">
+                            <td class="px-4 py-2 text-sm text-gray-500">{{ $counter++ }}</td>
+                            <td class="px-4 py-2 text-sm text-gray-800">
+                                {{ $item->inventoryItem ? $item->inventoryItem->name : 'Item not found' }}
                                 @if($item->inventoryItem && $item->inventoryItem->item_code)
-                                    <br><span class="text-[10px] text-gray-400">Code: {{ $item->inventoryItem->item_code }}</span>
+                                    <br><span class="text-xs text-gray-400">Code: {{ $item->inventoryItem->item_code }}</span>
+                                @endif
+                                @if($item->notes)
+                                    <br><span class="text-xs text-gray-400">Note: {{ $item->notes }}</span>
                                 @endif
                             </td>
-                            <td class="p-2 border text-center">{{ number_format($item->quantity_ordered, 2) }}</td>
-                            <td class="p-2 border text-right">UGX {{ number_format($item->unit_cost, 0) }}</td>
-                            <td class="p-2 border text-right font-semibold">UGX {{ number_format($item->total_cost, 0) }}</td>
-                            <td class="p-2 border text-gray-500">{{ $item->notes ?: '—' }}</td>
+                            <td class="px-4 py-2 text-sm text-gray-600">{{ $item->inventoryItem->base_unit ?? 'pcs' }}</td>
+                            <td class="px-4 py-2 text-sm text-right">{{ number_format($item->quantity_ordered, 2) }}</td>
+                            <td class="px-4 py-2 text-sm text-right">{{ number_format($item->unit_cost, 2) }}</td>
+                            <td class="px-4 py-2 text-sm text-right font-semibold">{{ number_format($total, 2) }}</td>
                         </tr>
-                    @empty
+                        @endforeach
+                    </tbody>
+                    <tfoot class="bg-gray-50 border-t">
                         <tr>
-                            <td colspan="5" class="p-4 text-center text-gray-400">No items found</td>
+                            <td colspan="5" class="px-4 py-2 text-right text-sm font-semibold">Subtotal:</td>
+                            <td class="px-4 py-2 text-right text-sm">{{ number_format($subtotal, 2) }}</td>
                         </tr>
-                    @endforelse
-                </tbody>
-                <tfoot class="bg-gray-50">
-                    <tr>
-                        <td colspan="3" class="p-2 border text-right font-bold">Grand Total:</td>
-                        <td class="p-2 border text-right font-bold text-orange-600">UGX {{ number_format($purchaseOrder->total_amount, 0) }}</td>
-                        <td class="p-2 border"></td>
-                    </tr>
-                </tfoot>
-            </table>
-        </div>
-    </div>
-
-    {{-- Attached Documents Section --}}
-    <div class="bg-white rounded-lg shadow-md overflow-hidden">
-        <div class="bg-gradient-to-r from-orange-600 to-orange-500 px-3 py-2 flex justify-between items-center">
-            <div class="flex items-center gap-1">
-                <svg class="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
-                </svg>
-                <h3 class="text-xs font-semibold text-white">Documents</h3>
+                        @if($purchaseOrder->vat_rate > 0)
+                        <tr>
+                            <td colspan="5" class="px-4 py-2 text-right text-sm">VAT ({{ $purchaseOrder->vat_rate }}%):</td>
+                            <td class="px-4 py-2 text-right text-sm">{{ number_format($purchaseOrder->vat_amount, 2) }}</td>
+                        </tr>
+                        @endif
+                        <tr class="bg-blue-50">
+                            <td colspan="5" class="px-4 py-2 text-right text-sm font-bold">TOTAL:</td>
+                            <td class="px-4 py-2 text-right text-sm font-bold text-blue-700">UGX {{ number_format($purchaseOrder->total_amount, 2) }}</td>
+                        </tr>
+                    </tfoot>
+                </table>
             </div>
-            @if(Auth::user()->is_super_admin || Auth::user()->can('upload_documents'))
-            <button type="button" onclick="openDocUploadModal({{ $purchaseOrder->id }})"
-                    class="attach-btn text-[10px] py-0.5">
-                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+        </div>
+
+        {{-- Terms & Notes --}}
+        @if($purchaseOrder->notes || $purchaseOrder->delivery_terms)
+        <div class="mb-6 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+            <div class="flex items-start gap-2">
+                <svg class="w-5 h-5 text-yellow-600 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
                 </svg>
-                Attach
-            </button>
-            @endif
-        </div>
-        <div class="p-3">
-            @php
-             $docs = \App\Models\Document::where('purchase_order_id', $purchaseOrder->id)->get();
-            @endphp
-            @if($docs->count() > 0)
-                <div class="space-y-2">
-                    @foreach($docs as $doc)
-                        <div class="flex items-center justify-between p-2 bg-gray-50 rounded-lg border border-gray-200">
-                            <div class="flex items-center gap-2">
-                                <div class="w-7 h-7 rounded bg-purple-100 flex items-center justify-center">
-                                    <svg class="w-3.5 h-3.5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" stroke-width="2"/>
-                                    </svg>
-                                </div>
-                                <div>
-                                    <p class="text-xs font-medium text-gray-800">{{ $doc->original_name }}</p>
-                                    <p class="text-[10px] text-gray-400">
-                                        {{ number_format($doc->file_size / 1024, 2) }} KB
-                                        @if($doc->document_type) · {{ $doc->document_type }} @endif
-                                    </p>
-                                </div>
-                            </div>
-                            <div class="flex gap-1">
-                                <button type="button" onclick="viewDocument({{ $doc->id }}, '{{ $doc->original_name }}', '{{ $doc->mime_type }}')"
-                                        class="p-1 text-blue-600 hover:bg-blue-50 rounded" title="View">
-                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
-                                    </svg>
-                                </button>
-                                <a href="{{ route('procurement.purchase-orders.download-document', $doc->id) }}"
-                                   class="p-1 text-green-600 hover:bg-green-50 rounded" title="Download">
-                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
-                                    </svg>
-                                </a>
-                                @if(Auth::user()->is_super_admin || Auth::user()->can('delete_documents'))
-                                <form action="{{ route('procurement.purchase-orders.delete-document', $doc->id) }}" method="POST" class="inline" onsubmit="return confirm('Delete this document?')">
-                                    @csrf
-                                    @method('DELETE')
-                                    <button type="submit" class="p-1 text-red-600 hover:bg-red-50 rounded" title="Delete">
-                                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
-                                        </svg>
-                                    </button>
-                                </form>
-                                @endif
-                            </div>
-                        </div>
-                    @endforeach
-                </div>
-            @else
-                <p class="text-center text-gray-400 text-[11px] py-3">No documents attached</p>
-            @endif
-        </div>
-    </div>
-</div>
-
-{{-- Document Upload Modal --}}
-<div id="docUploadModal" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 hidden items-center justify-center">
-    <div class="bg-white rounded-lg w-full max-w-md p-4 shadow-xl">
-        <div class="flex justify-between items-center mb-3">
-            <h3 class="text-sm font-bold text-gray-800">Attach Document to PO</h3>
-            <button type="button" onclick="closeDocUploadModal()" class="text-gray-400 hover:text-gray-600">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-                </svg>
-            </button>
-        </div>
-
-        <form id="docUploadForm" method="POST" enctype="multipart/form-data">
-            @csrf
-            <input type="hidden" name="po_id" id="uploadPoId">
-
-            <div class="mb-3">
-                <label class="block text-xs font-semibold text-gray-600 mb-1">Select Document</label>
-                <div class="border-2 border-dashed border-gray-300 rounded-lg p-3 text-center hover:border-orange-500 transition cursor-pointer" id="uploadDropzone">
-                    <svg class="mx-auto h-8 w-8 text-gray-400" stroke="currentColor" fill="none" viewBox="0 0 48 48">
-                        <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m-4-4l-4 4m6-20h2m-6 0h.01M12 40h24" stroke-width="2"/>
-                    </svg>
-                    <p class="text-xs text-gray-500 mt-1">Click or drag PDF/JPG/PNG (max 5MB)</p>
-                    <input type="file" name="document" id="docFile" class="hidden" accept=".pdf,.jpg,.jpeg,.png">
-                </div>
-                <div id="filePreviewUpload" class="hidden mt-2 p-2 bg-gray-50 rounded flex items-center justify-between">
-                    <span id="uploadFileName" class="text-xs text-gray-700"></span>
-                    <button type="button" onclick="clearSelectedFile()" class="text-red-500 text-xs">Remove</button>
+                <div>
+                    @if($purchaseOrder->notes)
+                        <p class="text-sm text-yellow-800"><strong>Notes:</strong> {{ $purchaseOrder->notes }}</p>
+                    @endif
+                    @if($purchaseOrder->delivery_terms)
+                        <p class="text-sm text-yellow-800 mt-1"><strong>Delivery Terms:</strong> {{ $purchaseOrder->delivery_terms }}</p>
+                    @endif
                 </div>
             </div>
+        </div>
+        @endif
 
-            <div class="mb-3">
-                <label class="block text-xs font-semibold text-gray-600 mb-1">Description</label>
-                <input type="text" name="description" class="w-full px-2 py-1 text-xs border border-gray-300 rounded-md" placeholder="e.g., Signed PO">
-            </div>
+        {{-- Signatures Section --}}
+        <div class="mt-6 pt-4 border-t">
+            <div class="grid grid-cols-2 gap-8">
 
-            <div class="flex gap-2">
-                <button type="button" onclick="closeDocUploadModal()" class="flex-1 px-2 py-1 bg-gray-200 text-gray-700 rounded-md text-xs">Cancel</button>
-                <button type="submit" class="flex-1 px-2 py-1 bg-orange-600 text-white rounded-md text-xs">Upload</button>
+                {{-- Prepared By --}}
+                <div class="text-center">
+                    <p class="text-sm text-gray-500 mb-2">Prepared By:</p>
+                    @php
+                        $preparedBy          = $purchaseOrder->creator;
+                        $preparedByName      = $preparedBy
+                            ? trim(($preparedBy->first_name ?? '') . ' ' . ($preparedBy->last_name ?? ''))
+                            : '';
+                        $preparedBySignature = resolveSignatureBase64($preparedBy);
+                        $preparedBySigUrl    = $preparedBy?->signature_url ?? null;
+                    @endphp
+
+                    @if($preparedBySignature)
+                        <img src="{{ $preparedBySignature }}" class="signature-img mx-auto" alt="Signature">
+                    @elseif($preparedBySigUrl)
+                        <img src="{{ $preparedBySigUrl }}" class="signature-img mx-auto" alt="Signature">
+                    @else
+                        <div class="h-12"></div>
+                        <p class="text-xs text-gray-400 mt-2">No signature on file</p>
+                    @endif
+                    <div class="border-t border-gray-300 mt-2 pt-1 w-40 mx-auto"></div>
+                    <p class="text-sm text-gray-600 mt-1">{{ $preparedByName ?: '—' }}</p>
+                    <p class="text-xs text-gray-400">{{ $purchaseOrder->created_at ? $purchaseOrder->created_at->format('d M Y') : '' }}</p>
+                </div>
+
+                {{-- Approved By (Director) --}}
+                {{--
+                    The PO is converted from an LPO. The director who approved
+                    the LPO is the real approver. We resolve in this priority:
+                    1. purchaseOrder->approved_by  (set if PO itself was approved)
+                    2. purchaseOrder->lpo->approved_by  (director who approved the source LPO)
+                --}}
+                <div class="text-center">
+                    <p class="text-sm text-gray-500 mb-2">Approved By (Director):</p>
+                    @php
+                        // Priority 1: PO has its own approved_by
+                        if ($purchaseOrder->approved_by && $purchaseOrder->approvedBy) {
+                            $approver    = $purchaseOrder->approvedBy;
+                            $approvedAt  = $purchaseOrder->approved_at;
+                        }
+                        // Priority 2: Pull approver from the source LPO
+                        elseif ($purchaseOrder->lpo && $purchaseOrder->lpo->approved_by && $purchaseOrder->lpo->approvedBy) {
+                            $approver    = $purchaseOrder->lpo->approvedBy;
+                            $approvedAt  = $purchaseOrder->lpo->approved_at;
+                        }
+                        else {
+                            $approver    = null;
+                            $approvedAt  = null;
+                        }
+
+                        $approverName  = $approver
+                            ? trim(($approver->first_name ?? '') . ' ' . ($approver->last_name ?? ''))
+                            : '';
+                        $approverSig   = resolveSignatureBase64($approver);
+                        $approverUrl   = $approver?->signature_url ?? null;
+                    @endphp
+
+                    @if($purchaseOrder->status === 'cancelled')
+                        <div class="h-12"></div>
+                        <div class="border-t border-gray-300 mt-2 pt-1 w-40 mx-auto"></div>
+                        <p class="text-sm text-red-600 mt-1">CANCELLED</p>
+                    @elseif($approver)
+                        @if($approverSig)
+                            <img src="{{ $approverSig }}" class="signature-img mx-auto" alt="Signature">
+                        @elseif($approverUrl)
+                            <img src="{{ $approverUrl }}" class="signature-img mx-auto" alt="Signature">
+                        @else
+                            <div class="h-12"></div>
+                            <p class="text-xs text-gray-400 mt-2">No signature on file</p>
+                        @endif
+                        <div class="border-t border-gray-300 mt-2 pt-1 w-40 mx-auto"></div>
+                        <p class="text-sm text-gray-600 mt-1">{{ $approverName }}</p>
+                        <p class="text-xs text-gray-400">{{ $approvedAt ? \Carbon\Carbon::parse($approvedAt)->format('d M Y') : '' }}</p>
+                    @else
+                        <div class="h-12"></div>
+                        <div class="border-t border-gray-300 mt-2 pt-1 w-40 mx-auto"></div>
+                        <p class="text-sm text-gray-400 mt-1">Not Approved</p>
+                    @endif
+                </div>
+
             </div>
-        </form>
+        </div>
+        {{-- ═══════════════════════════════════════════════════ --}}
+
+        {{-- Footer --}}
+        <div class="footer-note">
+            <p>Computer generated document. Valid without signature.</p>
+            <p class="mt-1">{{ $companyName }}{{ $companyPhone ? ' — Tel: ' . $companyPhone : '' }}</p>
+        </div>
     </div>
 </div>
 
-{{-- Custom Document Preview Modal --}}
-<div id="docPreviewModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-[100] hidden items-center justify-center">
-    <div class="bg-white rounded-xl w-full max-w-4xl shadow-2xl overflow-hidden flex flex-col" style="max-height: 90vh;">
-
-        {{-- Custom Toolbar (no browser chrome inside) --}}
-        <div class="preview-toolbar">
-            <div class="preview-toolbar-left">
-                <div class="preview-doc-icon">
-                    <svg id="previewDocTypeIcon" class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
-                    </svg>
-                </div>
-                <div style="min-width:0">
-                    <div id="previewDocTitle" class="preview-doc-title">Document Preview</div>
-                    <div id="previewDocMeta" class="preview-doc-meta">Loading...</div>
-                </div>
-            </div>
-            <div class="preview-toolbar-right">
-                <button type="button" onclick="closeDocPreviewModal()" class="preview-close-btn" title="Close">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-                    </svg>
-                </button>
-            </div>
-        </div>
-
-        {{-- Preview Body --}}
-        <div id="previewDocContent" class="preview-body">
-            <div class="preview-loading">
-                <svg fill="none" viewBox="0 0 24 24">
-                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
-                </svg>
-                <p>Loading preview...</p>
-            </div>
-        </div>
-
-    </div>
-</div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 
 <script>
-function openDocUploadModal(poId) {
-    document.getElementById('uploadPoId').value = poId;
-    document.getElementById('docUploadModal').classList.remove('hidden');
-    document.getElementById('docUploadModal').style.display = 'flex';
-}
-
-function closeDocUploadModal() {
-    document.getElementById('docUploadModal').classList.add('hidden');
-    document.getElementById('docUploadModal').style.display = 'none';
-    resetUploadForm();
-}
-
-function resetUploadForm() {
-    selectedDocumentFile = null;
-    document.getElementById('docFile').value = '';
-    document.getElementById('filePreviewUpload').classList.add('hidden');
-}
-
-let selectedDocumentFile = null;
-const dropzone = document.getElementById('uploadDropzone');
-const fileInput = document.getElementById('docFile');
-
-if (dropzone) {
-    dropzone.addEventListener('click', () => fileInput.click());
-    dropzone.addEventListener('dragover', (e) => {
-        e.preventDefault();
-        dropzone.classList.add('border-orange-500', 'bg-orange-50');
-    });
-    dropzone.addEventListener('dragleave', () => {
-        dropzone.classList.remove('border-orange-500', 'bg-orange-50');
-    });
-    dropzone.addEventListener('drop', (e) => {
-        e.preventDefault();
-        dropzone.classList.remove('border-orange-500', 'bg-orange-50');
-        const file = e.dataTransfer.files[0];
-        if (file) handleFileSelect(file);
-    });
-}
-
-fileInput.addEventListener('change', function() {
-    if (this.files[0]) handleFileSelect(this.files[0]);
-});
-
-function handleFileSelect(file) {
-    if (file.size > 5 * 1024 * 1024) {
-        alert('File size must be less than 5MB');
-        return;
-    }
-    const allowed = ['application/pdf', 'image/jpeg', 'image/png', 'image/jpg'];
-    if (!allowed.includes(file.type)) {
-        alert('Only PDF, JPG, PNG files allowed');
-        return;
-    }
-    selectedDocumentFile = file;
-    document.getElementById('uploadFileName').innerText = file.name;
-    document.getElementById('filePreviewUpload').classList.remove('hidden');
-}
-
-function clearSelectedFile() {
-    selectedDocumentFile = null;
-    fileInput.value = '';
-    document.getElementById('filePreviewUpload').classList.add('hidden');
-}
-
-document.getElementById('docUploadForm').addEventListener('submit', async function(e) {
-    e.preventDefault();
-    if (!selectedDocumentFile) {
-        alert('Please select a file to upload');
-        return;
+    // Toggle Share Menu
+    function toggleShareMenu() {
+        const menu = document.getElementById('shareMenu');
+        menu.classList.toggle('hidden');
     }
 
-    const formData = new FormData();
-    formData.append('document', selectedDocumentFile);
-    formData.append('po_id', document.getElementById('uploadPoId').value);
-    formData.append('description', document.querySelector('#docUploadForm input[name="description"]').value);
-    formData.append('_token', document.querySelector('meta[name="csrf-token"]').getAttribute('content'));
-
-    try {
-        const response = await fetch('{{ route("procurement.purchase-orders.attach-document") }}', {
-            method: 'POST',
-            body: formData
-        });
-        const data = await response.json();
-        if (data.success) {
-            alert('Document attached successfully!');
-            closeDocUploadModal();
-            location.reload();
-        } else {
-            alert('Error: ' + data.message);
+    // Close menu when clicking outside
+    document.addEventListener('click', function(event) {
+        const menu = document.getElementById('shareMenu');
+        const button = event.target.closest('button');
+        if (menu && !menu.contains(event.target) && (!button || !button.innerHTML.includes('Share'))) {
+            menu.classList.add('hidden');
         }
-    } catch (err) {
-        alert('Upload failed: ' + err.message);
+    });
+
+    // Generate PDF Blob for sharing
+    async function generatePDFBlob() {
+        const element = document.getElementById('print-section');
+        const opt = {
+            margin: [0.5, 0.5, 0.5, 0.5],
+            filename: 'PO-{{ $purchaseOrder->po_number }}.pdf',
+            image: { type: 'jpeg', quality: 0.98 },
+            html2canvas: { scale: 2, useCORS: true, letterRendering: true },
+            jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' }
+        };
+        const worker = html2pdf().set(opt).from(element);
+        const pdfBlob = await worker.outputPdf('blob');
+        return pdfBlob;
     }
-});
 
-function viewDocument(docId, filename, mimeType) {
-    const modal = document.getElementById('docPreviewModal');
-    const previewContent = document.getElementById('previewDocContent');
-    const previewTitle = document.getElementById('previewDocTitle');
-    const previewMeta = document.getElementById('previewDocMeta');
-
-    // Set toolbar info
-    previewTitle.innerText = filename;
-    previewMeta.innerText = mimeType === 'application/pdf' ? 'PDF Document' : 'Image';
-
-    // Show modal
-    modal.classList.remove('hidden');
-    modal.style.display = 'flex';
-
-    // Show loading state
-    previewContent.innerHTML = `
-        <div class="preview-loading">
-            <svg fill="none" viewBox="0 0 24 24">
-                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
-            </svg>
-            <p>Loading preview...</p>
-        </div>`;
-
-    const previewUrl = `/procurement/purchase-orders/preview-document/${docId}`;
-
-    if (mimeType === 'application/pdf') {
-        // Use iframe with toolbar=0 to suppress browser PDF controls (download/print buttons)
-        const iframe = document.createElement('iframe');
-        iframe.src = previewUrl + '#toolbar=0&navpanes=0&scrollbar=0&view=FitH';
-        iframe.style.cssText = 'width:100%;height:70vh;border:none;display:block;';
-        // Disable right-click inside iframe to prevent "Save as"
-        iframe.onload = function() {
-            try {
-                iframe.contentDocument.addEventListener('contextmenu', e => e.preventDefault());
-            } catch(e) {
-                // Cross-origin; silently ignore
-            }
-        };
-        previewContent.innerHTML = '';
-        previewContent.style.padding = '0';
-        previewContent.appendChild(iframe);
-    } else if (mimeType && mimeType.startsWith('image/')) {
-        const img = new Image();
-        img.onload = () => {
-            previewContent.innerHTML = '';
-            previewContent.style.padding = '16px';
-            img.style.cssText = 'max-width:100%;max-height:70vh;object-fit:contain;border-radius:6px;box-shadow:0 4px 32px rgba(0,0,0,0.5);display:block;';
-            // Disable right-click on image to prevent "Save image as"
-            img.addEventListener('contextmenu', e => e.preventDefault());
-            img.draggable = false;
-            previewContent.appendChild(img);
-        };
-        img.onerror = () => {
-            previewContent.innerHTML = `
-                <div class="preview-unsupported">
-                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                    </svg>
-                    <p>Failed to load image.</p>
-                </div>`;
-        };
-        img.src = previewUrl;
-    } else {
-        previewContent.innerHTML = `
-            <div class="preview-unsupported">
-                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
-                </svg>
-                <p>Preview not available for this file type.</p>
-            </div>`;
+    // Share via Email (Gmail)
+    async function shareViaEmail() {
+        const pdfBlob = await generatePDFBlob();
+        const pdfUrl = URL.createObjectURL(pdfBlob);
+        const subject = encodeURIComponent('Purchase Order {{ $purchaseOrder->po_number }}');
+        const body = encodeURIComponent(`Dear Sir/Madam,\n\nPlease find attached Purchase Order {{ $purchaseOrder->po_number }}.\n\nBest regards,\n{{ $companyName }}`);
+        window.open(`https://mail.google.com/mail/?view=cm&fs=1&su=${subject}&body=${body}`, '_blank');
+        setTimeout(() => {
+            const link = document.createElement('a');
+            link.href = pdfUrl;
+            link.download = 'PO-{{ $purchaseOrder->po_number }}.pdf';
+            link.click();
+            URL.revokeObjectURL(pdfUrl);
+        }, 500);
+        alert('PDF downloaded. Please attach it to your email.');
     }
-}
 
-function closeDocPreviewModal() {
-    const modal = document.getElementById('docPreviewModal');
-    modal.classList.add('hidden');
-    modal.style.display = 'none';
-    // Clear content so iframe stops loading
-    document.getElementById('previewDocContent').innerHTML = '';
-}
+    // Share via WhatsApp
+    async function shareViaWhatsApp() {
+        const pdfBlob = await generatePDFBlob();
+        const pdfUrl = URL.createObjectURL(pdfBlob);
+        const text = encodeURIComponent(`Purchase Order {{ $purchaseOrder->po_number }}\nTotal: UGX {{ number_format($purchaseOrder->total_amount, 0) }}\nVendor: {{ $purchaseOrder->vendor->name ?? 'N/A' }}\n\nPDF attached below.`);
+        window.open(`https://wa.me/?text=${text}`, '_blank');
+        setTimeout(() => {
+            const link = document.createElement('a');
+            link.href = pdfUrl;
+            link.download = 'PO-{{ $purchaseOrder->po_number }}.pdf';
+            link.click();
+            URL.revokeObjectURL(pdfUrl);
+        }, 500);
+        alert('PDF downloaded. Please attach it to your WhatsApp message.');
+    }
 
-// Close modal on backdrop click
-document.getElementById('docPreviewModal').addEventListener('click', function(e) {
-    if (e.target === this) closeDocPreviewModal();
-});
+    // Download PDF
+    function downloadPDF() {
+        const element = document.getElementById('print-section');
+        const opt = {
+            margin: [0.5, 0.5, 0.5, 0.5],
+            filename: 'PO-{{ $purchaseOrder->po_number }}.pdf',
+            image: { type: 'jpeg', quality: 0.98 },
+            html2canvas: { scale: 2, useCORS: true, letterRendering: true },
+            jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' }
+        };
+        html2pdf().set(opt).from(element).save();
+    }
+
+    // Print Function
+    function printPO() {
+        const printContents = document.getElementById('print-section').innerHTML;
+        const originalTitle = document.title;
+        document.title = 'PO {{ $purchaseOrder->po_number }}';
+        const printWindow = window.open('', '_blank');
+        printWindow.document.write(`
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <title>PO {{ $purchaseOrder->po_number }}</title>
+                <style>
+                    body { padding: 20px; font-family: Arial, sans-serif; font-size: 12px; }
+                    table { width: 100%; border-collapse: collapse; }
+                    th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+                    th { background-color: #f2f2f2; }
+                    .company-logo { max-height: 50px; width: auto; }
+                    .signature-img { max-height: 60px; max-width: 180px; }
+                    .status-badge { padding: 2px 8px; border-radius: 20px; font-size: 10px; }
+                    @media print { body { margin: 0; padding: 20px; } }
+                </style>
+            </head>
+            <body>${printContents}</body>
+            </html>
+        `);
+        printWindow.document.close();
+        printWindow.print();
+        document.title = originalTitle;
+    }
 </script>
+
 @endsection

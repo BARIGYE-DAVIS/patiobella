@@ -5,9 +5,45 @@
 @section('page-title', 'Requisition Details')
 
 @section('content')
+<style>
+    @media print {
+        body * {
+            visibility: hidden;
+        }
+        #print-section, #print-section * {
+            visibility: visible;
+        }
+        #print-section {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            padding: 20px;
+        }
+        .no-print {
+            display: none !important;
+        }
+        button, .btn, .action-buttons {
+            display: none !important;
+        }
+        .company-logo, .print-logo {
+            max-height: 40px !important;
+            width: auto !important;
+        }
+    }
+    .company-logo {
+        max-height: 60px;
+        width: auto;
+    }
+    .signature-img {
+        max-height: 50px;
+        max-width: 150px;
+    }
+</style>
+
 <div class="bg-white rounded-lg shadow-sm overflow-hidden">
-    {{-- Header --}}
-    <div class="px-6 py-4 border-b border-gray-200 bg-gray-50 flex justify-between items-center">
+    {{-- Header with Print Button --}}
+    <div class="px-6 py-4 border-b border-gray-200 bg-gray-50 flex justify-between items-center no-print">
         <div>
             <h3 class="text-lg font-semibold text-gray-800">Requisition #{{ $requisition->requisition_number }}</h3>
             <p class="text-sm text-gray-500">Created on {{ $requisition->created_at->format('F d, Y g:i A') }}</p>
@@ -19,10 +55,44 @@
                 </svg>
                 Back to List
             </a>
+            <button onclick="printRequisition()" class="ml-4 bg-blue-600 text-white px-4 py-2 hidden rounded-lg text-sm hover:bg-blue-700">
+                <i class="fas fa-print mr-1"></i> Print
+            </button>
         </div>
     </div>
 
-    <div class="p-6">
+    {{-- Printable Section --}}
+    <div id="print-section" class="p-6">
+
+        {{-- Logo and Header --}}
+        <div class="flex justify-between items-start mb-6 pb-4 border-b">
+            <div>
+                @php
+                    $logo = \App\Models\BusinessSetting::getLogo();
+                    $companyName = \App\Models\BusinessSetting::get('company_name', 'Company Name');
+                @endphp
+                @if($logo)
+                    @php
+                        $logoPath = public_path(parse_url($logo, PHP_URL_PATH));
+                        $logoExists = file_exists($logoPath);
+                        $logoMime = $logoExists ? mime_content_type($logoPath) : 'image/png';
+                        $logoB64 = $logoExists ? base64_encode(file_get_contents($logoPath)) : null;
+                    @endphp
+                    @if($logoB64)
+                        <img src="data:{{ $logoMime }};base64,{{ $logoB64 }}" class="company-logo print-logo" alt="Logo">
+                    @else
+                        <img src="{{ $logo }}" class="company-logo print-logo" alt="Logo">
+                    @endif
+                @else
+                    <h2 class="text-xl font-bold text-gray-800">{{ $companyName }}</h2>
+                @endif
+            </div>
+            <div class="text-right">
+                <h1 class="text-xl font-bold text-blue-600">REQUISITION FORM</h1>
+                <p class="text-sm text-gray-500">{{ $requisition->requisition_number }}</p>
+            </div>
+        </div>
+
         {{-- Status Badge --}}
         <div class="mb-6">
             @php
@@ -56,6 +126,9 @@
                 <div>
                     <h4 class="text-sm font-semibold text-red-800">Rejection Reason</h4>
                     <p class="text-sm text-red-700 mt-1">{{ $requisition->rejection_reason }}</p>
+                    @if($requisition->approvedBy)
+                        <p class="text-xs text-red-600 mt-2">Rejected by: {{ $requisition->approvedBy->first_name }} {{ $requisition->approvedBy->last_name }} on {{ $requisition->approved_at ? $requisition->approved_at->format('F d, Y g:i A') : '' }}</p>
+                    @endif
                 </div>
             </div>
         </div>
@@ -128,7 +201,7 @@
         </div>
         @endif
 
-        {{-- Items Table with Category --}}
+        {{-- Items Table --}}
         <div>
             <h4 class="text-sm font-medium text-gray-500 mb-3">Approved Items (by GM)</h4>
             <div class="overflow-x-auto">
@@ -161,11 +234,11 @@
                                     <span class="text-xs text-gray-500">Code: {{ $item->inventoryItem->item_code }}</span>
                                 @endif
                             </td>
-<td class="px-4 py-3 text-sm text-gray-500">
-    <span class="px-2 py-1 text-xs rounded-full bg-gray-100">
-        {{ $item->inventoryItem?->category?->name ?: '—' }}
-    </span>
-</td>
+                            <td class="px-4 py-3 text-sm text-gray-500">
+                                <span class="px-2 py-1 text-xs rounded-full bg-gray-100">
+                                    {{ $item->inventoryItem?->category?->name ?: '—' }}
+                                </span>
+                            </td>
                             <td class="px-4 py-3 text-sm text-gray-500">
                                 <span class="px-2 py-1 text-xs rounded-full bg-gray-100">
                                     {{ $item->metrics ?: '—' }}
@@ -211,9 +284,76 @@
             </div>
         </div>
 
-        {{-- Create LPO Button - Only show for approved requisitions --}}
+        {{-- Signatures Section --}}
+        <div class="mt-8 pt-4 border-t">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                {{-- Requester Signature --}}
+                <div class="text-center">
+                    <p class="text-xs text-gray-500 mb-2">Requested By:</p>
+                    @php $requester = $requisition->requestedBy; @endphp
+                    @if($requester && $requester->signature_url)
+                        @php
+                            $sigUrl = $requester->signature_url;
+                            $sigPath = public_path(parse_url($sigUrl, PHP_URL_PATH));
+                            $sigExists = file_exists($sigPath);
+                            $sigMime = $sigExists ? mime_content_type($sigPath) : 'image/png';
+                            $sigB64 = $sigExists ? base64_encode(file_get_contents($sigPath)) : null;
+                        @endphp
+                        @if($sigB64)
+                            <img src="data:{{ $sigMime }};base64,{{ $sigB64 }}" class="signature-img mx-auto" alt="Signature">
+                        @else
+                            <img src="{{ $sigUrl }}" class="signature-img mx-auto" alt="Signature">
+                        @endif
+                    @else
+                        <div style="height: 50px;"></div>
+                    @endif
+                    <div class="border-t border-gray-300 mt-2 pt-1 w-48 mx-auto"></div>
+                    <p class="text-xs text-gray-600 mt-1">{{ $requester->first_name ?? '' }} {{ $requester->last_name ?? '' }}</p>
+                    <p class="text-xs text-gray-400">{{ $requisition->created_at ? $requisition->created_at->format('d M Y') : '' }}</p>
+                </div>
+
+                {{-- Approver Signature (GM) --}}
+                <div class="text-center">
+                    <p class="text-xs text-gray-500 mb-2">Approved By (General Manager):</p>
+                    @if($requisition->status == 'approved' && $requisition->approvedBy)
+                        @php
+                            $approver = $requisition->approvedBy;
+                            $approverSigUrl = $approver->signature_url;
+                            $approverSigPath = public_path(parse_url($approverSigUrl, PHP_URL_PATH));
+                            $approverSigExists = file_exists($approverSigPath);
+                            $approverSigMime = $approverSigExists ? mime_content_type($approverSigPath) : 'image/png';
+                            $approverSigB64 = $approverSigExists ? base64_encode(file_get_contents($approverSigPath)) : null;
+                        @endphp
+                        @if($approverSigB64)
+                            <img src="data:{{ $approverSigMime }};base64,{{ $approverSigB64 }}" class="signature-img mx-auto" alt="Signature">
+                        @elseif($approverSigUrl)
+                            <img src="{{ $approverSigUrl }}" class="signature-img mx-auto" alt="Signature">
+                        @else
+                            <div style="height: 50px;"></div>
+                        @endif
+                    @else
+                        <div style="height: 50px;"></div>
+                    @endif
+                    <div class="border-t border-gray-300 mt-2 pt-1 w-48 mx-auto"></div>
+                    @if($requisition->status == 'approved' && $requisition->approvedBy)
+                        <p class="text-xs text-gray-600 mt-1">{{ $approver->first_name ?? '' }} {{ $approver->last_name ?? '' }}</p>
+                        <p class="text-xs text-gray-400">{{ $requisition->approved_at ? \Carbon\Carbon::parse($requisition->approved_at)->format('d M Y') : '' }}</p>
+                    @else
+                        <p class="text-xs text-gray-400 mt-1">Not Yet Approved</p>
+                    @endif
+                </div>
+            </div>
+        </div>
+
+        {{-- Footer --}}
+        <div class="mt-8 pt-4 border-t text-center">
+            <p class="text-xs text-gray-400">This is a computer generated document. Valid without signature.</p>
+            <p class="text-xs text-gray-400">{{ $companyName }} - All Rights Reserved</p>
+        </div>
+
+        {{-- Action Buttons --}}
         @if($requisition->status == 'approved')
-        <div class="mt-6 pt-4 border-t border-gray-200 flex justify-end">
+        <div class="mt-6 pt-4 border-t border-gray-200 flex justify-end no-print">
             <a href="{{ route('procurement.lpo.create', $requisition->id) }}"
                class="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition flex items-center gap-2">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -224,9 +364,8 @@
         </div>
         @endif
 
-        {{-- Show LPO reference if already created --}}
         @if($requisition->status == 'ordered' && $requisition->lpo_id)
-        <div class="mt-6 pt-4 border-t border-gray-200">
+        <div class="mt-6 pt-4 border-t border-gray-200 no-print">
             <div class="bg-purple-50 rounded-lg p-4 border border-purple-200">
                 <div class="flex items-center justify-between">
                     <div>
@@ -243,4 +382,37 @@
         @endif
     </div>
 </div>
+
+<script>
+    function printRequisition() {
+        const printContents = document.getElementById('print-section').innerHTML;
+        const originalTitle = document.title;
+        document.title = 'Requisition {{ $requisition->requisition_number }}';
+
+        const printWindow = window.open('', '_blank');
+        printWindow.document.write(`
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <title>Requisition {{ $requisition->requisition_number }}</title>
+                <style>
+                    body { padding: 20px; font-family: Arial, sans-serif; font-size: 12px; }
+                    table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+                    th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+                    th { background-color: #f2f2f2; }
+                    .company-logo, .print-logo { max-height: 40px !important; width: auto !important; }
+                    .signature-img { max-height: 50px; max-width: 150px; }
+                    @media print {
+                        body { margin: 0; padding: 20px; }
+                    }
+                </style>
+            </head>
+            <body>${printContents}</body>
+            </html>
+        `);
+        printWindow.document.close();
+        printWindow.print();
+        document.title = originalTitle;
+    }
+</script>
 @endsection

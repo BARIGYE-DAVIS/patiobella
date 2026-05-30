@@ -192,17 +192,21 @@ Route::prefix('batches')->name('batches.')->group(function () {
         Route::get('/{id}', [App\Http\Controllers\Store\StockMovementController::class, 'show'])->name('show')->middleware('permission:view_stock_movements');
     });
 
-    // Requisitions (Store requests for stock)
-    Route::prefix('requisitions')->name('requisitions.')->group(function () {
-        Route::get('/', [App\Http\Controllers\Store\RequisitionController::class, 'index'])->name('index')->middleware('permission:view_requisitions');
-        Route::get('/create', [App\Http\Controllers\Store\RequisitionController::class, 'create'])->name('create')->middleware('permission:create_requisitions');
-        Route::post('/', [App\Http\Controllers\Store\RequisitionController::class, 'store'])->name('store')->middleware('permission:create_requisitions');
-        Route::get('/{id}', [App\Http\Controllers\Store\RequisitionController::class, 'show'])->name('show')->middleware('permission:view_requisitions');
-        Route::get('/{id}/edit', [App\Http\Controllers\Store\RequisitionController::class, 'edit'])->name('edit')->middleware('permission:edit_requisitions');
-        Route::put('/{id}', [App\Http\Controllers\Store\RequisitionController::class, 'update'])->name('update')->middleware('permission:edit_requisitions');
-        Route::delete('/{id}', [App\Http\Controllers\Store\RequisitionController::class, 'destroy'])->name('destroy')->middleware('permission:delete_requisitions');
-        Route::delete('/{id}/cancel', [App\Http\Controllers\Store\RequisitionController::class, 'cancel'])->name('cancel')->middleware('permission:edit_requisitions');
-    });
+// Requisitions (Store requests for stock)
+Route::prefix('requisitions')->name('requisitions.')->group(function () {
+    Route::get('/', [App\Http\Controllers\Store\RequisitionController::class, 'index'])->name('index')->middleware('permission:view_requisitions');
+    Route::get('/create', [App\Http\Controllers\Store\RequisitionController::class, 'create'])->name('create')->middleware('permission:create_requisitions');
+    Route::post('/', [App\Http\Controllers\Store\RequisitionController::class, 'store'])->name('store')->middleware('permission:create_requisitions');
+    Route::get('/{id}', [App\Http\Controllers\Store\RequisitionController::class, 'show'])->name('show')->middleware('permission:view_requisitions');
+    Route::get('/{id}/edit', [App\Http\Controllers\Store\RequisitionController::class, 'edit'])->name('edit')->middleware('permission:edit_requisitions');
+    Route::put('/{id}', [App\Http\Controllers\Store\RequisitionController::class, 'update'])->name('update')->middleware('permission:edit_requisitions');
+    Route::delete('/{id}', [App\Http\Controllers\Store\RequisitionController::class, 'destroy'])->name('destroy')->middleware('permission:delete_requisitions');
+    Route::delete('/{id}/cancel', [App\Http\Controllers\Store\RequisitionController::class, 'cancel'])->name('cancel')->middleware('permission:edit_requisitions');
+
+    // New routes
+    Route::get('/item-stock/{id}', [App\Http\Controllers\Store\RequisitionController::class, 'getItemStock'])->name('item-stock')->middleware('permission:view_requisitions');
+    Route::get('/{id}/pdf', [App\Http\Controllers\Store\RequisitionController::class, 'exportPdf'])->name('pdf')->middleware('permission:view_requisitions');
+});
 });
 
 // =====================================================
@@ -863,4 +867,23 @@ Route::prefix('kitchen')->name('kitchen.')->middleware(['auth'])->group(function
     Route::get('/stock/{id}', [App\Http\Controllers\Kitchen\KitchenStockController::class, 'show'])
         ->name('stock.show')
         ->middleware('permission:view_stock');
+});
+
+
+// Admin Business Settings Routes
+Route::prefix('admin/settings')->name('admin.settings.')->middleware(['auth'])->group(function () {
+    Route::get('/', [App\Http\Controllers\Admin\BusinessSettingController::class, 'index'])->name('index');
+    Route::post('/general', [App\Http\Controllers\Admin\BusinessSettingController::class, 'updateGeneral'])->name('general');
+    Route::post('/contact', [App\Http\Controllers\Admin\BusinessSettingController::class, 'updateContact'])->name('contact');
+    Route::post('/email', [App\Http\Controllers\Admin\BusinessSettingController::class, 'updateEmail'])->name('email');
+    Route::post('/locations', [App\Http\Controllers\Admin\BusinessSettingController::class, 'updateLocations'])->name('locations');
+    Route::post('/test-email', [App\Http\Controllers\Admin\BusinessSettingController::class, 'testEmail'])->name('test-email');
+    Route::post('/remove-image', [App\Http\Controllers\Admin\BusinessSettingController::class, 'removeLogo'])->name('remove-image');
+});
+
+// Signature routes
+Route::prefix('users')->name('users.')->group(function () {
+    Route::get('/{id}/signature', [App\Http\Controllers\UserController::class, 'signatureForm'])->name('signature-form');
+    Route::post('/{id}/signature', [App\Http\Controllers\UserController::class, 'uploadSignature'])->name('upload-signature');
+    Route::delete('/{id}/signature', [App\Http\Controllers\UserController::class, 'removeSignature'])->name('remove-signature');
 });

@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Facades\Storage;
 use App\Models\Role;  // ← ADD THIS LINE
 use App\Models\Permission;  // ← ADD THIS LINE
 use App\Models\Department;  // ← ADD THIS LINE
@@ -31,12 +32,37 @@ class User extends Authenticatable
         'last_login_at',
         'created_by',
         'updated_by',
+        'signature_path',
+        'signature_updated_at',
+        'signature_updated_by',
     ];
 
     protected $hidden = [
         'password',
         'remember_token',
     ];
+
+    /**
+ * Get signature URL
+ */
+
+
+/**
+ * Check if user has signature
+ */
+public function hasSignature()
+{
+    return $this->signature_path && file_exists(storage_path('app/public/' . $this->signature_path));
+}
+
+// In app/Models/User.php
+public function getSignatureUrlAttribute()
+{
+    if ($this->signature_path && Storage::disk('public')->exists($this->signature_path)) {
+        return asset('storage/' . $this->signature_path);
+    }
+    return null;
+}
 
     protected function casts(): array
     {

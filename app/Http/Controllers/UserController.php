@@ -12,6 +12,7 @@ use Illuminate\Validation\Rule;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 
 class UserController extends Controller
 {
@@ -158,7 +159,7 @@ class UserController extends Controller
             return view('admin.users.show', compact('user', 'roles'));
         } catch (\Exception $e) {
             Log::error('Error in show method: ' . $e->getMessage());
-            return redirect()->route('admin.users.index')->with('error', 'User not found.');
+            return redirect()->route('users.index')->with('error', 'User not found.');
         }
     }
 
@@ -169,14 +170,14 @@ class UserController extends Controller
     {
         try {
             if (!$this->canManageUsers()) {
-                return redirect()->route('admin.users.index')
+                return redirect()->route('users.index')
                     ->with('error', 'You do not have permission to edit users.');
             }
 
             $user = User::with(['roles', 'userPermissions'])->findOrFail($id);
 
             if ($user->is_super_admin && !Auth::user()->is_super_admin) {
-                return redirect()->route('admin.users.index')
+                return redirect()->route('users.index')
                     ->with('error', 'You cannot edit a super administrator.');
             }
 
@@ -194,10 +195,10 @@ class UserController extends Controller
 
             return view('admin.users.edit', compact('user', 'roles', 'departments', 'userRoleIds', 'permissions', 'extraPermissionIds'));
         } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
-            return redirect()->route('admin.users.index')->with('error', 'User not found.');
+            return redirect()->route('users.index')->with('error', 'User not found.');
         } catch (\Exception $e) {
             Log::error('Error in edit method: ' . $e->getMessage());
-            return redirect()->route('admin.users.index')->with('error', 'An error occurred: ' . $e->getMessage());
+            return redirect()->route('users.index')->with('error', 'An error occurred: ' . $e->getMessage());
         }
     }
 
@@ -294,7 +295,7 @@ class UserController extends Controller
     {
         try {
             if (!$this->canManageUsers()) {
-                return redirect()->route('admin.users.index')->with('error', 'You do not have permission.');
+                return redirect()->route('users.index')->with('error', 'You do not have permission.');
             }
 
             $user = User::findOrFail($id);
@@ -308,7 +309,7 @@ class UserController extends Controller
                 'updated_by' => Auth::user()->id
             ]);
 
-            return redirect()->route('admin.users.edit', $id)->with('success', 'Password updated successfully.');
+            return redirect()->route('users.edit', $id)->with('success', 'Password updated successfully.');
         } catch (\Exception $e) {
             Log::error('Error updating password: ' . $e->getMessage());
             return redirect()->back()->with('error', 'Failed to update password.')->withInput();
@@ -322,24 +323,24 @@ class UserController extends Controller
     {
         try {
             if (!Auth::user()->is_super_admin) {
-                return redirect()->route('admin.users.index')
+                return redirect()->route('users.index')
                     ->with('error', 'Only super administrator can delete users.');
             }
 
             $user = User::findOrFail($id);
 
             if ($user->id === Auth::user()->id) {
-                return redirect()->route('admin.users.index')
+                return redirect()->route('users.index')
                     ->with('error', 'You cannot delete your own account.');
             }
 
             $user->delete();
 
-            return redirect()->route('admin.users.index')
+            return redirect()->route('users.index')
                 ->with('success', 'User deleted successfully.');
         } catch (\Exception $e) {
             Log::error('Error in destroy method: ' . $e->getMessage());
-            return redirect()->route('admin.users.index')->with('error', 'An error occurred while deleting the user.');
+            return redirect()->route('users.index')->with('error', 'An error occurred while deleting the user.');
         }
     }
 
@@ -350,7 +351,7 @@ class UserController extends Controller
     {
         try {
             if (!$this->canManageUsers()) {
-                return redirect()->route('admin.users.index')
+                return redirect()->route('users.index')
                     ->with('error', 'You do not have permission to activate users.');
             }
 
@@ -360,11 +361,11 @@ class UserController extends Controller
                 'updated_by' => Auth::user()->id
             ]);
 
-            return redirect()->route('admin.users.index')
+            return redirect()->route('users.index')
                 ->with('success', 'User activated successfully.');
         } catch (\Exception $e) {
             Log::error('Error in activate method: ' . $e->getMessage());
-            return redirect()->route('admin.users.index')->with('error', 'An error occurred while activating the user.');
+            return redirect()->route('users.index')->with('error', 'An error occurred while activating the user.');
         }
     }
 
@@ -375,14 +376,14 @@ class UserController extends Controller
     {
         try {
             if (!$this->canManageUsers()) {
-                return redirect()->route('admin.users.index')
+                return redirect()->route('users.index')
                     ->with('error', 'You do not have permission to deactivate users.');
             }
 
             $user = User::findOrFail($id);
 
             if ($user->id === Auth::user()->id) {
-                return redirect()->route('admin.users.index')
+                return redirect()->route('users.index')
                     ->with('error', 'You cannot deactivate your own account.');
             }
 
@@ -391,7 +392,7 @@ class UserController extends Controller
                 'updated_by' => Auth::user()->id
             ]);
 
-            return redirect()->route('admin.users.index')
+            return redirect()->route('users.index')
                 ->with('success', 'User deactivated successfully.');
         } catch (\Exception $e) {
             Log::error('Error in deactivate method: ' . $e->getMessage());
@@ -453,5 +454,151 @@ class UserController extends Controller
 
         $permissions = $this->getUserPermissions($userId);
         return $permissions->contains('code', $permissionCode);
+    }
+
+    /**
+     * Show form to upload signature for a user.
+     */
+    public function signatureForm($id)
+    {
+        $user = Auth::user();
+
+        if (!$user->is_super_admin && (!$user->role || $user->role->code !== 'super_admin')) {
+            return redirect()->route('dashboard')->with('error', 'Unauthorized access');
+        }
+
+        $targetUser = User::findOrFail($id);
+
+        return view('admin.users.signature', compact('targetUser'));
+    }
+
+    /**
+     * Upload signature for a user (handles both base64 and file upload).
+     */
+   /**
+ * Upload signature for a user (handles both base64 and file upload).
+ */
+public function uploadSignature(Request $request, $id)
+{
+    $user = Auth::user();
+
+    if (!$user->is_super_admin && (!$user->role || $user->role->code !== 'super_admin')) {
+        return response()->json(['success' => false, 'message' => 'Unauthorized'], 403);
+    }
+
+    DB::beginTransaction();
+
+    try {
+        $targetUser = User::findOrFail($id);
+
+        // Handle base64 image from canvas or file upload
+        $imageData = null;
+
+        if ($request->has('signature_base64')) {
+            $imageData = $request->signature_base64;
+        } elseif ($request->hasFile('signature')) {
+            $file = $request->file('signature');
+            $imageData = 'data:' . $file->getMimeType() . ';base64,' . base64_encode(file_get_contents($file));
+        }
+
+        if (!$imageData) {
+            throw new \Exception('No signature data provided');
+        }
+
+        // Decode base64 image
+        list($type, $data) = explode(';', $imageData);
+        list(, $data) = explode(',', $data);
+        $imageData = base64_decode($data);
+
+        // Generate unique filename
+        $filename = 'signature_' . $targetUser->id . '_' . time() . '.png';
+        $path = 'signatures/' . $filename;
+
+        // Delete old signature if exists
+        if ($targetUser->signature_path && Storage::disk('public')->exists($targetUser->signature_path)) {
+            Storage::disk('public')->delete($targetUser->signature_path);
+        }
+
+        // Save new signature
+        $saved = Storage::disk('public')->put($path, $imageData);
+
+        if (!$saved) {
+            throw new \Exception('Failed to save file to storage');
+        }
+
+        $targetUser->signature_path = $path;
+        $targetUser->signature_updated_at = now();
+        $targetUser->signature_updated_by = Auth::id();
+        $targetUser->save();
+
+        DB::commit();
+
+        Log::info('Signature uploaded for user', [
+            'uploaded_by' => Auth::id(),
+            'user_id' => $targetUser->id,
+            'user_name' => $targetUser->first_name . ' ' . $targetUser->last_name,
+            'path' => $path
+        ]);
+
+        // Always return JSON for AJAX requests
+        return response()->json([
+            'success' => true,
+            'message' => 'Signature saved successfully.',
+            'signature_url' => $targetUser->signature_url
+        ]);
+
+    } catch (\Exception $e) {
+        DB::rollBack();
+        Log::error('Failed to upload signature', [
+            'user_id' => $id,
+            'error' => $e->getMessage(),
+            'trace' => $e->getTraceAsString()
+        ]);
+
+        return response()->json([
+            'success' => false,
+            'message' => 'Failed to save signature: ' . $e->getMessage()
+        ], 500);
+    }
+}
+    /**
+     * Remove signature for a user.
+     */
+    public function removeSignature($id)
+    {
+        $user = Auth::user();
+
+        if (!$user->is_super_admin && (!$user->role || $user->role->code !== 'super_admin')) {
+            return response()->json(['success' => false, 'message' => 'Unauthorized'], 403);
+        }
+
+        DB::beginTransaction();
+
+        try {
+            $targetUser = User::findOrFail($id);
+
+            if ($targetUser->signature_path && Storage::disk('public')->exists($targetUser->signature_path)) {
+                Storage::disk('public')->delete($targetUser->signature_path);
+            }
+
+            $targetUser->signature_path = null;
+            $targetUser->signature_updated_at = now();
+            $targetUser->signature_updated_by = Auth::id();
+            $targetUser->save();
+
+            DB::commit();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Signature removed successfully.'
+            ]);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to remove signature: ' . $e->getMessage()
+            ], 500);
+        }
     }
 }

@@ -12,6 +12,7 @@ class Lpo extends Model
 
     protected $fillable = [
         'lpo_number',
+        'type',
         'requisition_id',
         'vendor_id',
         'created_by',
@@ -20,9 +21,11 @@ class Lpo extends Model
         'lpo_date',
         'expected_delivery_date',
         'delivery_address',
-        'delivery_terms',
+        'delivery_instructions',
+        'payment_method',
         'subtotal',
-        'tax_amount',
+        'vat_rate',
+        'vat_amount',
         'total_amount',
         'status',
         'notes',
@@ -35,9 +38,20 @@ class Lpo extends Model
         'expected_delivery_date' => 'date',
         'approved_at' => 'datetime',
         'subtotal' => 'decimal:2',
-        'tax_amount' => 'decimal:2',
+        'vat_rate' => 'decimal:2',
+        'vat_amount' => 'decimal:2',
         'total_amount' => 'decimal:2',
     ];
+
+    // Constants
+    const TYPE_NORMAL = 'normal';
+    const TYPE_EMERGENCY = 'emergency';
+
+    const PAYMENT_CASH = 'cash';
+    const PAYMENT_CREDIT = 'credit';
+    const PAYMENT_BANK_TRANSFER = 'bank_transfer';
+    const PAYMENT_MOBILE_MONEY = 'mobile_money';
+    const PAYMENT_CHEQUE = 'cheque';
 
     public function requisition()
     {
