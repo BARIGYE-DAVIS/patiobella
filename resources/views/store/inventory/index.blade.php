@@ -8,7 +8,7 @@
 <div class="flex items-center justify-between mb-6">
     <div>
         <h2 class="text-xl font-semibold text-gray-800">Inventory Items</h2>
-        <p class="text-sm text-gray-500 mt-0.5">{{ $items->total() }} items total</p>
+        <p class="text-sm text-gray-500 mt-0.5" id="totalItemsDisplay">{{ $items->total() }} items total</p>
     </div>
     <a href="{{ route('store.inventory.create') }}"
        class="inline-flex items-center gap-2 bg-blue-800 hover:bg-blue-900 text-white text-sm font-medium px-4 py-2 rounded-lg transition">
@@ -19,70 +19,95 @@
     </a>
 </div>
 
-{{-- Summary Cards --}}
+{{-- Summary Cards (Now calculated from batches) --}}
 @php
-    $totalItems = \App\Models\InventoryItem::count();
-    $inStock    = \App\Models\InventoryItem::where('current_stock', '>', 0)
-                    ->where(function($q){
-                        $q->where('minimum_stock', 0)->orWhereColumn('current_stock', '>', 'minimum_stock');
-                    })->count();
-    $lowStock   = \App\Models\InventoryItem::whereColumn('current_stock', '<=', 'minimum_stock')
-                    ->where('minimum_stock', '>', 0)->where('current_stock', '>', 0)->count();
-    $outOfStock = \App\Models\InventoryItem::where('current_stock', '<=', 0)->count();
+    $totalItems = \App\Models\InventoryItem::where('is_active', true)->count();
+
+    // Calculate stock from batches
+    $inStock = \App\Models\Batch::where('batch_status', 'active')
+        ->where('remaining_quantity', '>', 0)
+        ->distinct('inventory_item_id')
+        ->count('inventory_item_id');
+
+    $outOfStock = \App\Models\InventoryItem::where('is_active', true)
+        ->whereNotIn('id', function($q) {
+            $q->select('inventory_item_id')
+              ->from('batches')
+              ->where('batch_status', 'active')
+              ->where('remaining_quantity', '>', 0);
+        })
+        ->count();
+
+    // Low stock: items with total stock below minimum_stock (calculated from batches)
+    $lowStock = 0;
+    $allItems = \App\Models\InventoryItem::where('is_active', true)->get();
+    foreach ($allItems as $item) {
+        $totalStock = \App\Models\Batch::where('inventory_item_id', $item->id)
+            ->where('batch_status', 'active')
+            ->sum('remaining_quantity');
+        if ($totalStock > 0 && $totalStock <= ($item->minimum_stock ?? 0)) {
+            $lowStock++;
+        }
+    }
 @endphp
 
 <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
     <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
         <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">Total Items</p>
-        <p class="text-2xl font-bold text-gray-800">{{ $totalItems }}</p>
+        <p class="text-2xl font-bold text-gray-800" id="statTotalItems">{{ $totalItems }}</p>
     </div>
     <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
         <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">In Stock</p>
-        <p class="text-2xl font-bold text-green-700">{{ $inStock }}</p>
+        <p class="text-2xl font-bold text-green-700" id="statInStock">{{ $inStock }}</p>
     </div>
     <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
         <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">Low Stock</p>
-        <p class="text-2xl font-bold text-yellow-600">{{ $lowStock }}</p>
+        <p class="text-2xl font-bold text-yellow-600" id="statLowStock">{{ $lowStock }}</p>
     </div>
     <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
         <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">Out of Stock</p>
-        <p class="text-2xl font-bold text-red-700">{{ $outOfStock }}</p>
+        <p class="text-2xl font-bold text-red-700" id="statOutOfStock">{{ $outOfStock }}</p>
     </div>
 </div>
 
-{{-- Filters --}}
-<form method="GET" action="{{ route('store.inventory.index') }}" class="flex flex-wrap items-center gap-3 mb-4">
-    <input
-        type="text"
-        name="search"
-        value="{{ request('search') }}"
-        placeholder="Search by name or item code…"
-        class="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300 w-64 bg-white"
-    />
-    <select name="status"
+{{-- Live Search Filters --}}
+<div class="flex flex-wrap items-center gap-3 mb-4">
+    <div class="relative flex-1 max-w-md">
+        <svg class="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+        </svg>
+        <input
+            type="text"
+            id="searchInput"
+            placeholder="Live search by name or item code…"
+            class="w-full border border-gray-200 rounded-lg pl-10 pr-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300 bg-white"
+            autocomplete="off"
+        />
+        <div id="searchLoader" class="absolute right-3 top-1/2 transform -translate-y-1/2 hidden">
+            <svg class="w-4 h-4 text-blue-500 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+            </svg>
+        </div>
+    </div>
+    <select id="statusFilter"
         class="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300 bg-white">
         <option value="">All statuses</option>
-        <option value="in_stock"     {{ request('status') === 'in_stock'     ? 'selected' : '' }}>In stock</option>
-        <option value="low_stock"    {{ request('status') === 'low_stock'    ? 'selected' : '' }}>Low stock</option>
-        <option value="out_of_stock" {{ request('status') === 'out_of_stock' ? 'selected' : '' }}>Out of stock</option>
+        <option value="in_stock">In stock</option>
+        <option value="low_stock">Low stock</option>
+        <option value="out_of_stock">Out of stock</option>
     </select>
-    <button type="submit"
-        class="bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm px-4 py-2 rounded-lg transition font-medium">
-        Filter
+    <button id="clearFiltersBtn"
+        class="text-sm text-gray-400 hover:text-gray-600 flex items-center gap-1">
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+        </svg>
+        Clear
     </button>
-    @if(request('search') || request('status'))
-        <a href="{{ route('store.inventory.index') }}"
-           class="text-sm text-gray-400 hover:text-gray-600 flex items-center gap-1">
-            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-            </svg>
-            Clear
-        </a>
-    @endif
-    <span class="text-sm text-gray-400 ml-auto">
-        Showing {{ $items->firstItem() ?? 0 }}–{{ $items->lastItem() ?? 0 }} of {{ $items->total() }}
+    <span class="text-sm text-gray-400 ml-auto" id="resultsSummary">
+        Showing <span id="showingStart">0</span>–<span id="showingEnd">0</span> of <span id="totalResults">0</span>
     </span>
-</form>
+</div>
 
 {{-- Table --}}
 <div class="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
@@ -92,143 +117,145 @@
                 <tr class="bg-gray-50 border-b border-gray-100">
                     <th class="text-left text-xs font-semibold text-gray-500 uppercase tracking-wider px-4 py-3 whitespace-nowrap">Item</th>
                     <th class="text-left text-xs font-semibold text-gray-500 uppercase tracking-wider px-4 py-3 whitespace-nowrap">Category</th>
-                    <th class="text-left text-xs font-semibold text-gray-500 uppercase tracking-wider px-4 py-3 whitespace-nowrap">Receiving Unit</th>
-                    <th class="text-left text-xs font-semibold text-gray-500 uppercase tracking-wider px-4 py-3 whitespace-nowrap">Base Unit</th>
+                    <th class="text-left text-xs font-semibold text-gray-500 uppercase tracking-wider px-4 py-3 whitespace-nowrap">Unit</th>
                     <th class="text-right text-xs font-semibold text-gray-500 uppercase tracking-wider px-4 py-3 whitespace-nowrap">Current Stock</th>
                     <th class="text-left text-xs font-semibold text-gray-500 uppercase tracking-wider px-4 py-3 whitespace-nowrap">Status</th>
                     <th class="text-center text-xs font-semibold text-gray-500 uppercase tracking-wider px-4 py-3 whitespace-nowrap">Active</th>
+                    <th class="text-left text-xs font-semibold text-gray-500 uppercase tracking-wider px-4 py-3 whitespace-nowrap">Batches</th>
                     <th class="px-4 py-3"></th>
                 </tr>
             </thead>
-            <tbody class="divide-y divide-gray-50">
-                @forelse($items as $item)
-                <tr class="hover:bg-gray-50 transition-colors">
-
-                    {{-- Item name + code --}}
-                    <td class="px-4 py-3">
-                        <p class="font-semibold text-gray-800 leading-tight">{{ $item->name }}</p>
-                        <p class="text-xs text-gray-400 font-mono mt-0.5">{{ $item->item_code }}</p>
-                    </td>
-
-                    {{-- Category --}}
-                    <td class="px-4 py-3 text-gray-600 whitespace-nowrap">
-                        {{ $item->category->name ?? '—' }}
-                    </td>
-
-                    {{-- Receiving / pack unit --}}
-                    <td class="px-4 py-3">
-                        <div class="flex items-center gap-1.5">
-                            <span class="bg-gray-100 text-gray-700 text-xs font-medium px-2 py-1 rounded-md whitespace-nowrap">
-                                {{ ucfirst($item->default_unit_of_measure_id ?? '—') }}
-                            </span>
-                            @if($item->is_bulk_item)
-                                <span class="text-xs text-gray-400">bulk</span>
-                            @endif
-                        </div>
-                    </td>
-
-                    {{-- Base / sell unit --}}
-                    <td class="px-4 py-3">
-                        <span class="bg-orange-50 text-orange-700 text-xs font-medium px-2 py-1 rounded-md">
-                            {{ ucfirst($item->base_unit_label) }}
-                        </span>
-                    </td>
-
-                    {{-- Current stock + mini progress bar --}}
-                    <td class="px-4 py-3 text-right">
-                        <span class="font-semibold text-gray-800 tabular-nums">
-                            {{ number_format($item->current_stock, 2) }}
-                        </span>
-                        <span class="text-xs text-gray-400 ml-0.5">{{ $item->base_unit_label }}(s)</span>
-
-                        @if($item->minimum_stock > 0)
-                            @php
-                                $maxRef   = $item->maximum_stock > 0 ? $item->maximum_stock : ($item->minimum_stock * 2);
-                                $pct      = $maxRef > 0 ? min(100, ($item->current_stock / $maxRef) * 100) : 0;
-                                $barClass = match($item->stock_status) {
-                                    'out_of_stock' => 'bg-red-500',
-                                    'low_stock'    => 'bg-yellow-400',
-                                    default        => 'bg-green-500',
-                                };
-                            @endphp
-                            <div class="w-20 h-1.5 bg-gray-100 rounded-full mt-1.5 ml-auto overflow-hidden">
-                                <div class="{{ $barClass }} h-full rounded-full" style="width: {{ $pct }}%"></div>
-                            </div>
-                        @endif
-                    </td>
-
-                    {{-- Status badge --}}
-                    <td class="px-4 py-3 whitespace-nowrap">
-                        @php
-                            $badgeClass = match($item->stock_status) {
-                                'out_of_stock' => 'bg-red-100 text-red-700',
-                                'low_stock'    => 'bg-yellow-100 text-yellow-700',
-                                default        => 'bg-green-100 text-green-700',
-                            };
-                        @endphp
-                        <span class="inline-block {{ $badgeClass }} text-xs font-semibold px-2.5 py-1 rounded-full">
-                            {{ ucfirst(str_replace('_', ' ', $item->stock_status)) }}
-                        </span>
-                    </td>
-
-                    {{-- Active indicator --}}
-                    <td class="px-4 py-3 text-center">
-                        @if($item->is_active)
-                            <span class="inline-block w-2.5 h-2.5 rounded-full bg-green-500" title="Active"></span>
-                        @else
-                            <span class="inline-block w-2.5 h-2.5 rounded-full bg-gray-300" title="Inactive"></span>
-                        @endif
-                    </td>
-
-                    {{-- Actions --}}
-                    <td class="px-4 py-3">
-                        <div class="flex items-center gap-1.5">
-                            <a href="{{ route('store.inventory.show', $item->id) }}"
-                               class="inline-flex items-center gap-1 border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs text-gray-600 hover:bg-blue-50 hover:border-blue-200 hover:text-blue-700 transition whitespace-nowrap">
-                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
-                                </svg>
-                                View
-                            </a>
-                            <a href="{{ route('store.inventory.edit', $item->id) }}"
-                               class="inline-flex items-center border border-gray-200 rounded-lg px-2 py-1.5 text-xs text-gray-500 hover:bg-gray-50 hover:border-gray-300 transition">
-                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
-                                </svg>
-                            </a>
-                        </div>
-                    </td>
-                </tr>
-                @empty
-                <tr>
-                    <td colspan="8" class="px-4 py-16">
-                        <div class="flex flex-col items-center gap-3 text-gray-400">
-                            <svg class="w-14 h-14 text-gray-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
-                            </svg>
-                            <p class="text-sm font-medium text-gray-500">No inventory items found.</p>
-                            <a href="{{ route('store.inventory.create') }}"
-                               class="text-sm text-blue-700 hover:underline font-medium">
-                                Add your first item →
-                            </a>
-                        </div>
-                    </td>
-                </tr>
-                @endforelse
+            <tbody id="inventoryTableBody" class="divide-y divide-gray-50">
+                @include('store.inventory.partials.table_rows', ['items' => $items])
             </tbody>
         </table>
     </div>
 
-    {{-- Pagination --}}
-    @if($items->hasPages())
-    <div class="flex items-center justify-between px-4 py-3 border-t border-gray-100 bg-gray-50">
-        <p class="text-sm text-gray-400">
-            Page {{ $items->currentPage() }} of {{ $items->lastPage() }}
-        </p>
+    <div id="paginationContainer" class="px-4 py-3 border-t border-gray-100 bg-gray-50">
         {{ $items->appends(request()->query())->links() }}
     </div>
-    @endif
 </div>
+
+@push('scripts')
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    let debounceTimer;
+    let currentPage = 1;
+    let isLoading = false;
+
+    const searchInput = document.getElementById('searchInput');
+    const statusFilter = document.getElementById('statusFilter');
+    const clearFiltersBtn = document.getElementById('clearFiltersBtn');
+    const tableBody = document.getElementById('inventoryTableBody');
+    const paginationContainer = document.getElementById('paginationContainer');
+    const searchLoader = document.getElementById('searchLoader');
+    const showingStart = document.getElementById('showingStart');
+    const showingEnd = document.getElementById('showingEnd');
+    const totalResults = document.getElementById('totalResults');
+    const statTotalItems = document.getElementById('statTotalItems');
+    const statInStock = document.getElementById('statInStock');
+    const statLowStock = document.getElementById('statLowStock');
+    const statOutOfStock = document.getElementById('statOutOfStock');
+
+    function fetchLiveResults() {
+        if (isLoading) return;
+
+        clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(() => {
+            const params = new URLSearchParams();
+            params.append('page', currentPage);
+            params.append('ajax', '1');
+
+            if (searchInput && searchInput.value.trim()) {
+                params.append('search', searchInput.value.trim());
+            }
+            if (statusFilter && statusFilter.value) {
+                params.append('status', statusFilter.value);
+            }
+
+            if (searchLoader) searchLoader.classList.remove('hidden');
+            isLoading = true;
+
+            fetch(`{{ route('store.inventory.index') }}?${params.toString()}`, {
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'Accept': 'application/json'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.html) {
+                    tableBody.innerHTML = data.html;
+                }
+                if (data.pagination) {
+                    paginationContainer.innerHTML = data.pagination;
+                }
+                if (data.summary) {
+                    showingStart.textContent = data.summary.start;
+                    showingEnd.textContent = data.summary.end;
+                    totalResults.textContent = data.summary.total;
+                }
+                if (data.stats) {
+                    statTotalItems.textContent = data.stats.total_items;
+                    statInStock.textContent = data.stats.in_stock;
+                    statLowStock.textContent = data.stats.low_stock;
+                    statOutOfStock.textContent = data.stats.out_of_stock;
+                }
+                isLoading = false;
+                if (searchLoader) searchLoader.classList.add('hidden');
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                isLoading = false;
+                if (searchLoader) searchLoader.classList.add('hidden');
+            });
+        }, 300);
+    }
+
+    // Live search on input
+    if (searchInput) {
+        searchInput.addEventListener('input', function() {
+            currentPage = 1;
+            fetchLiveResults();
+        });
+    }
+
+    // Filter on change
+    if (statusFilter) {
+        statusFilter.addEventListener('change', function() {
+            currentPage = 1;
+            fetchLiveResults();
+        });
+    }
+
+    // Clear filters
+    if (clearFiltersBtn) {
+        clearFiltersBtn.addEventListener('click', function() {
+            if (searchInput) searchInput.value = '';
+            if (statusFilter) statusFilter.value = '';
+            currentPage = 1;
+            fetchLiveResults();
+        });
+    }
+
+    // Handle pagination clicks (event delegation)
+    if (paginationContainer) {
+        paginationContainer.addEventListener('click', function(e) {
+            const link = e.target.closest('a');
+            if (link && link.getAttribute('href')) {
+                e.preventDefault();
+                const url = new URL(link.href);
+                const page = url.searchParams.get('page');
+                if (page) {
+                    currentPage = parseInt(page);
+                    fetchLiveResults();
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                }
+            }
+        });
+    }
+});
+</script>
+@endpush
 
 @endsection

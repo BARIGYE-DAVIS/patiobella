@@ -19,16 +19,25 @@
         <div class="flex flex-wrap items-center gap-2 mb-1">
             <h2 class="text-xl font-semibold text-gray-800">{{ $item->name }}</h2>
 
-            {{-- Stock status badge --}}
+            {{-- Stock status badge (calculated from batches) --}}
             @php
-                $badgeClass = match($item->stock_status) {
-                    'out_of_stock' => 'bg-red-100 text-red-700',
-                    'low_stock'    => 'bg-yellow-100 text-yellow-700',
-                    default        => 'bg-green-100 text-green-700',
-                };
+                $totalStock = $batches->where('batch_status', 'active')->sum('remaining_quantity');
+                if ($totalStock <= 0) {
+                    $stockStatus = 'out_of_stock';
+                    $badgeClass = 'bg-red-100 text-red-700';
+                    $statusText = 'Out of Stock';
+                } elseif ($item->minimum_stock > 0 && $totalStock <= $item->minimum_stock) {
+                    $stockStatus = 'low_stock';
+                    $badgeClass = 'bg-yellow-100 text-yellow-700';
+                    $statusText = 'Low Stock';
+                } else {
+                    $stockStatus = 'in_stock';
+                    $badgeClass = 'bg-green-100 text-green-700';
+                    $statusText = 'In Stock';
+                }
             @endphp
             <span class="text-xs font-semibold px-2.5 py-1 rounded-full {{ $badgeClass }}">
-                {{ ucfirst(str_replace('_', ' ', $item->stock_status)) }}
+                {{ $statusText }}
             </span>
 
             @unless($item->is_active)
@@ -71,7 +80,7 @@
         <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
             <div>
                 <label class="block text-xs font-medium text-gray-600 mb-1">Type</label>
-                <select name="adjustment_type"
+                <select name="adjustment_type" id="adjustmentType"
                         class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-300">
                     <option value="add">➕ Add stock</option>
                     <option value="subtract">➖ Subtract stock</option>
@@ -79,11 +88,23 @@
             </div>
             <div>
                 <label class="block text-xs font-medium text-gray-600 mb-1">
-                    Quantity ({{ $item->base_unit_label }}s)
+                    Quantity ({{ $item->unit_of_measurement ?? 'units' }})
                 </label>
                 <input type="number" name="quantity" step="0.01" min="0.01" required
                        placeholder="e.g. 24"
                        class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-300"/>
+            </div>
+            <div>
+                <label class="block text-xs font-medium text-gray-600 mb-1">Batch (Optional)</label>
+                <select name="batch_id" id="batchSelect"
+                        class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-300">
+                    <option value="">Auto-select oldest batch (FIFO)</option>
+                    @foreach($batches->where('batch_status', 'active')->where('remaining_quantity', '>', 0) as $batch)
+                        <option value="{{ $batch->id }}">
+                            {{ $batch->batch_number }} - {{ number_format($batch->remaining_quantity, 2) }} {{ $batch->unit_of_measurement }} left @ UGX {{ number_format($batch->unit_cost, 2) }}/unit
+                        </option>
+                    @endforeach
+                </select>
             </div>
             <div>
                 <label class="block text-xs font-medium text-gray-600 mb-1">Reason</label>
@@ -101,11 +122,17 @@
     </form>
 </div>
 
-{{-- ── Stock Snapshot ──────────────────────────────────────────────── --}}
+{{-- Stock Snapshot (calculated from batches) --}}
 @php
-    $maxRef   = $item->maximum_stock > 0 ? $item->maximum_stock : ($item->minimum_stock > 0 ? $item->minimum_stock * 2 : 1);
-    $pct      = $maxRef > 0 ? min(100, ($item->current_stock / $maxRef) * 100) : 0;
-    $barColor = match($item->stock_status) {
+    $totalStock = $batches->where('batch_status', 'active')->sum('remaining_quantity');
+    $totalValue = $batches->where('batch_status', 'active')->sum(function($b) {
+        return $b->remaining_quantity * $b->unit_cost;
+    });
+    $avgCost = $totalStock > 0 ? $totalValue / $totalStock : 0;
+
+    $maxRef = $item->maximum_stock > 0 ? $item->maximum_stock : ($item->minimum_stock > 0 ? $item->minimum_stock * 2 : 1);
+    $pct = $maxRef > 0 ? min(100, ($totalStock / $maxRef) * 100) : 0;
+    $barColor = match($stockStatus) {
         'out_of_stock' => 'bg-red-500',
         'low_stock'    => 'bg-yellow-400',
         default        => 'bg-green-500',
@@ -115,10 +142,10 @@
 <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
     <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
         <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">
-            Current Stock ({{ $item->base_unit_label }}s)
+            Current Stock ({{ $item->unit_of_measurement ?? 'units' }})
         </p>
         <p class="text-2xl font-bold text-gray-800 tabular-nums">
-            {{ number_format($item->current_stock, 2) }}
+            {{ number_format($totalStock, 2) }}
         </p>
         <div class="w-full h-1.5 bg-gray-100 rounded-full mt-2 overflow-hidden">
             <div class="{{ $barColor }} h-full rounded-full transition-all" style="width: {{ $pct }}%"></div>
@@ -133,14 +160,14 @@
         <p class="text-2xl font-bold text-blue-700 tabular-nums">{{ number_format($item->maximum_stock, 2) }}</p>
     </div>
     <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
-        <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">Reorder Qty</p>
-        <p class="text-2xl font-bold text-gray-700 tabular-nums">{{ number_format($item->reorder_quantity, 2) }}</p>
+        <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">Avg. Unit Cost</p>
+        <p class="text-2xl font-bold text-purple-700 tabular-nums">UGX {{ number_format($avgCost, 2) }}</p>
     </div>
 </div>
 
 <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
-    {{-- ── Left: detail panels (2/3 width) ────────────────────────── --}}
+    {{-- Left: detail panels (2/3 width) --}}
     <div class="lg:col-span-2 flex flex-col gap-5">
 
         {{-- Item Details --}}
@@ -167,28 +194,16 @@
                     <span class="text-sm text-gray-400 w-44 shrink-0">Category</span>
                     <span class="text-sm text-gray-700">{{ $item->category->name ?? '—' }}</span>
                 </div>
-                @if($item->subCategory)
+                @if($item->empty_bottle_weight)
                 <div class="flex px-5 py-3 gap-4">
-                    <span class="text-sm text-gray-400 w-44 shrink-0">Sub-category</span>
-                    <span class="text-sm text-gray-700">{{ $item->subCategory->name }}</span>
+                    <span class="text-sm text-gray-400 w-44 shrink-0">Empty Bottle Weight</span>
+                    <span class="text-sm text-gray-700">{{ number_format($item->empty_bottle_weight, 3) }} kg</span>
                 </div>
                 @endif
                 @if($item->description)
                 <div class="flex px-5 py-3 gap-4">
                     <span class="text-sm text-gray-400 w-44 shrink-0">Description</span>
                     <span class="text-sm text-gray-700">{{ $item->description }}</span>
-                </div>
-                @endif
-                @if($item->manufacturer)
-                <div class="flex px-5 py-3 gap-4">
-                    <span class="text-sm text-gray-400 w-44 shrink-0">Manufacturer</span>
-                    <span class="text-sm text-gray-700">{{ $item->manufacturer }}</span>
-                </div>
-                @endif
-                @if($item->brand)
-                <div class="flex px-5 py-3 gap-4">
-                    <span class="text-sm text-gray-400 w-44 shrink-0">Brand</span>
-                    <span class="text-sm text-gray-700">{{ $item->brand }}</span>
                 </div>
                 @endif
                 @if($item->notes)
@@ -207,56 +222,95 @@
             </div>
             <div class="divide-y divide-gray-50">
                 <div class="flex px-5 py-3 gap-4 items-center">
-                    <span class="text-sm text-gray-400 w-44 shrink-0">Receiving Unit</span>
-                    <div class="flex items-center gap-2">
-                        <span class="bg-gray-100 text-gray-700 text-xs font-medium px-2.5 py-1 rounded-md">
-                            {{ ucfirst($item->default_unit_of_measure_id ?? '—') }}
-                        </span>
-                        @if($item->is_bulk_item)
-                            <span class="text-xs text-gray-400">Bulk / pack type</span>
-                        @else
-                            <span class="text-xs text-gray-400">Direct unit</span>
-                        @endif
-                    </div>
-                </div>
-                <div class="flex px-5 py-3 gap-4 items-center">
-                    <span class="text-sm text-gray-400 w-44 shrink-0">Base (Sell) Unit</span>
+                    <span class="text-sm text-gray-400 w-44 shrink-0">Unit of Measurement</span>
                     <span class="bg-orange-50 text-orange-700 text-xs font-medium px-2.5 py-1 rounded-md">
-                        {{ ucfirst($item->base_unit_label) }}
+                        {{ ucfirst($item->unit_of_measurement ?? $item->base_unit ?? 'piece') }}
                     </span>
                 </div>
-                <div class="flex px-5 py-3 gap-4">
-                    <span class="text-sm text-gray-400 w-44 shrink-0">Stock Display</span>
-                    <span class="text-sm font-semibold text-gray-800">{{ $item->stock_display }}</span>
-                </div>
-                @if($item->is_bulk_item)
-                <div class="flex px-5 py-3 gap-4">
-                    <span class="text-sm text-gray-400 w-44 shrink-0">Receiving Display</span>
-                    <span class="text-sm text-gray-500">{{ ucfirst($item->receiving_unit_display) }}</span>
-                </div>
-                @endif
-                <div class="flex px-5 py-3 gap-4">
-                    <span class="text-sm text-gray-400 w-44 shrink-0">Unit Cost</span>
-                    <span class="text-sm text-gray-800">
-                        UGX {{ number_format($item->unit_cost, 2) }}
-                        <span class="text-gray-400">/ {{ $item->base_unit_label }}</span>
-                    </span>
-                </div>
-                @if($item->last_purchase_price)
-                <div class="flex px-5 py-3 gap-4">
-                    <span class="text-sm text-gray-400 w-44 shrink-0">Last Purchase Price</span>
-                    <span class="text-sm text-gray-700">UGX {{ number_format($item->last_purchase_price, 2) }}</span>
-                </div>
-                @endif
                 @if($item->selling_price)
                 <div class="flex px-5 py-3 gap-4">
                     <span class="text-sm text-gray-400 w-44 shrink-0">Selling Price</span>
                     <span class="text-sm font-semibold text-green-700">
                         UGX {{ number_format($item->selling_price, 2) }}
-                        <span class="font-normal text-gray-400">/ {{ $item->base_unit_label }}</span>
+                        <span class="font-normal text-gray-400">/ {{ $item->unit_of_measurement ?? 'unit' }}</span>
                     </span>
                 </div>
                 @endif
+            </div>
+        </div>
+
+        {{-- Batches Table --}}
+        <div class="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+            <div class="px-5 py-3 bg-gray-50 border-b border-gray-100 flex items-center justify-between">
+                <p class="text-xs font-semibold text-gray-500 uppercase tracking-wider">Stock Batches</p>
+                <span class="text-xs text-gray-400">{{ $batches->count() }} batch(es)</span>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-4 py-2 text-left text-xs font-semibold text-gray-500">Batch Number</th>
+                            <th class="px-4 py-2 text-center text-xs font-semibold text-gray-500">Initial Qty</th>
+                            <th class="px-4 py-2 text-center text-xs font-semibold text-gray-500">Remaining</th>
+                            <th class="px-4 py-2 text-right text-xs font-semibold text-gray-500">Unit Cost</th>
+                            <th class="px-4 py-2 text-right text-xs font-semibold text-gray-500">Total Value</th>
+                            <th class="px-4 py-2 text-center text-xs font-semibold text-gray-500">Expiry Date</th>
+                            <th class="px-4 py-2 text-center text-xs font-semibold text-gray-500">Status</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-100">
+                        @forelse($batches->sortBy('created_at') as $batch)
+                        @php
+                            $isExpired = $batch->expiry_date && $batch->expiry_date < now();
+                            $batchStatusClass = match($batch->batch_status) {
+                                'active' => 'bg-green-100 text-green-700',
+                                'partially_used' => 'bg-yellow-100 text-yellow-700',
+                                'depleted' => 'bg-gray-100 text-gray-500',
+                                default => 'bg-gray-100 text-gray-500',
+                            };
+                            $remainingPercent = $batch->initial_quantity > 0 ? ($batch->remaining_quantity / $batch->initial_quantity) * 100 : 0;
+                        @endphp
+                        <tr class="hover:bg-gray-50">
+                            <td class="px-4 py-2">
+                                <span class="font-mono text-xs text-gray-600">{{ $batch->batch_number }}</span>
+                            </td>
+                            <td class="px-4 py-2 text-center">{{ number_format($batch->initial_quantity, 2) }}</td>
+                            <td class="px-4 py-2 text-center">
+                                <div class="flex items-center justify-center gap-2">
+                                    <span class="font-semibold {{ $batch->remaining_quantity <= 0 ? 'text-red-600' : 'text-gray-800' }}">
+                                        {{ number_format($batch->remaining_quantity, 2) }}
+                                    </span>
+                                    <div class="w-16 bg-gray-200 rounded-full h-1.5">
+                                        <div class="bg-blue-500 h-1.5 rounded-full" style="width: {{ min($remainingPercent, 100) }}%"></div>
+                                    </div>
+                                </div>
+                            </td>
+                            <td class="px-4 py-2 text-right">UGX {{ number_format($batch->unit_cost, 2) }}</td>
+                            <td class="px-4 py-2 text-right">UGX {{ number_format($batch->remaining_quantity * $batch->unit_cost, 2) }}</td>
+                            <td class="px-4 py-2 text-center">
+                                @if($isExpired)
+                                    <span class="text-red-600 text-xs">{{ \Carbon\Carbon::parse($batch->expiry_date)->format('d M Y') }}</span>
+                                @elseif($batch->expiry_date)
+                                    {{ \Carbon\Carbon::parse($batch->expiry_date)->format('d M Y') }}
+                                @else
+                                    —
+                                @endif
+                            </td>
+                            <td class="px-4 py-2 text-center">
+                                <span class="inline-flex px-2 py-0.5 text-xs font-semibold rounded-full {{ $batchStatusClass }}">
+                                    {{ ucfirst(str_replace('_', ' ', $batch->batch_status)) }}
+                                </span>
+                            </td>
+                         </tr>
+                        @empty
+                        <tr>
+                            <td colspan="7" class="px-4 py-8 text-center text-gray-400">
+                                No batches found for this item.
+                            </td>
+                        </tr>
+                        @endforelse
+                    </tbody>
+                </table>
             </div>
         </div>
 
@@ -305,7 +359,7 @@
 
     </div>
 
-    {{-- ── Right: metadata + stock movements (1/3 width) ─────────── --}}
+    {{-- Right: metadata (1/3 width) --}}
     <div class="flex flex-col gap-5">
 
         {{-- Record info --}}
@@ -316,7 +370,7 @@
             <div class="divide-y divide-gray-50">
                 <div class="flex flex-col px-5 py-3 gap-0.5">
                     <span class="text-xs text-gray-400">Created by</span>
-                    <span class="text-sm text-gray-700 font-medium">{{ $item->creator->name ?? '—' }}</span>
+                    <span class="text-sm text-gray-700 font-medium">{{ $item->creator->first_name ?? '—' }} {{ $item->creator->last_name ?? '' }}</span>
                 </div>
                 <div class="flex flex-col px-5 py-3 gap-0.5">
                     <span class="text-xs text-gray-400">Created at</span>
@@ -325,63 +379,13 @@
                 @if($item->updater)
                 <div class="flex flex-col px-5 py-3 gap-0.5">
                     <span class="text-xs text-gray-400">Last updated by</span>
-                    <span class="text-sm text-gray-700 font-medium">{{ $item->updater->name }}</span>
+                    <span class="text-sm text-gray-700 font-medium">{{ $item->updater->first_name ?? '' }} {{ $item->updater->last_name ?? '' }}</span>
                 </div>
                 <div class="flex flex-col px-5 py-3 gap-0.5">
                     <span class="text-xs text-gray-400">Updated at</span>
                     <span class="text-sm text-gray-700">{{ $item->updated_at->format('d M Y, H:i') }}</span>
                 </div>
                 @endif
-            </div>
-        </div>
-
-        {{-- Recent Stock Movements --}}
-        <div class="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
-            <div class="px-5 py-3 bg-gray-50 border-b border-gray-100 flex items-center justify-between">
-                <p class="text-xs font-semibold text-gray-500 uppercase tracking-wider">Stock Movements</p>
-                <span class="text-xs text-gray-400">Last {{ $stockMovements->count() }}</span>
-            </div>
-
-            <div class="divide-y divide-gray-50">
-                @forelse($stockMovements as $mv)
-                @php
-                    $isIn      = in_array($mv->movement_type_id, [1, 2]);
-                    $dotColor  = $isIn ? 'bg-green-500' : 'bg-red-400';
-                    $qtyColor  = $isIn ? 'text-green-700' : 'text-red-600';
-                    $qtyPrefix = $isIn ? '+' : '−';
-                    $mvDate    = $mv->movement_date
-                        ? \Carbon\Carbon::parse($mv->movement_date)->format('d M Y, H:i')
-                        : $mv->created_at->format('d M Y, H:i');
-                @endphp
-                <div class="flex items-start gap-3 px-5 py-3">
-                    <span class="mt-1.5 w-2 h-2 rounded-full {{ $dotColor }} shrink-0"></span>
-                    <div class="flex-1 min-w-0">
-                        <p class="text-sm font-medium text-gray-700 leading-tight">
-                            {{ $mv->movementType->name ?? ($isIn ? 'Stock In' : 'Stock Out') }}
-                        </p>
-                        <p class="text-xs font-mono text-gray-400 mt-0.5">{{ $mv->movement_number }}</p>
-
-                        {{-- Pack breakdown --}}
-                        @if($mv->pack_type)
-                            <p class="text-xs text-gray-400 mt-0.5">
-                                {{ $mv->number_of_packs }} {{ $mv->pack_type }}(s)
-                                × {{ $mv->pack_size }}
-                                = {{ number_format($mv->quantity_in_base_unit, 2) }} {{ $mv->base_unit }}(s)
-                            </p>
-                        @endif
-
-                        <p class="text-xs text-gray-400 mt-0.5">{{ $mvDate }}</p>
-                    </div>
-                    <span class="text-sm font-bold {{ $qtyColor }} tabular-nums whitespace-nowrap">
-                        {{ $qtyPrefix }}{{ number_format($mv->quantity_in_base_unit, 2) }}
-                        <span class="text-xs font-normal text-gray-400">{{ $mv->base_unit }}</span>
-                    </span>
-                </div>
-                @empty
-                <div class="px-5 py-8 text-center text-sm text-gray-400">
-                    No stock movements yet.
-                </div>
-                @endforelse
             </div>
         </div>
 
@@ -393,7 +397,7 @@
             <div class="px-5 py-4">
                 <p class="text-xs text-gray-500 mb-3">
                     Deleting this item is permanent and cannot be undone.
-                    Items with stock movements cannot be deleted.
+                    Items with existing batches cannot be deleted.
                 </p>
                 <form action="{{ route('store.inventory.destroy', $item->id) }}" method="POST"
                       onsubmit="return confirm('Delete \'{{ addslashes($item->name) }}\'? This cannot be undone.')">

@@ -80,10 +80,10 @@
 
     {{-- Back Button --}}
     <div class="flex justify-between items-center">
-        <a href="{{ route('batches.index') }}" class="text-gray-600 hover:text-gray-800 text-sm">
+        <a href="{{ route('store.batches.index') }}" class="text-gray-600 hover:text-gray-800 text-sm">
             <i class="fas fa-arrow-left mr-1"></i> Back to Batches
         </a>
-        <a href="{{ route('batches.edit', $batch->id) }}" class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg text-sm transition">
+        <a href="{{ route('store.batches.edit', $batch->id) }}" class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg text-sm transition">
             <i class="fas fa-edit mr-1"></i> Edit Batch
         </a>
     </div>

@@ -887,3 +887,15 @@ Route::prefix('users')->name('users.')->group(function () {
     Route::post('/{id}/signature', [App\Http\Controllers\UserController::class, 'uploadSignature'])->name('upload-signature');
     Route::delete('/{id}/signature', [App\Http\Controllers\UserController::class, 'removeSignature'])->name('remove-signature');
 });
+
+
+// Store Goods Received Notes (GRN) Routes
+Route::prefix('store/goods-received')->name('store.goods-received.')->middleware(['auth'])->group(function () {
+    Route::get('/', [App\Http\Controllers\Store\GoodsReceivedController::class, 'index'])->name('index')->middleware('permission:view_goods_received');
+    Route::get('/create', [App\Http\Controllers\Store\GoodsReceivedController::class, 'create'])->name('create')->middleware('permission:create_goods_received');
+    Route::get('/create-for-po/{poId}', [App\Http\Controllers\Store\GoodsReceivedController::class, 'createForPo'])->name('create-for-po')->middleware('permission:create_goods_received');
+    Route::post('/', [App\Http\Controllers\Store\GoodsReceivedController::class, 'store'])->name('store')->middleware('permission:create_goods_received');
+    Route::get('/{id}', [App\Http\Controllers\Store\GoodsReceivedController::class, 'show'])->name('show')->middleware('permission:view_goods_received');
+    Route::get('/{id}/print', [App\Http\Controllers\Store\GoodsReceivedController::class, 'print'])->name('print')->middleware('permission:view_goods_received');
+    Route::get('/{id}/pdf', [App\Http\Controllers\Store\GoodsReceivedController::class, 'downloadPdf'])->name('pdf')->middleware('permission:view_goods_received');
+});

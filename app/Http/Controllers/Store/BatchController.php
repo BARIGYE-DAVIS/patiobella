@@ -17,47 +17,58 @@ class BatchController extends Controller
      * Display all batches across all items (index page).
      */
     public function index(Request $request)
-    {
-        $user = Auth::user();
+{
+    $user = Auth::user();
 
-        if (!$user->department || $user->department->name !== 'STORE') {
-            return redirect()->route('dashboard')->with('error', 'Unauthorized access');
-        }
-
-        $query = Batch::with('inventoryItem');
-
-        // Search
-        if ($request->filled('search')) {
-            $search = $request->search;
-            $query->where(function($q) use ($search) {
-                $q->where('batch_number', 'like', "%{$search}%")
-                  ->orWhereHas('inventoryItem', function($item) use ($search) {
-                      $item->where('name', 'like', "%{$search}%")
-                           ->orWhere('item_code', 'like', "%{$search}%");
-                  });
-            });
-        }
-
-        // Filter by batch status
-        if ($request->filled('batch_status')) {
-            $query->where('batch_status', $request->batch_status);
-        }
-
-        // Filter by expiry status
-        if ($request->filled('expiry_status')) {
-            if ($request->expiry_status === 'expired') {
-                $query->where('expiry_date', '<', now());
-            } elseif ($request->expiry_status === 'expiring_soon') {
-                $query->where('expiry_date', '<=', now()->addDays(30))
-                      ->where('expiry_date', '>=', now());
-            }
-        }
-
-        $batches = $query->orderBy('expiry_date', 'asc')->paginate(20);
-
-        return view('store.batches.index', compact('batches'));
+    if (!$user->department || $user->department->name !== 'STORE') {
+        return redirect()->route('dashboard')->with('error', 'Unauthorized access');
     }
 
+    $query = Batch::with('inventoryItem');
+
+    if ($request->filled('search')) {
+        $search = $request->search;
+        $query->where(function($q) use ($search) {
+            $q->where('batch_number', 'like', "%{$search}%")
+              ->orWhereHas('inventoryItem', function($item) use ($search) {
+                  $item->where('name', 'like', "%{$search}%")
+                       ->orWhere('item_code', 'like', "%{$search}%");
+              });
+        });
+    }
+
+    if ($request->filled('batch_status')) {
+        $query->where('batch_status', $request->batch_status);
+    }
+
+    if ($request->filled('expiry_status')) {
+        if ($request->expiry_status === 'expired') {
+            $query->where('expiry_date', '<', now());
+        } elseif ($request->expiry_status === 'expiring_soon') {
+            $query->where('expiry_date', '<=', now()->addDays(30))
+                  ->where('expiry_date', '>=', now());
+        }
+    }
+
+    $batches = $query->orderBy('expiry_date', 'asc')->paginate(20);
+
+    // ✅ ADD THIS BLOCK
+    if ($request->ajax() || $request->filled('ajax')) {
+        return response()->json([
+            'html' => view('store.batches.partials.table_rows', compact('batches'))->render(),
+            'pagination' => $batches->hasPages()
+                ? $batches->appends($request->except('ajax'))->links()->render()
+                : '',
+            'summary' => [
+                'start' => $batches->firstItem() ?? 0,
+                'end'   => $batches->lastItem() ?? 0,
+                'total' => $batches->total(),
+            ],
+        ]);
+    }
+
+    return view('store.batches.index', compact('batches'));
+}
     /**
      * Show a specific batch.
      */

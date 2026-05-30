@@ -451,7 +451,7 @@
 
         {{-- Footer --}}
         <div class="mt-8 pt-4 border-t text-center">
-            <p class="text-xs text-gray-400">This is a computer generated document. Valid without signature.</p>
+            <p class="text-xs text-gray-400">This is a computer generated document. Digital signatures.</p>
             <p class="text-xs text-gray-400">{{ $companyName }} - All Rights Reserved</p>
         </div>
     </div>
