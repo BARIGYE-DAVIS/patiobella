@@ -285,7 +285,10 @@ Route::prefix('goods-received')->name('goods-received.')->group(function () {
     Route::get('/', [App\Http\Controllers\Procurement\GoodsReceivedController::class, 'index'])
         ->name('index')
         ->middleware('permission:view_goods_received');
-
+// Add this INSIDE your existing goods-received route group
+Route::post('/{id}/verify', [App\Http\Controllers\Procurement\GoodsReceivedController::class, 'verify'])
+    ->name('verify')
+    ->middleware('permission:verify_goods_received');
     Route::get('/create', [App\Http\Controllers\Procurement\GoodsReceivedController::class, 'create'])
         ->name('create')
         ->middleware('permission:receive_goods');

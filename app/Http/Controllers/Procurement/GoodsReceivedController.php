@@ -333,24 +333,27 @@ public function getPurchaseOrders(Request $request)
     }
 
     // ==================== SHOW GRN ====================
-    public function show($id)
-    {
-        $user = Auth::user();
-        if (!$user->department || $user->department->name !== 'PROCUREMENT') {
-            return redirect()->route('dashboard')->with('error', 'Unauthorized access');
-        }
-
-        $grn = GoodsReceivedNote::with([
-            'vendor',
-            'purchaseOrder',
-            'items.inventoryItem',
-            'createdBy'
-        ])->findOrFail($id);
-
-        $documents = Document::where('grn_id', $id)->get();
-
-        return view('procurement.goods_received.show', compact('grn', 'documents'));
+public function show($id)
+{
+    $user = Auth::user();
+    if (!$user->department || $user->department->name !== 'PROCUREMENT') {
+        return redirect()->route('dashboard')->with('error', 'Unauthorized access');
     }
+
+    $grn = GoodsReceivedNote::with([
+        'vendor',
+        'purchaseOrder',
+        'items.inventoryItem',
+        'createdBy',
+        'receivedByUser',   // ← added
+        'verifiedBy',       // ← added (correct relationship name)
+        'rating.ratedBy',   // ← added for rating display
+    ])->findOrFail($id);
+
+    $documents = Document::where('grn_id', $id)->get();
+
+    return view('procurement.goods_received.show', compact('grn', 'documents'));
+}
 
     // ==================== ATTACH PDF TO PO ====================
     public function attachDocument(Request $request, $id)
@@ -396,38 +399,44 @@ public function getPurchaseOrders(Request $request)
         ], 500);
     }
 }
-    // ==================== DOWNLOAD GRN PDF ====================
-    public function downloadPdf($id)
-    {
-        $user = Auth::user();
-        if (!$user->department || $user->department->name !== 'PROCUREMENT') {
-            return redirect()->route('dashboard')->with('error', 'Unauthorized access');
-        }
-
-        $grn = GoodsReceivedNote::with(['vendor', 'purchaseOrder', 'items.inventoryItem'])
-            ->findOrFail($id);
-
-        $pdf = Pdf::loadView('procurement.goods_received.pdf', compact('grn'));
-        return $pdf->download('GRN_' . $grn->grn_number . '.pdf');
+public function downloadPdf($id)
+{
+    $user = Auth::user();
+    if (!$user->department || $user->department->name !== 'PROCUREMENT') {
+        return redirect()->route('dashboard')->with('error', 'Unauthorized access');
     }
 
-    // ==================== PRINT GRN ====================
-    public function print($id)
-    {
-        $user = Auth::user();
-        if (!$user->department || $user->department->name !== 'PROCUREMENT') {
-            return redirect()->route('dashboard')->with('error', 'Unauthorized access');
-        }
+    $grn = GoodsReceivedNote::with([
+        'vendor',
+        'purchaseOrder',
+        'items.inventoryItem',
+        'createdBy',
+        'receivedByUser',
+        'verifiedBy',
+    ])->findOrFail($id);
 
-        $grn = GoodsReceivedNote::with([
-            'vendor',
-            'purchaseOrder',
-            'items.inventoryItem',
-            'createdBy'
-        ])->findOrFail($id);
+    $pdf = Pdf::loadView('procurement.goods_received.pdf', compact('grn'));
+    return $pdf->download('GRN_' . $grn->grn_number . '.pdf');
+}
 
-        return view('procurement.goods_received.print', compact('grn'));
+public function print($id)
+{
+    $user = Auth::user();
+    if (!$user->department || $user->department->name !== 'PROCUREMENT') {
+        return redirect()->route('dashboard')->with('error', 'Unauthorized access');
     }
+
+    $grn = GoodsReceivedNote::with([
+        'vendor',
+        'purchaseOrder',
+        'items.inventoryItem',
+        'createdBy',
+        'receivedByUser',
+        'verifiedBy',
+    ])->findOrFail($id);
+
+    return view('procurement.goods_received.print', compact('grn'));
+}
 
     // ==================== SEND EMAIL WITH PDF ====================
     public function sendEmail(Request $request, $id)
@@ -579,6 +588,40 @@ public function getPurchaseOrders(Request $request)
             'total' => $ratings->count(),
         ]);
     }
+
+
+
+public function verify($id, Request $request)
+{
+    // Find the GRN
+    $grn = GoodsReceivedNote::findOrFail($id);
+
+    // Check if already verified
+    if ($grn->status === 'verified') {
+        return redirect()->back()->with('error', 'This GRN has already been verified.');
+    }
+
+    // Check if cancelled
+    if ($grn->status === 'cancelled') {
+        return redirect()->back()->with('error', 'This GRN has been cancelled and cannot be verified.');
+    }
+
+    // Optional validation
+    $request->validate([
+        'verification_notes' => 'nullable|string|max:500'
+    ]);
+
+    // Update GRN
+    $grn->update([
+        'status' => 'verified',
+        'verified_by' => Auth::id(),
+        'verified_at' => now(),
+        'verification_notes' => $request->verification_notes
+    ]);
+
+    return redirect()->route('procurement.goods-received.show', $grn->id)
+        ->with('success', 'GRN #' . $grn->grn_number . ' has been verified successfully.');
+}
 
 public function deleteDocument($id)
 {

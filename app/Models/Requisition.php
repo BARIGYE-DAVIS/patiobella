@@ -12,13 +12,16 @@ class Requisition extends Model
 
     protected $fillable = [
         'requisition_number',
+        'requisition_type',
         'store_id',
         'requested_by',
         'approved_by',
-        'requisition_type',
         'date_needed',
         'status',
         'notes',
+        'gm_notes',
+        'gm_edited_by',
+        'gm_edited_at',
         'rejection_reason',
         'approved_at',
     ];
@@ -39,6 +42,8 @@ class Requisition extends Model
     const STATUS_APPROVED = 'approved';
     const STATUS_REJECTED = 'rejected';
     const STATUS_FULFILLED = 'fulfilled';
+    const STATUS_ORDERED = 'ordered';
+    const STATUS_LPO_CREATED = 'lpo_created';
 
     public static function getStatuses()
     {
@@ -47,6 +52,8 @@ class Requisition extends Model
             self::STATUS_APPROVED => 'Approved',
             self::STATUS_REJECTED => 'Rejected',
             self::STATUS_FULFILLED => 'Fulfilled',
+            self::STATUS_ORDERED => 'Ordered',
+            self::STATUS_LPO_CREATED => 'LPO Created',
         ];
     }
 
@@ -82,6 +89,11 @@ class Requisition extends Model
         return $query->where('status', self::STATUS_APPROVED);
     }
 
+    public function scopeByStore($query, $storeId)
+    {
+        return $query->where('store_id', $storeId);
+    }
+
     // Helper methods
     public function isPending()
     {
@@ -93,21 +105,47 @@ class Requisition extends Model
         return $this->status === self::STATUS_APPROVED;
     }
 
-    public function approve($userId)
+    public function isRejected()
+    {
+        return $this->status === self::STATUS_REJECTED;
+    }
+
+    public function isFulfilled()
+    {
+        return $this->status === self::STATUS_FULFILLED;
+    }
+
+    public function approve($userId, $notes = null)
     {
         $this->update([
             'status' => self::STATUS_APPROVED,
             'approved_by' => $userId,
             'approved_at' => now(),
+            'gm_notes' => $notes,
         ]);
     }
 
-    public function reject($userId)
+    public function reject($userId, $reason)
     {
         $this->update([
             'status' => self::STATUS_REJECTED,
             'approved_by' => $userId,
             'approved_at' => now(),
+            'rejection_reason' => $reason,
         ]);
+    }
+
+    // Batch-specific helper methods
+    public function getUniqueBatchIds()
+    {
+        return $this->items->pluck('batch_id')->filter()->unique();
+    }
+
+    public function getExpiringBatches()
+    {
+        return $this->items->filter(function ($item) {
+            return $item->batch && $item->batch->expiry_date &&
+                   $item->batch->expiry_date->diffInDays(now()) <= 30;
+        });
     }
 }
