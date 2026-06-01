@@ -549,6 +549,10 @@ Route::prefix('kitchen')->name('kitchen.')->middleware(['auth'])->group(function
     Route::get('/dashboard', [App\Http\Controllers\Kitchen\KitchenController::class, 'dashboard'])->name('dashboard');
 
     Route::prefix('requisitions')->name('requisitions.')->group(function () {
+
+         Route::get('/{id}/preview', [App\Http\Controllers\Kitchen\RequisitionController::class, 'preview'])->name('preview')->middleware('permission:view_requisitions');
+        Route::get('/{id}/print', [App\Http\Controllers\Kitchen\RequisitionController::class, 'print'])->name('print')->middleware('permission:view_requisitions');
+        Route::get('/{id}/pdf', [App\Http\Controllers\Kitchen\RequisitionController::class, 'downloadPdf'])->name('pdf')->middleware('permission:view_requisitions');
         Route::get('/', [App\Http\Controllers\Kitchen\RequisitionController::class, 'index'])->name('index')->middleware('permission:view_requisitions');
         Route::get('/create', [App\Http\Controllers\Kitchen\RequisitionController::class, 'create'])->name('create')->middleware('permission:create_requisitions');
         Route::post('/', [App\Http\Controllers\Kitchen\RequisitionController::class, 'store'])->name('store')->middleware('permission:create_requisitions');
@@ -902,3 +906,6 @@ Route::prefix('store/goods-received')->name('store.goods-received.')->middleware
     Route::get('/{id}/print', [App\Http\Controllers\Store\GoodsReceivedController::class, 'print'])->name('print')->middleware('permission:view_goods_received');
     Route::get('/{id}/pdf', [App\Http\Controllers\Store\GoodsReceivedController::class, 'downloadPdf'])->name('pdf')->middleware('permission:view_goods_received');
 });
+
+
+Route::put('director/lpos/{id}', [App\Http\Controllers\Director\LpoController::class, 'update'])->name('director.lpos.update');

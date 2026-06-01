@@ -147,48 +147,72 @@ class DepartmentRequisitionController extends Controller
     /**
      * Display the specified requisition.
      */
-    public function show($id)
-    {
-        $requisition = DepartmentRequisition::with([
-            'department',
-            'requestedBy',
-            'approvedBy',
-            'items.inventoryItem'
-        ])->findOrFail($id);
+/**
+ * Display the specified requisition.
+ */
+public function show($id)
+{
+    $requisition = DepartmentRequisition::with([
+        'department',
+        'requestedBy',
+        'approvedBy',
+        'items.inventoryItem'
+    ])->findOrFail($id);
 
-        // Calculate totals
-        $requisition->total_items = $requisition->items->count();
-        $requisition->total_quantity_requested = $requisition->items->sum('quantity_requested');
-        $requisition->total_quantity_issued = $requisition->items->sum('quantity_issued');
-        $requisition->total_quantity_returned = $requisition->items->sum('quantity_returned');
-        $requisition->total_quantity_consumed = $requisition->items->sum('quantity_consumed');
-        $requisition->total_quantity_sold = $requisition->items->sum('quantity_sold');
-        $requisition->requisition_type_label = $this->getRequisitionTypeLabel($requisition->requisition_type);
+    // Calculate totals
+    $requisition->total_items = $requisition->items->count();
+    $requisition->total_quantity_requested = $requisition->items->sum('quantity_requested');
+    $requisition->total_quantity_issued = $requisition->items->sum('quantity_issued');
+    $requisition->total_quantity_returned = $requisition->items->sum('quantity_returned');
+    $requisition->total_quantity_consumed = $requisition->items->sum('quantity_consumed');
+    $requisition->total_quantity_sold = $requisition->items->sum('quantity_sold');
+    $requisition->requisition_type_label = $this->getRequisitionTypeLabel($requisition->requisition_type);
 
-        // Calculate status percentage
-        if ($requisition->total_quantity_requested > 0) {
-            $requisition->issued_percentage = round(($requisition->total_quantity_issued / $requisition->total_quantity_requested) * 100, 2);
-        } else {
-            $requisition->issued_percentage = 0;
-        }
-
-        // Get available stock for each item
-        foreach ($requisition->items as $item) {
-            if ($item->inventoryItem) {
-                $item->available_stock = $item->inventoryItem->current_stock ?? 0;
-                $item->remaining_to_issue = max(0, $item->quantity_requested - ($item->quantity_issued ?? 0));
-            } else {
-                $item->available_stock = 0;
-                $item->remaining_to_issue = 0;
-            }
-        }
-
-        // Get approval history
-        $requisition->approval_history = $this->getApprovalHistory($requisition);
-
-        return view('management.department-requisitions.show', compact('requisition'));
+    // Calculate status percentage
+    if ($requisition->total_quantity_requested > 0) {
+        $requisition->issued_percentage = round(($requisition->total_quantity_issued / $requisition->total_quantity_requested) * 100, 2);
+    } else {
+        $requisition->issued_percentage = 0;
     }
 
+    // Get available stock from BATCHES table (CORRECTED)
+    foreach ($requisition->items as $item) {
+        if ($item->inventoryItem) {
+            // Get all active batches with remaining quantity for this inventory item
+            $batches = \App\Models\Batch::where('inventory_item_id', $item->inventoryItem->id)
+                ->where('batch_status', 'active')
+                ->where('remaining_quantity', '>', 0)
+                ->orderBy('expiry_date', 'asc')
+                ->get();
+
+            // Calculate total available stock from all batches
+            $item->total_available_stock = $batches->sum('remaining_quantity');
+            $item->available_batches = $batches;
+            $item->remaining_to_issue = max(0, ($item->quantity_approved ?? $item->quantity_requested) - ($item->quantity_issued ?? 0));
+
+            // Calculate stock percentage
+            $requestedQty = $item->quantity_approved ?? $item->quantity_requested;
+            if ($requestedQty > 0) {
+                $item->stock_percentage = min(100, round(($item->total_available_stock / $requestedQty) * 100, 2));
+                $item->stock_status = $item->stock_percentage >= 50 ? 'good' : ($item->stock_percentage >= 25 ? 'low' : 'critical');
+            } else {
+                $item->stock_percentage = 0;
+                $item->stock_status = 'critical';
+            }
+        } else {
+            $item->available_batches = collect();
+            $item->total_available_stock = 0;
+            $item->remaining_to_issue = 0;
+            $item->stock_percentage = 0;
+            $item->stock_status = 'critical';
+        }
+    }
+
+    // Get approval history
+    $requisition->approval_history = $this->getApprovalHistory($requisition);
+
+    return view('management.department-requisitions.show', compact('requisition'));
+}
     /**
      * Show form to approve requisition with quantities.
      */

@@ -11,6 +11,8 @@ use App\Models\InventoryItem;
 use App\Models\Batch;
 use App\Models\Vendor;
 use App\Models\Document;
+use App\Models\StockMovement;
+use App\Models\Store;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -89,19 +91,20 @@ class GoodsReceivedController extends Controller
     /**
      * Show form to receive goods for a specific PO.
      */
-public function createForPo($poId)
-{
-    $user = Auth::user();
+    public function createForPo($poId)
+    {
+        $user = Auth::user();
 
-    if (!$user->department || $user->department->name !== 'STORE') {
-        return redirect()->route('dashboard')->with('error', 'Unauthorized access');
+        if (!$user->department || $user->department->name !== 'STORE') {
+            return redirect()->route('dashboard')->with('error', 'Unauthorized access');
+        }
+
+        $po = PurchaseOrder::with(['vendor', 'items.inventoryItem'])
+            ->findOrFail($poId);
+
+        return view('store.goods_received.create', compact('po'));
     }
 
-    $po = PurchaseOrder::with(['vendor', 'items.inventoryItem'])
-        ->findOrFail($poId);
-
-    return view('store.goods_received.create', compact('po'));
-}
     /**
      * Store GRN and create batches.
      */
@@ -135,6 +138,9 @@ public function createForPo($poId)
 
         try {
             $po = PurchaseOrder::with(['items.inventoryItem'])->findOrFail($request->purchase_order_id);
+
+            // Get default store
+            $store = Store::first();
 
             // Generate GRN Number
             $grnNumber = 'GRN-' . date('Ymd') . '-' . str_pad(rand(0, 9999), 4, '0', STR_PAD_LEFT);
@@ -214,7 +220,7 @@ public function createForPo($poId)
                 // Create Batch for accepted items
                 $batchNumber = 'BAT-' . date('Ymd') . '-' . str_pad($grn->id, 4, '0', STR_PAD_LEFT) . '-' . str_pad($poItem->id, 4, '0', STR_PAD_LEFT);
 
-                Batch::create([
+                $batch = Batch::create([
                     'batch_number' => $batchNumber,
                     'inventory_item_id' => $poItem->inventory_item_id,
                     'goods_received_note_id' => $grn->id,
@@ -231,6 +237,50 @@ public function createForPo($poId)
                     'total_quantity' => $totalBaseUnits,
                     'batch_status' => 'active',
                     'notes' => 'Received from GRN: ' . $grnNumber,
+                ]);
+
+                // =============================================
+                // CREATE STOCK MOVEMENT RECORD
+                // =============================================
+                $movementNumber = 'STK-GRN-' . date('Ymd') . '-' . str_pad($grn->id, 4, '0', STR_PAD_LEFT) . '-' . str_pad($poItem->id, 4, '0', STR_PAD_LEFT);
+
+                // Calculate stock before this receipt
+                $stockBefore = StockMovement::where('inventory_item_id', $poItem->inventory_item_id)
+                    ->where('store_id', $store->id)
+                    ->where('is_reversed', 0)
+                    ->sum('quantity_in_base_unit');
+
+                $stockAfter = $stockBefore + $totalBaseUnits;
+
+                StockMovement::create([
+                    'movement_number' => $movementNumber,
+                    'inventory_item_id' => $poItem->inventory_item_id,
+                    'batch_id' => $batch->id,
+                    'store_id' => $store->id,
+                    'movement_type_id' => 6, // GRN movement type
+                    'department_id' => null,
+                    'quantity' => $quantityAccepted,
+                    'pack_type' => $isBulk ? ($itemData['pack_type'] ?? null) : null,
+                    'base_unit' => $inventoryItem->unit_of_measurement ?? 'piece',
+                    'pack_size' => $isBulk ? $packSize : null,
+                    'number_of_packs' => $isBulk ? $quantityAccepted : null,
+                    'quantity_in_base_unit' => $totalBaseUnits,
+                    'stock_before' => $stockBefore,
+                    'stock_after' => $stockAfter,
+                    'unit_cost' => $unitCost,
+                    'total_value' => $itemTotalCost,
+                    'reason' => 'Received from GRN: ' . $grnNumber,
+                    'taken_by' => null,
+                    'returned_by' => null,
+                    'movement_date' => $request->received_date,
+                    'approved_at' => now(),
+                    'approved_by' => Auth::id(),
+                    'purchase_order_id' => $po->id,
+                    'goods_received_note_id' => $grn->id,
+                    'is_reversed' => 0,
+                    'reversed_by_movement_id' => null,
+                    'created_by' => Auth::id(),
+                    'updated_by' => Auth::id(),
                 ]);
 
                 // Update PO item received quantity
@@ -257,7 +307,7 @@ public function createForPo($poId)
             DB::commit();
 
             return redirect()->route('store.goods-received.show', $grn->id)
-                ->with('success', 'Goods Received Note created successfully. Batches have been created.');
+                ->with('success', 'Goods Received Note created successfully. Batches and stock movements have been created.');
 
         } catch (\Exception $e) {
             DB::rollBack();

@@ -77,4 +77,7 @@ class Lpo extends Model
     {
         return $this->hasMany(LpoItem::class);
     }
+
+    // In app/Models/Lpo.php
+
 }

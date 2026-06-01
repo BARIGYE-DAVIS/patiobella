@@ -34,17 +34,28 @@
             max-height: 60px !important;
             max-width: 180px !important;
         }
+        .stamp-img {
+            max-height: 60px !important;
+            max-width: 120px !important;
+        }
         body, p, span, td, th, div, .text-sm, .text-xs {
             font-size: 12px !important;
-        }
-        h1, h2, h3, h4, .text-lg, .text-xl, .text-md {
-            font-size: 14px !important;
         }
         table {
             font-size: 11px !important;
         }
         th, td {
             padding: 6px 8px !important;
+        }
+        .flex-signatures {
+            display: flex !important;
+            flex-direction: row !important;
+            justify-content: space-between !important;
+            gap: 20px !important;
+        }
+        .sig-block {
+            flex: 1 !important;
+            text-align: center !important;
         }
     }
     .company-logo {
@@ -54,6 +65,10 @@
     .signature-img {
         max-height: 60px;
         max-width: 180px;
+    }
+    .stamp-img {
+        max-height: 60px;
+        max-width: 120px;
     }
     .type-badge, .status-badge {
         display: inline-flex;
@@ -86,17 +101,41 @@
         background: #dbeafe;
         color: #1d4ed8;
     }
-    body, p, span, td, th, div, label, .text-sm {
-        font-size: 13px;
+    .batch-info {
+        font-size: 10px;
+        padding: 2px 4px;
+        border-radius: 4px;
+        display: inline-block;
     }
-    h1, h2, h3, h4, .text-lg, .text-xl, .text-md {
-        font-size: 15px;
+    .batch-low {
+        background: #fee2e2;
+        color: #dc2626;
     }
-    table {
-        font-size: 12px;
+    .batch-ok {
+        background: #dcfce7;
+        color: #16a34a;
     }
-    th, td {
-        padding: 8px 10px;
+    .batch-warning {
+        background: #fef3c7;
+        color: #d97706;
+    }
+    .batch-expired {
+        background: #fee2e2;
+        color: #dc2626;
+    }
+    .batch-expiring-soon {
+        background: #fef3c7;
+        color: #d97706;
+    }
+    .flex-signatures {
+        display: flex;
+        flex-direction: row;
+        justify-content: space-between;
+        gap: 20px;
+    }
+    .sig-block {
+        flex: 1;
+        text-align: center;
     }
 </style>
 
@@ -109,10 +148,7 @@
         </div>
         <div class="flex gap-2">
             <a href="{{ route('procurement.lpo.index') }}" class="text-gray-600 hover:text-gray-800 text-xs">
-                <svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
-                </svg>
-                Back
+                <i class="fas fa-arrow-left mr-1"></i> Back
             </a>
             <button onclick="printLPO()" class="ml-2 bg-blue-600 text-white px-3 py-1 rounded text-xs hover:bg-blue-700">
                 <i class="fas fa-print mr-1"></i> Print
@@ -188,9 +224,7 @@
         @if($lpo->status == 'director_rejected' && $lpo->rejection_reason)
         <div class="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
             <div class="flex items-start gap-2">
-                <svg class="w-5 h-5 text-red-600 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                </svg>
+                <i class="fas fa-exclamation-triangle text-red-600 text-sm mt-0.5"></i>
                 <div>
                     <h4 class="text-sm font-semibold text-red-800">Rejection Reason</h4>
                     <p class="text-sm text-red-700 mt-1">{{ $lpo->rejection_reason }}</p>
@@ -277,7 +311,7 @@
             </div>
         </div>
 
-        {{-- Notes --}}
+        {{-- Director Notes --}}
         @if($lpo->director_notes)
         <div class="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded">
             <p class="text-sm font-semibold text-yellow-800">Director Notes:</p>
@@ -285,6 +319,7 @@
         </div>
         @endif
 
+        {{-- Internal Notes --}}
         @if($lpo->notes)
         <div class="mb-4">
             <p class="text-sm font-medium text-gray-500">Internal Notes:</p>
@@ -294,7 +329,7 @@
         </div>
         @endif
 
-        {{-- Items Table --}}
+        {{-- Items Table with Batch Stock and Total Stock (from requisition) --}}
         <div class="mb-6">
             <h4 class="text-sm font-medium text-gray-500 mb-3">LPO Items</h4>
             <div class="overflow-x-auto">
@@ -303,16 +338,77 @@
                         <tr class="border-b border-gray-200">
                             <th class="px-3 py-2 text-left text-xs font-medium text-gray-500">Item</th>
                             <th class="px-3 py-2 text-left text-xs font-medium text-gray-500">Category</th>
+                            <th class="px-3 py-2 text-left text-xs font-medium text-gray-500">Batch No.</th>
+                            <th class="px-3 py-2 text-left text-xs font-medium text-gray-500">Expiry Date</th>
+                            <th class="px-3 py-2 text-left text-xs font-medium text-gray-500">Pack Info</th>
                             <th class="px-3 py-2 text-left text-xs font-medium text-gray-500">Metrics</th>
-                            <th class="px-3 py-2 text-right text-xs font-medium text-gray-500">Qty</th>
                             <th class="px-3 py-2 text-right text-xs font-medium text-gray-500">Unit Cost</th>
+                            <th class="px-3 py-2 text-right text-xs font-medium text-gray-500">Batch Stock</th>
+                            <th class="px-3 py-2 text-right text-xs font-medium text-gray-500">Total Stock</th>
+                            <th class="px-3 py-2 text-right text-xs font-medium text-gray-500">LPO Qty</th>
                             <th class="px-3 py-2 text-right text-xs font-medium text-gray-500">Total</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-gray-200">
-                        @php $subtotal = 0; @endphp
-                        @foreach($lpo->items as $item)
-                        @php $total = $item->quantity_approved * $item->unit_cost; $subtotal += $total; @endphp
+                        @php
+                            $subtotal = 0;
+                            $totalQuantity = 0;
+
+                            function fmtQty($val) {
+                                if ($val == floor($val)) {
+                                    return number_format($val, 0);
+                                }
+                                return rtrim(rtrim(number_format($val, 2), '0'), '.');
+                            }
+                        @endphp
+                        @foreach($lpo->items as $index => $item)
+                        @php
+                            $totalQuantity += $item->quantity_approved;
+                            $total = $item->quantity_approved * $item->unit_cost;
+                            $subtotal += $total;
+
+                            // Get batch information from the requisition item
+                            $batch = null;
+                            $batchNumber = 'N/A';
+                            $expiryDate = null;
+                            $expiryClass = '';
+                            $daysLeft = 0;
+                            $packInfo = 'Direct';
+                            $batchStock = 0;
+                            $totalStock = 0;
+
+                            if ($lpo->requisition && isset($lpo->requisition->items[$index])) {
+                                $reqItem = $lpo->requisition->items[$index];
+                                $batch = $reqItem->batch;
+                                if ($batch) {
+                                    $batchNumber = $batch->batch_number;
+                                    $expiryDate = $batch->expiry_date;
+                                    if ($expiryDate) {
+                                        $daysLeft = now()->diffInDays($expiryDate, false);
+                                        if ($daysLeft <= 0) {
+                                            $expiryClass = 'batch-expired';
+                                        } elseif ($daysLeft <= 30) {
+                                            $expiryClass = 'batch-expiring-soon';
+                                        }
+                                    }
+                                    if ($batch->pack_type && $batch->pack_type != 'Direct' && $batch->pack_size > 1) {
+                                        $packInfo = $batch->pack_type . ' (' . $batch->pack_size . '/pack)';
+                                    }
+                                    $batchStock = $batch->remaining_quantity;
+
+                                    // Total stock across all batches for this inventory item
+                                    if ($reqItem->inventory_item_id) {
+                                        $totalStock = \App\Models\Batch::where('inventory_item_id', $reqItem->inventory_item_id)
+                                            ->where('batch_status', 'active')
+                                            ->where('remaining_quantity', '>', 0)
+                                            ->sum('remaining_quantity');
+                                    }
+                                }
+                            }
+
+                            $batchStockClass = $batchStock <= 0 ? 'batch-low' : ($batchStock < 10 ? 'batch-warning' : 'batch-ok');
+                            $totalStockClass = $totalStock <= 0 ? 'batch-low' : ($totalStock < 10 ? 'batch-warning' : 'batch-ok');
+                        @endphp
                         <tr class="border-b hover:bg-gray-50">
                             <td class="px-3 py-2 text-sm text-gray-800">
                                 {{ $item->inventoryItem ? $item->inventoryItem->name : 'Item not found' }}
@@ -321,19 +417,67 @@
                                 @endif
                             </td>
                             <td class="px-3 py-2 text-sm text-gray-500">{{ $item->inventoryItem?->category?->name ?: '—' }}</td>
+                            <td class="px-3 py-2 text-sm font-mono text-gray-600">
+                                {{ $batchNumber }}
+                            </td>
+                            <td class="px-3 py-2 text-sm">
+                                @if($expiryDate)
+                                    <span class="batch-info {{ $expiryClass }}">
+                                        {{ $expiryDate->format('d M Y') }}
+                                        @if($daysLeft <= 0)
+                                            (EXPIRED)
+                                        @elseif($daysLeft <= 30)
+                                            ({{ $daysLeft }} days left)
+                                        @endif
+                                    </span>
+                                @else
+                                    <span class="text-gray-400">N/A</span>
+                                @endif
+                            </td>
+                            <td class="px-3 py-2 text-sm text-gray-500">
+                                {{ $packInfo }}
+                            </td>
                             <td class="px-3 py-2 text-sm text-gray-500">{{ $item->metrics ?: '—' }}</td>
-                            <td class="px-3 py-2 text-sm text-right">{{ number_format($item->quantity_approved, 2) }}</td>
                             <td class="px-3 py-2 text-sm text-right">UGX {{ number_format($item->unit_cost, 2) }}</td>
+                            <td class="px-3 py-2 text-sm text-right">
+                                <div class="font-semibold {{ $batchStockClass }}">
+                                    {{ fmtQty($batchStock) }}
+                                </div>
+                                <div class="text-xs {{ $batchStockClass }}">
+                                    @if($batchStock <= 0) Out @elseif($batchStock < 10) Low @else In @endif
+                                </div>
+                            </td>
+                            <td class="px-3 py-2 text-sm text-right">
+                                <div class="font-semibold {{ $totalStockClass }}">
+                                    {{ fmtQty($totalStock) }}
+                                </div>
+                                <div class="text-xs {{ $totalStockClass }}">
+                                    @if($totalStock <= 0) Out @elseif($totalStock < 10) Low @else In @endif
+                                </div>
+                            </td>
+                            <td class="px-3 py-2 text-sm text-right">{{ fmtQty($item->quantity_approved) }}</td>
                             <td class="px-3 py-2 text-sm text-right font-semibold">UGX {{ number_format($total, 2) }}</td>
                         </tr>
                         @endforeach
                     </tbody>
                     <tfoot class="bg-gray-50">
-                        <tr><td colspan="5" class="px-3 py-2 text-right text-sm font-semibold">Subtotal:</td><td class="px-3 py-2 text-right text-sm font-semibold">UGX {{ number_format($subtotal, 2) }}</td></tr>
+                        <tr>
+                            <td colspan="9" class="px-3 py-2 text-right text-sm font-semibold">Subtotal:</td>
+                            <td class="px-3 py-2 text-right text-sm font-semibold">UGX {{ number_format($subtotal, 2) }}</td>
+                            <td class="px-3 py-2"></td>
+                        </tr>
                         @if($lpo->vat_rate > 0)
-                        <tr><td colspan="5" class="px-3 py-2 text-right text-sm">VAT ({{ $lpo->vat_rate }}%):</td><td class="px-3 py-2 text-right text-sm">UGX {{ number_format($lpo->vat_amount, 2) }}</td></tr>
+                        <tr>
+                            <td colspan="9" class="px-3 py-2 text-right text-sm">VAT ({{ $lpo->vat_rate }}%):</td>
+                            <td class="px-3 py-2 text-right text-sm">UGX {{ number_format($lpo->vat_amount, 2) }}</td>
+                            <td class="px-3 py-2"></td>
+                        </tr>
                         @endif
-                        <tr class="bg-green-50"><td colspan="5" class="px-3 py-2 text-right text-sm font-bold">TOTAL:</td><td class="px-3 py-2 text-right text-sm font-bold text-green-600">UGX {{ number_format($lpo->total_amount, 2) }}</td></tr>
+                        <tr class="bg-green-50">
+                            <td colspan="9" class="px-3 py-2 text-right text-sm font-bold">TOTAL:</td>
+                            <td class="px-3 py-2 text-right text-sm font-bold text-green-600">UGX {{ number_format($lpo->total_amount, 2) }}</td>
+                            <td class="px-3 py-2"></td>
+                        </tr>
                     </tfoot>
                 </table>
             </div>
@@ -355,11 +499,11 @@
             </div>
         </div>
 
-        {{-- Signatures Section --}}
+        {{-- SIGNATURES SECTION - SAME ROW (FLEX) --}}
         <div class="mt-6 pt-4 border-t">
-            <div class="grid grid-cols-2 gap-8">
+            <div class="flex-signatures">
                 {{-- Prepared By Signature --}}
-                <div class="text-center">
+                <div class="sig-block">
                     <p class="text-sm text-gray-500 mb-2">Prepared By:</p>
                     @php
                         $preparedBy = $lpo->createdBy;
@@ -389,12 +533,37 @@
                     <p class="text-xs text-gray-400">{{ $lpo->created_at ? $lpo->created_at->format('d M Y') : '' }}</p>
                 </div>
 
-                {{-- Approved By Signature - FIXED: Show if approval happened (approved_by and approved_at exist) --}}
-                <div class="text-center">
+                {{-- Company Stamp --}}
+                <div class="sig-block">
+                    <p class="text-sm text-gray-500 mb-2">Company Stamp:</p>
+                    @php
+                        $stamp = \App\Models\BusinessSetting::getStamp();
+                        $stampBase64 = null;
+                        if ($stamp) {
+                            $stampPath = public_path(parse_url($stamp, PHP_URL_PATH));
+                            if (file_exists($stampPath)) {
+                                $stampMime = mime_content_type($stampPath);
+                                $stampData = base64_encode(file_get_contents($stampPath));
+                                $stampBase64 = 'data:' . $stampMime . ';base64,' . $stampData;
+                            }
+                        }
+                    @endphp
+                    @if($stampBase64)
+                        <img src="{{ $stampBase64 }}" class="stamp-img mx-auto" alt="Stamp">
+                    @elseif($stamp)
+                        <img src="{{ $stamp }}" class="stamp-img mx-auto" alt="Stamp">
+                    @else
+                        <div class="h-12"></div>
+                        <p class="text-xs text-gray-400 mt-2">No stamp</p>
+                    @endif
+                    <div class="border-t border-gray-300 mt-2 pt-1 w-40 mx-auto"></div>
+                    <p class="text-sm text-gray-400 mt-1">Authorized Signature</p>
+                </div>
+
+                {{-- Approved By Signature --}}
+                <div class="sig-block">
                     <p class="text-sm text-gray-500 mb-2">Approved By (Director):</p>
                     @php
-                        // CRITICAL FIX: Check if approval actually happened (approved_by AND approved_at exist)
-                        // NOT based on status! Because when converted_to_epo, status changes but approval already happened
                         $wasApproved = $lpo->approved_by && $lpo->approved_at;
                         $approver = $wasApproved ? $lpo->approvedBy : null;
                         $approverSignature = null;
@@ -413,7 +582,6 @@
                         }
                     @endphp
 
-                    {{-- Show signature if approval occurred (regardless of current status) --}}
                     @if($wasApproved)
                         @if($approverSignature)
                             <img src="{{ $approverSignature }}" class="signature-img mx-auto" alt="Signature">
@@ -446,7 +614,7 @@
 
         {{-- Footer --}}
         <div class="mt-6 pt-3 border-t text-center">
-            <p class="text-xs text-gray-400">Computer generated document. Valid without signature.</p>
+            <p class="text-xs text-gray-400">Computer generated document. Valid digital signature.</p>
             <p class="text-xs text-gray-400">{{ $companyName }} - All Rights Reserved</p>
         </div>
     </div>
@@ -471,7 +639,10 @@
                     th { background-color: #f2f2f2; }
                     .company-logo, .print-logo { max-height: 50px !important; width: auto !important; }
                     .signature-img { max-height: 60px !important; max-width: 180px !important; }
+                    .stamp-img { max-height: 60px !important; max-width: 120px !important; }
                     .type-badge, .status-badge { padding: 3px 8px; font-size: 10px; border-radius: 999px; }
+                    .flex-signatures { display: flex !important; flex-direction: row !important; justify-content: space-between !important; gap: 20px !important; }
+                    .sig-block { flex: 1 !important; text-align: center !important; }
                     @media print { body { margin: 0; padding: 20px; } }
                 </style>
             </head>
@@ -497,5 +668,4 @@
 </script>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
-
 @endsection

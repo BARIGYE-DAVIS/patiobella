@@ -48,24 +48,47 @@ class RequisitionController extends Controller
      * Show form to create a new requisition.
      * Loads BATCHES instead of inventory_items.
      */
-    public function create()
-    {
-        $user = Auth::user();
+public function create()
+{
+    // Get batches with low stock (remaining_quantity <= minimum_stock)
+    $lowStockItems = \App\Models\Batch::with('inventoryItem.category')
+        ->where('batch_status', 'active')
+        ->where('remaining_quantity', '>', 0)
+        ->whereHas('inventoryItem', function($query) {
+            $query->whereColumn('remaining_quantity', '<=', 'minimum_stock');
+        })
+        ->get()
+        ->map(function($batch) {
+            return [
+                'batch_id' => $batch->id,
+                'item_id' => $batch->inventory_item_id,
+                'item_name' => $batch->inventoryItem->name,
+                'category' => $batch->inventoryItem->category->name ?? 'Uncategorized',
+                'batch_number' => $batch->batch_number,
+                'expiry_date' => $batch->expiry_date ? $batch->expiry_date->format('Y-m-d') : 'N/A',
+                'expiry_status' => $batch->expiry_date ?
+                    ($batch->expiry_date->isPast() ? 'expired' :
+                    ($batch->expiry_date->diffInDays(now()) <= 30 ? 'expiring_soon' : 'good')) : 'good',
+                'batch_stock' => $batch->remaining_quantity,
+                'total_stock' => \App\Models\Batch::where('inventory_item_id', $batch->inventory_item_id)
+                    ->where('batch_status', 'active')
+                    ->where('remaining_quantity', '>', 0)
+                    ->sum('remaining_quantity'),
+                'unit' => $batch->unit_of_measurement ?? $batch->inventoryItem->unit_of_measurement ?? 'piece',
+                'unit_cost' => $batch->unit_cost,
+                'minimum_stock' => $batch->inventoryItem->minimum_stock ?? 10,
+            ];
+        })
+        ->values(); // Re-index the collection
 
-        if (!$user->department || $user->department->name !== 'STORE') {
-            return redirect()->route('dashboard')->with('error', 'Unauthorized access');
-        }
+    // Get all active batches for manual selection
+    $batches = \App\Models\Batch::with('inventoryItem.category')
+        ->where('batch_status', 'active')
+        ->where('remaining_quantity', '>', 0)
+        ->get();
 
-        // Get active batches with remaining stock > 0
-        $batches = Batch::with(['inventoryItem.category'])
-            ->where('remaining_quantity', '>', 0)
-            ->where('batch_status', 'active')
-            ->orderBy('expiry_date', 'asc')
-            ->get();
-
-        return view('store.requisitions.create', compact('batches'));
-    }
-
+    return view('store.requisitions.create', compact('batches', 'lowStockItems'));
+}
     /**
      * Get batch details for AJAX request.
      */

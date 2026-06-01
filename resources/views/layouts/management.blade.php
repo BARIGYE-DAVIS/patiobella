@@ -385,7 +385,7 @@
 
 
 {{-- TOP BAR --}}
-<div class="top-bar">
+<div class="top-bar no-print">
     <div class="top-bar-left">
         <button id="menuIconBtn" aria-label="Open menu">
             <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">

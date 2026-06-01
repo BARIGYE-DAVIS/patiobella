@@ -39,9 +39,6 @@
     .select2-container--default .select2-selection--single .select2-selection__arrow {
         height: 36px;
     }
-    .select2-container .select2-selection--single .select2-selection__clear {
-        margin-right: 8px;
-    }
     #draftBanner {
         display: none;
         align-items: center;
@@ -53,6 +50,30 @@
         font-size: 13px;
         color: #92400e;
         margin-bottom: 16px;
+    }
+    .tab-button {
+        padding: 8px 16px;
+        font-size: 13px;
+        font-weight: 500;
+        border-bottom: 2px solid transparent;
+        transition: all 0.2s;
+    }
+    .tab-button.active {
+        color: #3b82f6;
+        border-bottom-color: #3b82f6;
+        background-color: #eff6ff;
+    }
+    .tab-button:not(.active):hover {
+        color: #6b7280;
+        border-bottom-color: #d1d5db;
+    }
+    .low-stock-item {
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+    .low-stock-item:hover {
+        background-color: #f3f4f6;
+        transform: translateX(2px);
     }
     .batch-info, .total-stock {
         font-size: 10px;
@@ -82,28 +103,6 @@
     .type-emergency { background: #fee2e2; color: #991b1b; }
     .text-right { text-align: right; }
     .text-center { text-align: center; }
-    input, select {
-        font-size: 12px;
-    }
-    .remove-item {
-        background: none;
-        border: none;
-        cursor: pointer;
-    }
-    .w-full {
-        width: 100%;
-    }
-    .mt-1 { margin-top: 4px; }
-    .mb-2 { margin-bottom: 8px; }
-    .batch-details-cell strong {
-        font-size: 12px;
-    }
-    .batch-details-cell span {
-        font-size: 10px;
-    }
-    .stock-cell .batch-stock-info {
-        margin-bottom: 6px;
-    }
     .selected-item-name {
         font-size: 11px;
         font-weight: 600;
@@ -112,6 +111,13 @@
         padding: 4px 6px;
         border-radius: 4px;
         margin-top: 6px;
+    }
+    .quick-add-btn {
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+    .quick-add-btn:hover {
+        background-color: #dcfce7;
     }
 
     @media print {
@@ -125,7 +131,6 @@
             padding: 20px;
         }
         .no-print { display: none !important; }
-        button, .btn { display: none !important; }
     }
 </style>
 
@@ -171,30 +176,77 @@
                 </div>
             </div>
 
+            <!-- TABS SECTION -->
             <div class="border-t border-gray-200 pt-4">
-                <h4 class="text-sm font-semibold text-gray-800 mb-3">Batches to Replenish</h4>
-                <div class="overflow-x-auto">
-                    <table class="items-table">
-                        <thead>
-                            <tr>
-                                <th style="width:20%">Item / Batch</th>
-                                <th style="width:10%">Category</th>
-                                <th style="width:20%">Batch Details</th>
-                                <th style="width:15%">Available Stock</th>
-                                <th style="width:10%">Quantity</th>
-                                <th style="width:10%">Metrics</th>
-                                <th style="width:15%">Notes</th>
-                                <th style="width:5%">Action</th>
-                            </tr>
-                        </thead>
-                        <tbody id="itemsBody"></tbody>
-                    </table>
+                <div class="border-b border-gray-200">
+                    <nav class="flex gap-1">
+                        <button type="button" id="tabLowStock" class="tab-button active px-4 py-2 text-sm font-medium">
+                            📉 Low Stock Items
+                        </button>
+                        <button type="button" id="tabManualSelect" class="tab-button px-4 py-2 text-sm font-medium">
+                            🔍 All items Selection
+                        </button>
+                    </nav>
                 </div>
-                <div class="mt-3">
-                    <button type="button" id="addItemBtn" class="bg-green-600 text-white px-3 py-1.5 rounded-md text-xs hover:bg-green-700 transition flex items-center gap-1">
-                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
-                        Add Batch
-                    </button>
+
+                <!-- Low Stock Tab Content -->
+                <div id="lowStockPanel" class="mt-4">
+                    <div class="bg-blue-50 border border-blue-200 rounded-md p-3 mb-4">
+                        <div class="flex items-center gap-2 text-sm text-blue-800">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M12 2a10 10 0 100 20A10 10 0 0012 2z"/>
+                            </svg>
+                            <span>Click on any low stock item below to add it to your requisition list.</span>
+                        </div>
+                    </div>
+
+                    <div class="overflow-x-auto max-h-96 overflow-y-auto border rounded-md">
+                        <table class="min-w-full divide-y divide-gray-200 text-sm">
+                            <thead class="bg-gray-50 sticky top-0">
+                                <tr>
+                                    <th class="px-4 py-2 text-left text-xs font-semibold text-gray-500">Item Name</th>
+                                    <th class="px-4 py-2 text-left text-xs font-semibold text-gray-500">Category</th>
+                                    <th class="px-4 py-2 text-left text-xs font-semibold text-gray-500">Batch #</th>
+                                    <th class="px-4 py-2 text-left text-xs font-semibold text-gray-500">Expiry Date</th>
+                                    <th class="px-4 py-2 text-right text-xs font-semibold text-gray-500">Current Stock</th>
+                                    <th class="px-4 py-2 text-right text-xs font-semibold text-gray-500">Unit Cost</th>
+                                    <th class="px-4 py-2 text-center text-xs font-semibold text-gray-500">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody id="lowStockItemsBody" class="divide-y divide-gray-100">
+                                <!-- Low stock items will be populated here -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Manual Selection Tab Content -->
+                <div id="manualSelectPanel" class="mt-4 hidden">
+                    <div class="mb-4 flex justify-between items-center">
+                        <p class="text-xs text-gray-500">Search and select specific batches to request</p>
+                        <button type="button" id="addItemBtn" class="bg-green-600 text-white px-3 py-1.5 rounded-md text-xs hover:bg-green-700 transition flex items-center gap-1">
+                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                            Add Batch
+                        </button>
+                    </div>
+
+                    <div class="overflow-x-auto">
+                        <table class="items-table">
+                            <thead>
+                                <tr>
+                                    <th style="width:10%">Item / Batch</th>
+                                    <th style="width:10%">Category</th>
+                                    <th style="width:20%">Batch Details</th>
+                                    <th style="width:15%">Available Stock</th>
+                                    <th style="width:10%">Quantity</th>
+                                    <th style="width:10%">Metrics</th>
+                                    <th style="width:15%">Notes</th>
+                                    <th style="width:5%">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody id="itemsBody"></tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
 
@@ -210,7 +262,7 @@
     </form>
 </div>
 
-<!-- PREVIEW MODAL -->
+<!-- PREVIEW MODAL (same as before) -->
 <div id="previewModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden overflow-y-auto h-full w-full z-50">
     <div class="relative top-10 mx-auto p-4 border w-full max-w-5xl shadow-lg rounded-lg bg-white">
         <div id="print-section">
@@ -365,6 +417,182 @@ const metricsOptions = `
     <option value="packs">Packs</option>
 `;
 
+// Low stock items data from backend
+const lowStockItems = @json($lowStockItems ?? []);
+
+function escapeHtml(text) {
+    if (!text) return '';
+    return String(text).replace(/[&<>]/g, function(m) {
+        if (m === '&') return '&amp;';
+        if (m === '<') return '&lt;';
+        if (m === '>') return '&gt;';
+        return m;
+    });
+}
+
+// Populate low stock items table
+function populateLowStockItems() {
+    const tbody = $('#lowStockItemsBody');
+    tbody.empty();
+
+    if (lowStockItems.length === 0) {
+        tbody.html('<tr><td colspan="7" class="px-4 py-8 text-center text-gray-500">No low stock items found</td></tr>');
+        return;
+    }
+
+    lowStockItems.forEach(item => {
+        const row = `
+            <tr class="low-stock-item quick-add-btn" data-batch-id="${item.batch_id}" data-item-name="${escapeHtml(item.item_name)}" data-category="${escapeHtml(item.category)}" data-batch-number="${escapeHtml(item.batch_number)}" data-expiry-date="${item.expiry_date}" data-batch-stock="${item.batch_stock}" data-total-stock="${item.total_stock}" data-unit="${item.unit}" data-unit-cost="${item.unit_cost}" data-item-id="${item.item_id}">
+                <td class="px-4 py-2 text-sm font-medium text-gray-800">${escapeHtml(item.item_name)}</td>
+                <td class="px-4 py-2 text-sm text-gray-500">${escapeHtml(item.category)}</td>
+                <td class="px-4 py-2 text-sm font-mono">${escapeHtml(item.batch_number)}</td>
+                <td class="px-4 py-2 text-sm ${item.expiry_status === 'expired' ? 'text-red-600 font-semibold' : (item.expiry_status === 'expiring_soon' ? 'text-amber-600' : 'text-gray-600')}">${escapeHtml(item.expiry_date)}</td>
+                <td class="px-4 py-2 text-sm text-right font-semibold ${item.batch_stock <= item.reorder_level ? 'text-red-600' : 'text-gray-800'}">${parseFloat(item.batch_stock).toFixed(2)} ${item.unit}</td>
+                <td class="px-4 py-2 text-sm text-right">UGX ${parseFloat(item.unit_cost).toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
+                <td class="px-4 py-2 text-center">
+                    <button type="button" class="quick-add-lowstock bg-blue-100 text-blue-700 px-2 py-1 rounded text-xs hover:bg-blue-200 transition">+ Add</button>
+                </td>
+            </tr>
+        `;
+        tbody.append(row);
+    });
+
+    // Attach click events to quick add buttons
+    $('.quick-add-lowstock').on('click', function(e) {
+        e.stopPropagation();
+        const row = $(this).closest('tr');
+        addLowStockItemToRequisition(row);
+    });
+
+    // Also allow clicking on the row itself
+    $('.low-stock-item').on('click', function(e) {
+        if (!$(e.target).is('button')) {
+            addLowStockItemToRequisition($(this));
+        }
+    });
+}
+
+function addLowStockItemToRequisition($row) {
+    const batchId = $row.data('batch-id');
+    const itemName = $row.data('item-name');
+    const category = $row.data('category');
+    const batchNumber = $row.data('batch-number');
+    const expiryDate = $row.data('expiry-date');
+    const batchStock = $row.data('batch-stock');
+    const totalStock = $row.data('total-stock');
+    const unit = $row.data('unit');
+    const unitCost = $row.data('unit-cost');
+    const itemId = $row.data('item-id');
+
+    // Check if this batch is already added
+    let existingRow = null;
+    $('#itemsBody .item-row').each(function() {
+        const hiddenItemId = $(this).find('.item-id-hidden').val();
+        if (hiddenItemId == itemId) {
+            existingRow = $(this);
+            return false;
+        }
+    });
+
+    if (existingRow) {
+        alert(`${itemName} is already in your requisition list. Please update the quantity there.`);
+        // Switch to manual tab and highlight the row
+        $('#tabManualSelect').click();
+        existingRow.css('background-color', '#fef3c7').animate({ backgroundColor: '#ffffff' }, 1000);
+        return;
+    }
+
+    // Create a new row in the manual selection table
+    const index = itemCounter++;
+    const newRow = `
+        <tr class="item-row" id="row-${index}" data-batch-id="${batchId}">
+            <td class="item-cell" style="width:20%">
+                <select name="items[${index}][batch_id]" class="batch-select w-full" required style="font-size: 12px;">
+                    ${batchOptions}
+                </select>
+                <div class="selected-item-name text-xs font-semibold text-gray-700 mt-1">📦 ${escapeHtml(itemName)}</div>
+                <input type="hidden" name="items[${index}][inventory_item_id]" class="item-id-hidden" value="${itemId}">
+                <input type="hidden" name="items[${index}][unit_cost]" class="unit-cost-hidden" value="${unitCost}">
+                <input type="hidden" name="items[${index}][item_name]" class="item-name-hidden" value="${escapeHtml(itemName)}">
+                <input type="hidden" name="items[${index}][batch_stock]" class="batch-stock-hidden" value="${batchStock}">
+                <input type="hidden" name="items[${index}][total_stock]" class="total-stock-hidden" value="${totalStock}">
+             </td>
+            <td class="category-cell">${escapeHtml(category)}</td>
+            <td class="batch-details-cell">
+                <strong class="batch-number">${escapeHtml(batchNumber)}</strong><br>
+                <span class="expiry-date">Exp: ${escapeHtml(expiryDate)}</span><br>
+                <span class="unit-cost-info text-gray-600 text-[10px]">💰 Unit Cost: UGX ${parseFloat(unitCost).toLocaleString(undefined, {minimumFractionDigits: 2})}</span>
+            </td>
+            <td class="stock-cell">
+                <div class="batch-stock-info">
+                    <span class="batch-info ${batchStock <= 10 ? 'batch-low' : 'batch-ok'}">📦 Batch: ${parseFloat(batchStock).toFixed(2)} ${unit}</span>
+                </div>
+                <div class="total-stock-info mt-1">
+                    <span class="total-stock">📊 Total: ${parseFloat(totalStock).toFixed(2)} ${unit}</span>
+                </div>
+            </td>
+            <td>
+                <input type="number" name="items[${index}][quantity]" step="0.01" class="w-full px-2 py-1 border rounded-md text-sm" placeholder="0.00" required>
+            </td>
+            <td>
+                <select name="items[${index}][metrics]" class="w-full px-2 py-1 border rounded-md text-sm">
+                    ${metricsOptions}
+                </select>
+            </td>
+            <td>
+                <input type="text" name="items[${index}][notes]" class="w-full px-2 py-1 border rounded-md text-sm" placeholder="Reason...">
+            </td>
+            <td class="text-center">
+                <button type="button" class="remove-item text-red-600 hover:text-red-800" title="Remove">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                </button>
+            </td>
+        </tr>
+    `;
+
+    $('#itemsBody').append(newRow);
+
+    // Initialize select2 for the new row and preselect the batch
+    const $newRowElement = $(`#row-${index}`);
+    const $select = $newRowElement.find('.batch-select');
+
+    if ($select.hasClass('select2-hidden-accessible')) $select.select2('destroy');
+    $select.select2({ placeholder: '-- Search Batch --', allowClear: true, width: '100%' });
+    $select.val(batchId).trigger('change');
+
+    attachRemoveEvents();
+    saveDraft();
+
+    // Show a success notification
+    const notification = $(`<div class="fixed top-4 right-4 bg-green-500 text-white px-4 py-2 rounded-md shadow-lg text-sm z-50">✓ ${itemName} added to requisition</div>`);
+    $('body').append(notification);
+    setTimeout(() => notification.fadeOut(300, function() { $(this).remove(); }), 2000);
+
+    // Switch to manual selection tab to show the added item
+    $('#tabManualSelect').click();
+
+    // Scroll to the new row
+    $('html, body').animate({
+        scrollTop: $newRowElement.offset().top - 100
+    }, 500);
+}
+
+// Tab switching
+$('#tabLowStock').on('click', function() {
+    $(this).addClass('active');
+    $('#tabManualSelect').removeClass('active');
+    $('#lowStockPanel').removeClass('hidden');
+    $('#manualSelectPanel').addClass('hidden');
+});
+
+$('#tabManualSelect').on('click', function() {
+    $(this).addClass('active');
+    $('#tabLowStock').removeClass('active');
+    $('#manualSelectPanel').removeClass('hidden');
+    $('#lowStockPanel').addClass('hidden');
+});
+
+// Existing functions from previous version
 function saveDraft() {
     const rows = [];
     document.querySelectorAll('#itemsBody .item-row').forEach(row => {
@@ -392,16 +620,6 @@ function loadDraft() {
 
 function clearDraft() { localStorage.removeItem(DRAFT_KEY); }
 
-function escapeHtml(text) {
-    if (!text) return '';
-    return String(text).replace(/[&<>]/g, function(m) {
-        if (m === '&') return '&amp;';
-        if (m === '<') return '&lt;';
-        if (m === '>') return '&gt;';
-        return m;
-    });
-}
-
 function createNewRow(saved) {
     const index = itemCounter++;
     const tr = document.createElement('tr');
@@ -418,7 +636,7 @@ function createNewRow(saved) {
             <input type="hidden" name="items[${index}][item_name]" class="item-name-hidden">
             <input type="hidden" name="items[${index}][batch_stock]" class="batch-stock-hidden">
             <input type="hidden" name="items[${index}][total_stock]" class="total-stock-hidden">
-        </td>
+         </td>
         <td class="category-cell">—</td>
         <td class="batch-details-cell">
             <strong class="batch-number">—</strong><br>
@@ -465,11 +683,6 @@ function updateBatchDetails(row, selectedOption) {
         row.querySelector('.selected-item-name').innerHTML = '';
         row.querySelector('.batch-details-cell').innerHTML = '<strong class="batch-number">—</strong><br><span class="expiry-date"></span><br><span class="pack-info"></span><br><span class="unit-cost-info"></span>';
         row.querySelector('.stock-cell').innerHTML = '<div class="batch-stock-info"></div><div class="total-stock-info mt-1"></div>';
-        row.querySelector('.item-name-hidden').value = '';
-        row.querySelector('.item-id-hidden').value = '';
-        row.querySelector('.unit-cost-hidden').value = '';
-        row.querySelector('.batch-stock-hidden').value = '';
-        row.querySelector('.total-stock-hidden').value = '';
         return;
     }
 
@@ -486,52 +699,37 @@ function updateBatchDetails(row, selectedOption) {
     const unitCost = parseFloat($opt.data('unit-cost')) || 0;
     const itemId = $opt.data('item-id') || '';
 
-    // Store values in hidden fields
     row.querySelector('.item-name-hidden').value = itemName;
     row.querySelector('.item-id-hidden').value = itemId;
     row.querySelector('.unit-cost-hidden').value = unitCost;
     row.querySelector('.batch-stock-hidden').value = batchStock;
     row.querySelector('.total-stock-hidden').value = totalStock;
 
-    // Display selected item name
     const itemNameDiv = row.querySelector('.selected-item-name');
     itemNameDiv.innerHTML = `📦 ${escapeHtml(itemName)}`;
     itemNameDiv.classList.remove('hidden');
 
-    // Update category
     row.querySelector('.category-cell').innerHTML = `<span class="text-gray-700">${escapeHtml(category)}</span>`;
 
-    // Determine expiry status
-    let expiryClass = '';
     let expiryHtml = escapeHtml(expiryDate);
     if (expiryDate !== 'N/A') {
         const expiry = new Date(expiryDate);
         const today = new Date();
         const daysLeft = Math.ceil((expiry - today) / (1000 * 60 * 60 * 24));
         if (daysLeft <= 0) {
-            expiryClass = 'batch-expired';
             expiryHtml = `<span class="batch-expired">⚠️ EXPIRED: ${escapeHtml(expiryDate)}</span>`;
         } else if (daysLeft <= 30) {
-            expiryClass = 'batch-expiring-soon';
             expiryHtml = `<span class="batch-expiring-soon">⚠️ Expires in ${daysLeft} days (${escapeHtml(expiryDate)})</span>`;
         }
     }
 
-    // Batch stock status
     let batchStockClass = batchStock <= 10 ? 'batch-low' : 'batch-ok';
     let batchStockText = batchStock <= 0 ? `OUT OF STOCK (${batchStock.toFixed(2)} ${unit})` :
                           (batchStock < 10 ? `⚠️ LOW: ${batchStock.toFixed(2)} ${unit}` : `${batchStock.toFixed(2)} ${unit}`);
 
-    // Total stock status
     let totalStockText = `${totalStock.toFixed(2)} ${unit} total across all batches`;
+    let packInfo = (packType !== 'Direct' && packSize > 1) ? `<span class="text-blue-500 text-xs">📦 ${escapeHtml(packType)} (${packSize} ${unit}/pack)</span><br>` : '';
 
-    // Pack info
-    let packInfo = '';
-    if (packType !== 'Direct' && packSize > 1) {
-        packInfo = `<span class="text-blue-500 text-xs">📦 ${escapeHtml(packType)} (${packSize} ${unit}/pack)</span><br>`;
-    }
-
-    // Update batch details cell
     row.querySelector('.batch-details-cell').innerHTML = `
         <strong class="batch-number">${escapeHtml(batchNumber)}</strong><br>
         ${packInfo}
@@ -539,7 +737,6 @@ function updateBatchDetails(row, selectedOption) {
         <span class="unit-cost-info text-gray-600 text-[10px]">💰 Unit Cost: UGX ${unitCost.toLocaleString(undefined, {minimumFractionDigits: 2})}</span>
     `;
 
-    // Update stock cell
     row.querySelector('.stock-cell').innerHTML = `
         <div class="batch-stock-info">
             <span class="batch-info ${batchStockClass}">📦 Batch: ${batchStockText}</span>
@@ -552,12 +749,7 @@ function updateBatchDetails(row, selectedOption) {
 
 function initSelect2(element, preselectValue) {
     if ($(element).hasClass('select2-hidden-accessible')) $(element).select2('destroy');
-    $(element).select2({
-        placeholder: '-- Search Batch --',
-        allowClear: true,
-        width: '100%',
-        dropdownAutoWidth: true
-    });
+    $(element).select2({ placeholder: '-- Search Batch --', allowClear: true, width: '100%' });
     $(element).off('change').on('change', function() {
         const row = $(this).closest('.item-row')[0];
         const selectedOption = this.options[this.selectedIndex];
@@ -583,8 +775,10 @@ function attachRemoveEvents() {
     $('.remove-item').off('click').on('click', removeItem);
 }
 
-// Initialize on page load
+// Initialize
 $(document).ready(function() {
+    populateLowStockItems();
+
     const draft = loadDraft();
     const tbody = $('#itemsBody');
 
@@ -593,11 +787,16 @@ $(document).ready(function() {
         $('#date_needed').val(draft.date_needed || '');
         $('#notes').val(draft.notes || '');
         draft.rows.forEach(savedRow => {
-            const tr = createNewRow(savedRow);
-            tbody.append(tr);
-            initSelect2($(tr).find('.batch-select'), savedRow.batch_id || null);
+            if (savedRow.batch_id) {
+                const tr = createNewRow(savedRow);
+                tbody.append(tr);
+                initSelect2($(tr).find('.batch-select'), savedRow.batch_id || null);
+            }
         });
         $('#draftBanner').show();
+        if ($('#itemsBody .item-row').length > 0) {
+            $('#tabManualSelect').click();
+        }
     } else {
         const tr = createNewRow(null);
         tbody.append(tr);
@@ -606,7 +805,6 @@ $(document).ready(function() {
     attachRemoveEvents();
 });
 
-// Add new row
 $('#addItemBtn').on('click', function() {
     const tr = createNewRow(null);
     $('#itemsBody').append(tr);
@@ -615,11 +813,9 @@ $('#addItemBtn').on('click', function() {
     saveDraft();
 });
 
-// Auto-save draft
 $('#requisition_type, #date_needed, #notes').on('change input', saveDraft);
 $('#itemsBody').on('input change', saveDraft);
 
-// Clear draft
 $('#clearDraftBtn').on('click', function() {
     if (confirm('Clear saved draft and start fresh?')) {
         clearDraft();
@@ -636,7 +832,6 @@ $('#clearDraftBtn').on('click', function() {
     }
 });
 
-// Preview functions
 function openPreview() {
     const reqType = $('#requisition_type').val();
     $('#previewType').html(`<span class="requisition-type-badge ${reqType === 'emergency' ? 'type-emergency' : 'type-normal'}">${reqType === 'emergency' ? 'EMERGENCY' : 'Normal'}</span>`);
@@ -668,7 +863,7 @@ function openPreview() {
     const previewBody = $('#previewItemsBody');
     previewBody.empty();
     if (items.length === 0) {
-        previewBody.html('<tr><td colspan="9" class="px-3 py-6 text-center text-gray-500">No valid items added</td></tr>');
+        previewBody.html('<tr><td colspan="9" class="px-3 py-6 text-center text-gray-500">No valid items added</td</tr>');
     } else {
         items.forEach(item => {
             previewBody.append(`
@@ -676,7 +871,7 @@ function openPreview() {
                     <td class="px-2 py-1 border">${escapeHtml(item.name)}</td>
                     <td class="px-2 py-1 border">${escapeHtml(item.category)}</td>
                     <td class="px-2 py-1 border">${escapeHtml(item.batchNumber)}</td>
-                    <td class="px-2 py-1 border ${item.expiryDate !== 'N/A' && new Date(item.expiryDate) < new Date() ? 'text-red-600 font-semibold' : ''}">${escapeHtml(item.expiryDate)}</td>
+                    <td class="px-2 py-1 border">${escapeHtml(item.expiryDate)}</td>
                     <td class="px-2 py-1 border text-right">${parseFloat(item.currentStock).toFixed(2)}</td>
                     <td class="px-2 py-1 border text-right">UGX ${parseFloat(item.unitCost).toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
                     <td class="px-2 py-1 border text-right font-semibold">${parseFloat(item.quantity).toFixed(2)}</td>

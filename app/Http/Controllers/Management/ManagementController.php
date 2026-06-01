@@ -9,6 +9,7 @@ use App\Models\GoodsReceivedNote;
 use App\Models\DepartmentRequisitionItem;
 use App\Models\DepartmentRequisition;
 use App\Models\InventoryItem;
+use App\Models\Batch;
 use App\Models\Department;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -25,73 +26,101 @@ class ManagementController extends Controller
         }
 
         // ============================================================
-        // STOCK MOVEMENTS DATA
+        // STOCK MOVEMENTS DATA (from stock_movements table - unchanged)
         // ============================================================
         $totalStockIn = StockMovement::whereHas('movementType', fn($q) => $q->where('sign', '+'))->sum('quantity_in_base_unit');
         $totalStockOut = StockMovement::whereHas('movementType', fn($q) => $q->where('sign', '-'))->sum('quantity_in_base_unit');
         $netChange = $totalStockIn - $totalStockOut;
         $totalValueMoved = StockMovement::sum('total_value');
-        $totalStockValue = InventoryItem::sum(DB::raw('current_stock * unit_cost'));
-        // Add these to your existing dashboard() method in ManagementController.php
 
-// ========== STOCK DAILY/WEEKLY/MONTHLY DATA ==========
-$dailyLabels = [];
-$dailyStockInValues = [];
-$dailyStockOutValues = [];
-$dailyStockInCounts = [];
-$dailyStockOutCounts = [];
-for ($i = 29; $i >= 0; $i--) {
-    $date = now()->subDays($i)->format('Y-m-d');
-    $dailyLabels[] = now()->subDays($i)->format('M d');
-    $dailyStockInValues[] = StockMovement::whereHas('movementType', fn($q) => $q->where('sign', '+'))->whereDate('movement_date', $date)->sum('quantity_in_base_unit');
-    $dailyStockOutValues[] = StockMovement::whereHas('movementType', fn($q) => $q->where('sign', '-'))->whereDate('movement_date', $date)->sum('quantity_in_base_unit');
-    $dailyStockInCounts[] = StockMovement::whereHas('movementType', fn($q) => $q->where('sign', '+'))->whereDate('movement_date', $date)->count();
-    $dailyStockOutCounts[] = StockMovement::whereHas('movementType', fn($q) => $q->where('sign', '-'))->whereDate('movement_date', $date)->count();
-}
+        // ========== FIXED: Use BATCHES table for total stock value ==========
+        // Sum of (remaining_quantity × unit_cost) from all active batches
+        $totalStockValue = Batch::where('batch_status', 'active')
+            ->sum(DB::raw('remaining_quantity * unit_cost'));
 
-$weeklyLabels = [];
-$weeklyStockInValues = [];
-$weeklyStockOutValues = [];
-$weeklyStockInCounts = [];
-$weeklyStockOutCounts = [];
-for ($i = 11; $i >= 0; $i--) {
-    $startDate = now()->subWeeks($i)->startOfWeek();
-    $endDate = now()->subWeeks($i)->endOfWeek();
-    $weeklyLabels[] = 'W' . now()->subWeeks($i)->weekOfYear;
-    $weeklyStockInValues[] = StockMovement::whereHas('movementType', fn($q) => $q->where('sign', '+'))->whereBetween('movement_date', [$startDate, $endDate])->sum('quantity_in_base_unit');
-    $weeklyStockOutValues[] = StockMovement::whereHas('movementType', fn($q) => $q->where('sign', '-'))->whereBetween('movement_date', [$startDate, $endDate])->sum('quantity_in_base_unit');
-    $weeklyStockInCounts[] = StockMovement::whereHas('movementType', fn($q) => $q->where('sign', '+'))->whereBetween('movement_date', [$startDate, $endDate])->count();
-    $weeklyStockOutCounts[] = StockMovement::whereHas('movementType', fn($q) => $q->where('sign', '-'))->whereBetween('movement_date', [$startDate, $endDate])->count();
-}
+        // ========== STOCK DAILY/WEEKLY/MONTHLY DATA ==========
+        $dailyLabels = [];
+        $dailyStockInValues = [];
+        $dailyStockOutValues = [];
+        $dailyStockInCounts = [];
+        $dailyStockOutCounts = [];
+        for ($i = 29; $i >= 0; $i--) {
+            $date = now()->subDays($i)->format('Y-m-d');
+            $dailyLabels[] = now()->subDays($i)->format('M d');
+            $dailyStockInValues[] = StockMovement::whereHas('movementType', fn($q) => $q->where('sign', '+'))->whereDate('movement_date', $date)->sum('quantity_in_base_unit');
+            $dailyStockOutValues[] = StockMovement::whereHas('movementType', fn($q) => $q->where('sign', '-'))->whereDate('movement_date', $date)->sum('quantity_in_base_unit');
+            $dailyStockInCounts[] = StockMovement::whereHas('movementType', fn($q) => $q->where('sign', '+'))->whereDate('movement_date', $date)->count();
+            $dailyStockOutCounts[] = StockMovement::whereHas('movementType', fn($q) => $q->where('sign', '-'))->whereDate('movement_date', $date)->count();
+        }
 
-$monthlyLabels = [];
-$monthlyStockInValues = [];
-$monthlyStockOutValues = [];
-$monthlyStockInCounts = [];
-$monthlyStockOutCounts = [];
-for ($i = 5; $i >= 0; $i--) {
-    $monthlyLabels[] = now()->subMonths($i)->format('M Y');
-    $monthlyStockInValues[] = StockMovement::whereHas('movementType', fn($q) => $q->where('sign', '+'))->whereMonth('movement_date', now()->subMonths($i)->month)->whereYear('movement_date', now()->subMonths($i)->year)->sum('quantity_in_base_unit');
-    $monthlyStockOutValues[] = StockMovement::whereHas('movementType', fn($q) => $q->where('sign', '-'))->whereMonth('movement_date', now()->subMonths($i)->month)->whereYear('movement_date', now()->subMonths($i)->year)->sum('quantity_in_base_unit');
-    $monthlyStockInCounts[] = StockMovement::whereHas('movementType', fn($q) => $q->where('sign', '+'))->whereMonth('movement_date', now()->subMonths($i)->month)->whereYear('movement_date', now()->subMonths($i)->year)->count();
-    $monthlyStockOutCounts[] = StockMovement::whereHas('movementType', fn($q) => $q->where('sign', '-'))->whereMonth('movement_date', now()->subMonths($i)->month)->whereYear('movement_date', now()->subMonths($i)->year)->count();
-}
+        $weeklyLabels = [];
+        $weeklyStockInValues = [];
+        $weeklyStockOutValues = [];
+        $weeklyStockInCounts = [];
+        $weeklyStockOutCounts = [];
+        for ($i = 11; $i >= 0; $i--) {
+            $startDate = now()->subWeeks($i)->startOfWeek();
+            $endDate = now()->subWeeks($i)->endOfWeek();
+            $weeklyLabels[] = 'W' . now()->subWeeks($i)->weekOfYear;
+            $weeklyStockInValues[] = StockMovement::whereHas('movementType', fn($q) => $q->where('sign', '+'))->whereBetween('movement_date', [$startDate, $endDate])->sum('quantity_in_base_unit');
+            $weeklyStockOutValues[] = StockMovement::whereHas('movementType', fn($q) => $q->where('sign', '-'))->whereBetween('movement_date', [$startDate, $endDate])->sum('quantity_in_base_unit');
+            $weeklyStockInCounts[] = StockMovement::whereHas('movementType', fn($q) => $q->where('sign', '+'))->whereBetween('movement_date', [$startDate, $endDate])->count();
+            $weeklyStockOutCounts[] = StockMovement::whereHas('movementType', fn($q) => $q->where('sign', '-'))->whereBetween('movement_date', [$startDate, $endDate])->count();
+        }
 
-// ========== PO DAILY/WEEKLY/MONTHLY DATA ==========
-$poDailyValues = []; $poDailyCounts = [];
-$poWeeklyValues = []; $poWeeklyCounts = [];
-$poMonthlyValues = []; $poMonthlyCounts = [];
-foreach ($dailyLabels as $i => $label) { $date = now()->subDays(29 - $i)->format('Y-m-d'); $poDailyValues[] = PurchaseOrder::whereDate('po_date', $date)->sum('total_amount'); $poDailyCounts[] = PurchaseOrder::whereDate('po_date', $date)->count(); }
-foreach ($weeklyLabels as $i => $label) { $startDate = now()->subWeeks(11 - $i)->startOfWeek(); $endDate = now()->subWeeks(11 - $i)->endOfWeek(); $poWeeklyValues[] = PurchaseOrder::whereBetween('po_date', [$startDate, $endDate])->sum('total_amount'); $poWeeklyCounts[] = PurchaseOrder::whereBetween('po_date', [$startDate, $endDate])->count(); }
-foreach ($monthlyLabels as $i => $label) { $poMonthlyValues[] = PurchaseOrder::whereMonth('po_date', now()->subMonths(5 - $i)->month)->whereYear('po_date', now()->subMonths(5 - $i)->year)->sum('total_amount'); $poMonthlyCounts[] = PurchaseOrder::whereMonth('po_date', now()->subMonths(5 - $i)->month)->whereYear('po_date', now()->subMonths(5 - $i)->year)->count(); }
+        $monthlyLabels = [];
+        $monthlyStockInValues = [];
+        $monthlyStockOutValues = [];
+        $monthlyStockInCounts = [];
+        $monthlyStockOutCounts = [];
+        for ($i = 5; $i >= 0; $i--) {
+            $monthlyLabels[] = now()->subMonths($i)->format('M Y');
+            $monthlyStockInValues[] = StockMovement::whereHas('movementType', fn($q) => $q->where('sign', '+'))->whereMonth('movement_date', now()->subMonths($i)->month)->whereYear('movement_date', now()->subMonths($i)->year)->sum('quantity_in_base_unit');
+            $monthlyStockOutValues[] = StockMovement::whereHas('movementType', fn($q) => $q->where('sign', '-'))->whereMonth('movement_date', now()->subMonths($i)->month)->whereYear('movement_date', now()->subMonths($i)->year)->sum('quantity_in_base_unit');
+            $monthlyStockInCounts[] = StockMovement::whereHas('movementType', fn($q) => $q->where('sign', '+'))->whereMonth('movement_date', now()->subMonths($i)->month)->whereYear('movement_date', now()->subMonths($i)->year)->count();
+            $monthlyStockOutCounts[] = StockMovement::whereHas('movementType', fn($q) => $q->where('sign', '-'))->whereMonth('movement_date', now()->subMonths($i)->month)->whereYear('movement_date', now()->subMonths($i)->year)->count();
+        }
 
-// ========== DEPARTMENT DAILY/WEEKLY/MONTHLY DATA ==========
-$deptDailyIssued = []; $deptDailyReturned = []; $deptDailyNet = [];
-$deptWeeklyIssued = []; $deptWeeklyReturned = [];
-$deptWeeklyKitchen = []; $deptWeeklyBar = []; $deptWeeklyCafe = [];
-$deptMonthlyIssued = []; $deptMonthlyReturned = [];
-$deptMonthlyKitchen = []; $deptMonthlyBar = []; $deptMonthlyCafe = [];
-// (Similar loops using DepartmentRequisitionItem)
+        // ========== PO DAILY/WEEKLY/MONTHLY DATA ==========
+        $poDailyValues = [];
+        $poDailyCounts = [];
+        $poWeeklyValues = [];
+        $poWeeklyCounts = [];
+        $poMonthlyValues = [];
+        $poMonthlyCounts = [];
+
+        foreach ($dailyLabels as $i => $label) {
+            $date = now()->subDays(29 - $i)->format('Y-m-d');
+            $poDailyValues[] = PurchaseOrder::whereDate('po_date', $date)->sum('total_amount');
+            $poDailyCounts[] = PurchaseOrder::whereDate('po_date', $date)->count();
+        }
+
+        foreach ($weeklyLabels as $i => $label) {
+            $startDate = now()->subWeeks(11 - $i)->startOfWeek();
+            $endDate = now()->subWeeks(11 - $i)->endOfWeek();
+            $poWeeklyValues[] = PurchaseOrder::whereBetween('po_date', [$startDate, $endDate])->sum('total_amount');
+            $poWeeklyCounts[] = PurchaseOrder::whereBetween('po_date', [$startDate, $endDate])->count();
+        }
+
+        foreach ($monthlyLabels as $i => $label) {
+            $poMonthlyValues[] = PurchaseOrder::whereMonth('po_date', now()->subMonths(5 - $i)->month)->whereYear('po_date', now()->subMonths(5 - $i)->year)->sum('total_amount');
+            $poMonthlyCounts[] = PurchaseOrder::whereMonth('po_date', now()->subMonths(5 - $i)->month)->whereYear('po_date', now()->subMonths(5 - $i)->year)->count();
+        }
+
+        // ========== DEPARTMENT DAILY/WEEKLY/MONTHLY DATA ==========
+        $deptDailyIssued = [];
+        $deptDailyReturned = [];
+        $deptDailyNet = [];
+        $deptWeeklyIssued = [];
+        $deptWeeklyReturned = [];
+        $deptWeeklyKitchen = [];
+        $deptWeeklyBar = [];
+        $deptWeeklyCafe = [];
+        $deptMonthlyIssued = [];
+        $deptMonthlyReturned = [];
+        $deptMonthlyKitchen = [];
+        $deptMonthlyBar = [];
+        $deptMonthlyCafe = [];
 
         // Monthly trends
         $monthlyStockIn = StockMovement::whereHas('movementType', fn($q) => $q->where('sign', '+'))
@@ -112,21 +141,24 @@ $deptMonthlyKitchen = []; $deptMonthlyBar = []; $deptMonthlyCafe = [];
             $weeklyOutData[] = StockMovement::whereHas('movementType', fn($q) => $q->where('sign', '-'))->whereDate('movement_date', $date)->sum('quantity_in_base_unit');
         }
 
-        // Top items
-        $topItems = StockMovement::select('inventory_item_id', DB::raw('SUM(quantity_in_base_unit) as total'))
+        // ========== FIXED: Top items from BATCHES table ==========
+        // Sum remaining_quantity grouped by inventory_item_id
+        $topItems = Batch::select('inventory_item_id', DB::raw('SUM(remaining_quantity) as total_remaining'))
+            ->where('batch_status', 'active')
             ->with('inventoryItem')
             ->groupBy('inventory_item_id')
-            ->orderBy('total', 'desc')
+            ->orderBy('total_remaining', 'desc')
             ->limit(5)
             ->get();
+
         $topItemsLabels = [];
         $topItemsData = [];
         foreach ($topItems as $item) {
             $topItemsLabels[] = $item->inventoryItem->name ?? 'Unknown';
-            $topItemsData[] = $item->total;
+            $topItemsData[] = $item->total_remaining;
         }
 
-        // Source breakdown
+        // Source breakdown (from stock_movements - unchanged)
         $grnTotal = StockMovement::whereHas('movementType', fn($q) => $q->where('name', 'LIKE', '%GRN%'))->sum('quantity_in_base_unit');
         $poTotal = StockMovement::whereHas('movementType', fn($q) => $q->where('name', 'LIKE', '%PURCHASE%'))->sum('quantity_in_base_unit');
         $returnTotal = StockMovement::whereHas('movementType', fn($q) => $q->where('name', 'LIKE', '%RETURN%'))->sum('quantity_in_base_unit');
@@ -134,7 +166,7 @@ $deptMonthlyKitchen = []; $deptMonthlyBar = []; $deptMonthlyCafe = [];
         $sourceLabels = ['GRN Receipts', 'Purchase Orders', 'Returns', 'Manual'];
         $sourceData = [$grnTotal, $poTotal, $returnTotal, $manualTotal];
 
-        // Department data
+        // Department data (from department_requisition_items - unchanged)
         $deptSummaries = DepartmentRequisitionItem::select('departments.name', DB::raw('SUM(issued_total_pieces) as issued'), DB::raw('SUM(returned_total_pieces) as returned'), DB::raw('SUM(quantity_consumed) as consumed'))
             ->join('department_requisitions', 'department_requisition_items.department_requisition_id', '=', 'department_requisitions.id')
             ->join('departments', 'department_requisitions.department_id', '=', 'departments.id')
@@ -146,11 +178,11 @@ $deptMonthlyKitchen = []; $deptMonthlyBar = []; $deptMonthlyCafe = [];
         $deptIssuedData = $deptSummaries->pluck('issued')->toArray();
         $deptReturnedData = $deptSummaries->pluck('returned')->toArray();
 
-        // Recent movements
+        // Recent movements (from stock_movements - unchanged)
         $recentMovements = StockMovement::with(['inventoryItem', 'movementType'])->orderBy('created_at', 'desc')->limit(10)->get();
 
         // ============================================================
-        // PURCHASE ORDERS DATA
+        // PURCHASE ORDERS DATA (unchanged)
         // ============================================================
         $pendingApprovals = PurchaseOrder::where('status', 'draft')->count();
         $recentPOs = PurchaseOrder::with('vendor')->orderBy('created_at', 'desc')->limit(10)->get();
@@ -170,7 +202,7 @@ $deptMonthlyKitchen = []; $deptMonthlyBar = []; $deptMonthlyCafe = [];
         ];
 
         // ============================================================
-        // GRN DATA
+        // GRN DATA (unchanged)
         // ============================================================
         $grnDraftCount = GoodsReceivedNote::where('status', 'draft')->count();
         $grnCompletedCount = GoodsReceivedNote::where('status', 'completed')->count();
@@ -206,7 +238,7 @@ $deptMonthlyKitchen = []; $deptMonthlyBar = []; $deptMonthlyCafe = [];
         $monthlyValues = $monthlyGRNData->pluck('total')->reverse()->values()->toArray();
         $monthlyCounts = $monthlyGRNData->pluck('count')->reverse()->values()->toArray();
 
-        // Distribution data
+        // Distribution data (from department_requisition_items - unchanged)
         $distributions = DepartmentRequisitionItem::with(['departmentRequisition.department', 'inventoryItem'])
             ->where('quantity_issued', '>', 0)
             ->orderBy('created_at', 'desc')
@@ -231,21 +263,18 @@ $deptMonthlyKitchen = []; $deptMonthlyBar = []; $deptMonthlyCafe = [];
         ));
     }
 
+    public function vendorsIndex()
+    {
+        $user = Auth::user();
 
+        if (!$user->department || $user->department->name !== 'GENERAL MANAGEMENT') {
+            return redirect()->route('dashboard')->with('error', 'Unauthorized access');
+        }
 
-public function vendorsIndex()
-{
-    $user = Auth::user();
+        $vendors = \App\Models\Vendor::withCount(['purchaseOrders'])
+            ->orderBy('name')
+            ->paginate(20);
 
-    if (!$user->department || $user->department->name !== 'GENERAL MANAGEMENT') {
-        return redirect()->route('dashboard')->with('error', 'Unauthorized access');
+        return view('management.vendors', compact('vendors'));
     }
-
-    $vendors = \App\Models\Vendor::withCount(['purchaseOrders'])
-        ->orderBy('name')
-        ->paginate(20);
-
-    return view('management.vendors', compact('vendors'));
-}
-
 }

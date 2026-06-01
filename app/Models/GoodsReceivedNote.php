@@ -18,7 +18,6 @@ class GoodsReceivedNote extends Model
         'vendor_id',
         'received_date',
         'delivery_note_number',
-        'verification_notes',
         'received_by',
         'received_by_user_id',
         'verified_by',
@@ -43,7 +42,6 @@ class GoodsReceivedNote extends Model
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
         'deleted_at' => 'datetime',
-        'verification_notes' => 'string',
         'po_total_amount' => 'decimal:2',
         'grn_total_amount' => 'decimal:2',
         'subtotal' => 'decimal:2',
@@ -307,7 +305,7 @@ class GoodsReceivedNote extends Model
         $this->verified_by = $userId;
         $this->verified_at = now();
         if ($notes) {
-            $this->notes = ($this->notes ? $this->notes . "\n\n" : '') . "Verification notes: " . $notes;
+            $this->notes = ($this->notes ? $this->notes . "\n\n" : '') . "notes: " . $notes;
         }
         return $this->save();
     }

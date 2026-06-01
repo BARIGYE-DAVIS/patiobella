@@ -14,6 +14,7 @@ class StockCountItem extends Model
     protected $fillable = [
         'stock_count_id',
         'inventory_item_id',
+        'batch_id',
         'system_quantity',
         'physical_quantity',
         'physical_quantity_is_gross',  // ADDED - whether physical_quantity is gross weight or net
@@ -48,6 +49,11 @@ class StockCountItem extends Model
     public function inventoryItem()
     {
         return $this->belongsTo(InventoryItem::class, 'inventory_item_id');
+    }
+
+    public function batch()
+    {
+        return $this->belongsTo(Batch::class, 'batch_id');
     }
 
     public function approver()

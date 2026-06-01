@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Management;
 use App\Http\Controllers\Controller;
 use App\Models\Requisition;
 use App\Models\RequisitionItem;
+use App\Models\Batch;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -12,7 +13,9 @@ use Illuminate\Support\Facades\Log;
 
 class ManagementRequisitionController extends Controller
 {
-    // List all requisitions with tabs and filters
+    /**
+     * List all requisitions with tabs and filters
+     */
     public function index(Request $request)
     {
         $user = Auth::user();
@@ -23,9 +26,9 @@ class ManagementRequisitionController extends Controller
 
         $tab = $request->get('tab', 'pending');
 
-        $query = Requisition::with(['store', 'requestedBy', 'items']);
+        $query = Requisition::with(['store', 'requestedBy', 'items.batch.inventoryItem', 'items.inventoryItem']);
 
-        // Filter by tab (using your actual statuses)
+        // Filter by tab
         if ($tab == 'pending') {
             $query->where('status', 'pending');
         } elseif ($tab == 'approved') {
@@ -33,7 +36,6 @@ class ManagementRequisitionController extends Controller
         } elseif ($tab == 'rejected') {
             $query->where('status', 'rejected');
         }
-        // 'all' shows everything, no filter
 
         // Apply date filters
         if ($request->filled('date_from')) {
@@ -43,7 +45,7 @@ class ManagementRequisitionController extends Controller
             $query->whereDate('created_at', '<=', $request->date_to);
         }
 
-        // Apply search (by requisition number or store name)
+        // Apply search
         if ($request->filled('search')) {
             $search = $request->search;
             $query->where(function($q) use ($search) {
@@ -64,7 +66,9 @@ class ManagementRequisitionController extends Controller
         return view('management.requisitions.index', compact('requisitions', 'pendingCount', 'approvedCount', 'rejectedCount'));
     }
 
-    // Show single requisition details
+    /**
+     * Show single requisition details with batch information
+     */
     public function show($id)
     {
         $user = Auth::user();
@@ -73,13 +77,20 @@ class ManagementRequisitionController extends Controller
             return redirect()->route('dashboard')->with('error', 'Unauthorized access');
         }
 
-        $requisition = Requisition::with(['store', 'requestedBy', 'items.inventoryItem'])
-            ->findOrFail($id);
+        $requisition = Requisition::with([
+            'store',
+            'requestedBy',
+            'approvedBy',
+            'items.batch.inventoryItem',
+            'items.inventoryItem'
+        ])->findOrFail($id);
 
         return view('management.requisitions.show', compact('requisition'));
     }
 
-    // Show approval form
+    /**
+     * Show approval form with batch details
+     */
     public function approveForm($id)
     {
         $user = Auth::user();
@@ -88,8 +99,12 @@ class ManagementRequisitionController extends Controller
             return redirect()->route('dashboard')->with('error', 'Unauthorized access');
         }
 
-        $requisition = Requisition::with(['items.inventoryItem', 'store', 'requestedBy'])
-            ->findOrFail($id);
+        $requisition = Requisition::with([
+            'items.batch.inventoryItem',
+            'items.inventoryItem',
+            'store',
+            'requestedBy'
+        ])->findOrFail($id);
 
         if ($requisition->status !== 'pending') {
             return redirect()->route('management.requisitions.show', $requisition->id)
@@ -99,7 +114,9 @@ class ManagementRequisitionController extends Controller
         return view('management.requisitions.approve', compact('requisition'));
     }
 
-    // Process approval with quantities
+    /**
+     * Process approval with quantities
+     */
     public function approve(Request $request, $id)
     {
         $user = Auth::user();
@@ -124,6 +141,8 @@ class ManagementRequisitionController extends Controller
                 return redirect()->back()->with('error', 'Only pending requisitions can be approved.');
             }
 
+            $totalApprovedValue = 0;
+
             // Additional validation: Check each approved quantity doesn't exceed requested
             foreach ($request->items as $itemData) {
                 $requisitionItem = RequisitionItem::findOrFail($itemData['item_id']);
@@ -142,6 +161,10 @@ class ManagementRequisitionController extends Controller
                 // Update the approved quantity
                 $requisitionItem->quantity_approved = $itemData['quantity_approved'];
                 $requisitionItem->save();
+
+                // Calculate total approved value
+                $unitCost = $requisitionItem->unit_cost ?? ($requisitionItem->batch ? $requisitionItem->batch->unit_cost : 0);
+                $totalApprovedValue += $itemData['quantity_approved'] * $unitCost;
             }
 
             // Update requisition status
@@ -161,7 +184,8 @@ class ManagementRequisitionController extends Controller
                 'requisition_id' => $id,
                 'requisition_number' => $requisition->requisition_number,
                 'user_id' => Auth::id(),
-                'items_approved' => count($request->items)
+                'items_approved' => count($request->items),
+                'total_approved_value' => $totalApprovedValue
             ]);
 
             return redirect()->route('management.requisitions.index')
@@ -179,7 +203,9 @@ class ManagementRequisitionController extends Controller
         }
     }
 
-    // Reject requisition
+    /**
+     * Reject requisition
+     */
     public function reject(Request $request, $id)
     {
         $user = Auth::user();
@@ -229,16 +255,18 @@ class ManagementRequisitionController extends Controller
         }
     }
 
-    // Get all requisitions (for filtering)
+    /**
+     * Get all requisitions (for filtering)
+     */
     public function all(Request $request)
     {
         $user = Auth::user();
-        
+
         if (!$user->department || $user->department->name !== 'GENERAL MANAGEMENT') {
             return redirect()->route('dashboard')->with('error', 'Unauthorized access');
         }
 
-        $query = Requisition::with(['store', 'requestedBy']);
+        $query = Requisition::with(['store', 'requestedBy', 'items.batch.inventoryItem']);
 
         if ($request->filled('status')) {
             $query->where('status', $request->status);
@@ -255,5 +283,55 @@ class ManagementRequisitionController extends Controller
         $requisitions = $query->orderBy('created_at', 'desc')->paginate(20);
 
         return view('management.requisitions.all', compact('requisitions'));
+    }
+
+    /**
+     * Get requisition summary statistics for dashboard
+     */
+    public function getStatistics()
+    {
+        $user = Auth::user();
+
+        if (!$user->department || $user->department->name !== 'GENERAL MANAGEMENT') {
+            return response()->json(['error' => 'Unauthorized'], 403);
+        }
+
+        $statistics = [
+            'pending' => Requisition::where('status', 'pending')->count(),
+            'approved' => Requisition::where('status', 'approved')->count(),
+            'rejected' => Requisition::where('status', 'rejected')->count(),
+            'ordered' => Requisition::where('status', 'ordered')->count(),
+            'fulfilled' => Requisition::where('status', 'fulfilled')->count(),
+            'total_value_approved' => RequisitionItem::whereHas('requisition', function($q) {
+                $q->where('status', 'approved');
+            })->sum(DB::raw('quantity_approved * COALESCE(unit_cost, 0)'))
+        ];
+
+        return response()->json($statistics);
+    }
+
+    /**
+     * Export requisition as PDF
+     */
+    public function exportPdf($id)
+    {
+        $user = Auth::user();
+
+        if (!$user->department || $user->department->name !== 'GENERAL MANAGEMENT') {
+            return redirect()->route('dashboard')->with('error', 'Unauthorized access');
+        }
+
+        $requisition = Requisition::with([
+            'store',
+            'requestedBy',
+            'approvedBy',
+            'items.batch.inventoryItem',
+            'items.inventoryItem'
+        ])->findOrFail($id);
+
+        $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('management.requisitions.pdf', compact('requisition'));
+        $pdf->setPaper('a4', 'portrait');
+
+        return $pdf->download('requisition-' . $requisition->requisition_number . '.pdf');
     }
 }

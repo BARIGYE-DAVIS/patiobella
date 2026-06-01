@@ -29,6 +29,15 @@
             max-height: 40px !important;
             width: auto !important;
         }
+        .signature-img {
+            max-height: 40px !important;
+        }
+        /* Force grid to be 2 columns on print */
+        .signatures-grid {
+            display: grid !important;
+            grid-template-columns: 1fr 1fr !important;
+            gap: 32px !important;
+        }
     }
     .company-logo {
         max-height: 60px;
@@ -55,23 +64,49 @@
         background: #fee2e2;
         color: #991b1b;
     }
-    .stock-info {
+    .batch-info {
         font-size: 10px;
         padding: 2px 4px;
         border-radius: 4px;
         display: inline-block;
     }
-    .stock-low {
+    .batch-low {
         background: #fee2e2;
         color: #dc2626;
     }
-    .stock-ok {
+    .batch-ok {
         background: #dcfce7;
         color: #16a34a;
     }
-    .stock-warning {
+    .batch-warning {
         background: #fef3c7;
         color: #d97706;
+    }
+    .batch-expired {
+        background: #fee2e2;
+        color: #dc2626;
+    }
+    .batch-expiring-soon {
+        background: #fef3c7;
+        color: #d97706;
+    }
+    /* Signatures grid - side by side */
+    .signatures-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 32px;
+        margin-top: 32px;
+        padding-top: 24px;
+        border-top: 1px solid #e5e7eb;
+    }
+    .signature-box {
+        text-align: center;
+    }
+    .signature-line {
+        border-top: 1px solid #d1d5db;
+        width: 192px;
+        margin: 8px auto 0 auto;
+        padding-top: 4px;
     }
 </style>
 
@@ -145,7 +180,7 @@
                 @endif
             </div>
             <div class="text-right">
-                <h1 class="text-xl font-bold text-green-600">REQUISITION FORM</h1>
+                <h1 class="text-xl font-bold text-green-600">REQUISITION </h1>
                 <p class="text-sm text-gray-500">{{ $requisition->requisition_number }}</p>
             </div>
         </div>
@@ -191,19 +226,15 @@
         </div>
         @endif
 
-        {{-- Approval Info - FIXED: Show for ALL approved requisitions, not just status == 'approved' --}}
+        {{-- Approval Info --}}
         @php
-            // CRITICAL FIX: Check if approval actually happened (approved_by AND approved_at exist)
-            // This ensures signature shows even if status changed to 'fulfilled', 'ordered', 'lpo_created', etc.
             $wasApproved = $requisition->approved_by && $requisition->approved_at;
         @endphp
 
         @if($wasApproved && $requisition->status != 'rejected')
         <div class="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg">
             <div class="flex items-start gap-2">
-                <svg class="w-5 h-5 text-green-600 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                </svg>
+
                 <div>
                     <h4 class="text-sm font-semibold text-green-800">Approval Confirmation</h4>
                     <p class="text-sm text-green-700 mt-1">This requisition has been approved by General Manager.</p>
@@ -276,7 +307,7 @@
         </div>
         @endif
 
-        {{-- GM Notes (if any) --}}
+        {{-- GM Notes --}}
         @if($requisition->gm_notes)
         <div class="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
             <div class="flex items-start gap-2">
@@ -292,7 +323,7 @@
         </div>
         @endif
 
-        {{-- Items Table with Stock Info --}}
+        {{-- Items Table --}}
         <div>
             <h4 class="text-sm font-medium text-gray-500 mb-3">Requested Items</h4>
             <div class="overflow-x-auto">
@@ -301,10 +332,15 @@
                         <tr class="border-b border-gray-200">
                             <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Item</th>
                             <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Category</th>
-                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase w-24">Metrics</th>
-                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase w-20">Current Stock</th>
-                            <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase w-28">Requested Qty</th>
-                            <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase w-28">Approved Qty</th>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Batch No.</th>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Expiry Date</th>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Pack Info</th>
+                            <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Unit Cost</th>
+                            <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Batch Stock</th>
+                            <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Total Stock</th>
+                            <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Requested</th>
+                            <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Approved</th>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Metrics</th>
                             <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Notes</th>
                         </tr>
                     </thead>
@@ -312,18 +348,60 @@
                         @php
                             $totalRequested = 0;
                             $totalApproved = 0;
+
+                            function fmtQty($val) {
+                                if ($val == floor($val)) {
+                                    return number_format($val, 0);
+                                }
+                                return rtrim(rtrim(number_format($val, 2), '0'), '.');
+                            }
                         @endphp
                         @foreach($requisition->items as $item)
                         @php
                             $totalRequested += $item->quantity_requested;
                             $totalApproved += $item->quantity_approved;
-                            $currentStock = $item->inventoryItem ? $item->inventoryItem->current_stock : 0;
-                            $stockClass = $currentStock <= 0 ? 'stock-low' : ($currentStock < 10 ? 'stock-warning' : 'stock-ok');
-                            $stockText = $currentStock <= 0 ? 'Out of Stock' : ($currentStock < 10 ? 'Low Stock' : 'In Stock');
+
+                            $batch = $item->batch;
+                            $batchNumber = $batch ? $batch->batch_number : 'N/A';
+                            $expiryDate = $batch ? $batch->expiry_date : null;
+                            $expiryClass = '';
+                            $daysLeft = 0;
+                            if ($expiryDate) {
+                                $daysLeft = now()->diffInDays($expiryDate, false);
+                                if ($daysLeft <= 0) {
+                                    $expiryClass = 'batch-expired';
+                                } elseif ($daysLeft <= 30) {
+                                    $expiryClass = 'batch-expiring-soon';
+                                }
+                            }
+
+                            $packInfo = '';
+                            if ($batch && $batch->pack_type && $batch->pack_type != 'Direct' && $batch->pack_size > 1) {
+                                $packInfo = $batch->pack_type . ' (' . $batch->pack_size . ' ' . ($batch->unit_of_measurement ?? 'units') . '/pack)';
+                            } else {
+                                $packInfo = 'Direct';
+                            }
+
+                            $batchStock = $batch ? $batch->remaining_quantity : 0;
+                            $batchStockClass = $batchStock <= 0 ? 'batch-low' : ($batchStock < 10 ? 'batch-warning' : 'batch-ok');
+                            $batchStockText = $batchStock <= 0 ? 'Out of Stock' : ($batchStock < 10 ? 'Low Stock' : 'In Stock');
+
+                            $totalStock = 0;
+                            if ($item->inventory_item_id) {
+                                $totalStock = \App\Models\Batch::where('inventory_item_id', $item->inventory_item_id)
+                                    ->where('batch_status', 'active')
+                                    ->where('remaining_quantity', '>', 0)
+                                    ->sum('remaining_quantity');
+                            }
+                            $totalStockClass = $totalStock <= 0 ? 'batch-low' : ($totalStock < 10 ? 'batch-warning' : 'batch-ok');
+                            $totalStockText = $totalStock <= 0 ? 'Out of Stock' : ($totalStock < 10 ? 'Low Stock' : 'In Stock');
+
+                            $stockAtRequest = $item->batch_stock_at_request ?? $batchStock;
+                            $unitCost = $item->unit_cost ?? ($batch ? $batch->unit_cost : 0);
                         @endphp
                         <tr class="border-b hover:bg-gray-50">
                             <td class="px-4 py-3 text-sm text-gray-800">
-                                {{ $item->inventoryItem ? $item->inventoryItem->name : 'Item not found' }}
+                                {{ $item->item_name ?: ($item->inventoryItem ? $item->inventoryItem->name : 'Unknown') }}
                                 @if($item->inventoryItem && $item->inventoryItem->item_code)
                                     <br>
                                     <span class="text-xs text-gray-500">Code: {{ $item->inventoryItem->item_code }}</span>
@@ -334,118 +412,152 @@
                                     {{ $item->category_name ?: '—' }}
                                 </span>
                             </td>
-                            <td class="px-4 py-3 text-sm text-gray-500">
-                                {{ $item->metrics ?: '—' }}
+                            <td class="px-4 py-3 text-sm font-mono text-gray-600">
+                                {{ $batchNumber }}
                             </td>
                             <td class="px-4 py-3 text-sm">
-                                <span class="stock-info {{ $stockClass }}">
-                                    {{ number_format($currentStock, 2) }} {{ $item->inventoryItem->base_unit ?? 'pcs' }}
-                                    <br>
-                                    <span class="text-xs">{{ $stockText }}</span>
-                                </span>
+                                @if($expiryDate)
+                                    <span class="batch-info {{ $expiryClass }}">
+                                        {{ $expiryDate->format('d M Y') }}
+                                        @if($daysLeft <= 0)
+                                            (EXPIRED)
+                                        @elseif($daysLeft <= 30)
+                                            ({{ $daysLeft }} days left)
+                                        @endif
+                                    </span>
+                                @else
+                                    <span class="text-gray-400">N/A</span>
+                                @endif
+                            </td>
+                            <td class="px-4 py-3 text-sm text-gray-500">
+                                {{ $packInfo }}
+                            </td>
+                            <td class="px-4 py-3 text-sm text-right font-semibold">
+                                UGX {{ number_format($unitCost, 2) }}
+                            </td>
+                            <td class="px-4 py-3 text-sm text-right">
+                                <div class="font-semibold {{ $batchStockClass }}">
+                                    {{ fmtQty($batchStock) }}
+                                </div>
+                                <div class="text-xs {{ $batchStockClass }}">
+                                    {{ $batchStockText }}
+                                </div>
+                                @if($stockAtRequest != $batchStock && $stockAtRequest > 0)
+                                    <div class="text-xs text-gray-400 mt-1">
+                                        At request: {{ fmtQty($stockAtRequest) }}
+                                    </div>
+                                @endif
+                            </td>
+                            <td class="px-4 py-3 text-sm text-right">
+                                <div class="font-semibold {{ $totalStockClass }}">
+                                    {{ fmtQty($totalStock) }}
+                                </div>
+                                <div class="text-xs {{ $totalStockClass }}">
+                                    {{ $totalStockText }}
+                                </div>
                             </td>
                             <td class="px-4 py-3 text-sm text-gray-800 text-right font-semibold">
-                                {{ number_format($item->quantity_requested, 2) }}
+                                {{ fmtQty($item->quantity_requested) }}
                             </td>
                             <td class="px-4 py-3 text-sm text-gray-800 text-right">
                                 @if($wasApproved)
-                                    <span class="font-semibold text-green-600">{{ number_format($item->quantity_approved, 2) }}</span>
+                                    <span class="font-semibold text-green-600">{{ fmtQty($item->quantity_approved) }}</span>
                                     @if($item->quantity_approved < $item->quantity_requested)
                                         <br>
                                         <span class="text-xs text-orange-500">(Partial)</span>
                                     @endif
                                 @else
-                                    {{ number_format($item->quantity_approved, 2) }}
+                                    {{ fmtQty($item->quantity_approved) }}
                                 @endif
                             </td>
-                            <td class="px-4 py-3 text-sm text-gray-500">{{ $item->notes ?? '—' }}</td>
+                            <td class="px-4 py-3 text-sm text-gray-500">
+                                {{ $item->metrics ?: '—' }}
+                            </td>
+                            <td class="px-4 py-3 text-sm text-gray-500">
+                                {{ $item->notes ?? '—' }}
+                            </td>
                         </tr>
                         @endforeach
                     </tbody>
                     <tfoot class="bg-gray-50">
                         <tr>
-                            <td class="px-4 py-3 text-sm font-semibold text-gray-800" colspan="3">Total Items: {{ $requisition->items->count() }}</td>
-                            <td class="px-4 py-3"></td>
-                            <td class="px-4 py-3 text-sm font-semibold text-gray-800 text-right">{{ number_format($totalRequested, 2) }}</td>
-                            <td class="px-4 py-3 text-sm font-semibold text-gray-800 text-right">{{ number_format($totalApproved, 2) }}</td>
-                            <td class="px-4 py-3"></td>
+                            <td class="px-4 py-3 text-sm font-semibold text-gray-800" colspan="8">Total Items: {{ $requisition->items->count() }}</td
+                            <td class="px-4 py-3 text-sm font-semibold text-gray-800 text-right">{{ fmtQty($totalRequested) }}</td
+                            <td class="px-4 py-3 text-sm font-semibold text-gray-800 text-right">{{ fmtQty($totalApproved) }}</td
+                            <td class="px-4 py-3" colspan="2"></td
                         </tr>
                     </tfoot>
                 </table>
             </div>
         </div>
 
-        {{-- Signatures Section - FIXED: Show if approval happened, not based on status only --}}
-        <div class="mt-8 pt-4 border-t">
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-                {{-- Requester Signature --}}
-                <div class="text-center">
-                    <p class="text-xs text-gray-500 mb-2">Requested By:</p>
-                    @php $requester = $requisition->requestedBy; @endphp
-                    @if($requester && $requester->signature_url)
-                        @php
-                            $sigUrl = $requester->signature_url;
-                            $sigPath = public_path(parse_url($sigUrl, PHP_URL_PATH));
-                            $sigExists = file_exists($sigPath);
-                            $sigMime = $sigExists ? mime_content_type($sigPath) : 'image/png';
-                            $sigB64 = $sigExists ? base64_encode(file_get_contents($sigPath)) : null;
-                        @endphp
-                        @if($sigB64)
-                            <img src="data:{{ $sigMime }};base64,{{ $sigB64 }}" class="signature-img mx-auto" alt="Signature">
-                        @else
-                            <img src="{{ $sigUrl }}" class="signature-img mx-auto" alt="Signature">
-                        @endif
-                    @else
-                        <div style="height: 50px;"></div>
-                    @endif
-                    <div class="border-t border-gray-300 mt-2 pt-1 w-48 mx-auto"></div>
-                    <p class="text-xs text-gray-600 mt-1">{{ $requester->first_name ?? '' }} {{ $requester->last_name ?? '' }}</p>
-                    <p class="text-xs text-gray-400">{{ $requisition->created_at ? $requisition->created_at->format('d M Y') : '' }}</p>
-                </div>
-
-                {{-- Approver Signature - FIXED: Check if approval actually happened --}}
-                <div class="text-center">
-                    <p class="text-xs text-gray-500 mb-2">Approved By (Management):</p>
-
+        {{-- SIGNATURES SECTION - SIDE BY SIDE IN SINGLE ROW --}}
+        <div class="signatures-grid">
+            {{-- Requester Signature --}}
+            <div class="signature-box">
+                <p class="text-xs text-gray-500 mb-2">Requested By:</p>
+                @php $requester = $requisition->requestedBy; @endphp
+                @if($requester && $requester->signature_url)
                     @php
-                        // CRITICAL FIX: Check if approval actually happened (approved_by AND approved_at exist)
-                        // NOT based on status! Because status may change to 'fulfilled', 'ordered', 'lpo_created', etc.
-                        $wasApproved = $requisition->approved_by && $requisition->approved_at;
-                        $approver = $wasApproved ? $requisition->approvedBy : null;
+                        $sigUrl = $requester->signature_url;
+                        $sigPath = public_path(parse_url($sigUrl, PHP_URL_PATH));
+                        $sigExists = file_exists($sigPath);
+                        $sigMime = $sigExists ? mime_content_type($sigPath) : 'image/png';
+                        $sigB64 = $sigExists ? base64_encode(file_get_contents($sigPath)) : null;
                     @endphp
+                    @if($sigB64)
+                        <img src="data:{{ $sigMime }};base64,{{ $sigB64 }}" class="signature-img mx-auto" alt="Signature">
+                    @else
+                        <img src="{{ $sigUrl }}" class="signature-img mx-auto" alt="Signature">
+                    @endif
+                @else
+                    <div style="height: 50px;"></div>
+                @endif
+                <div class="signature-line"></div>
+                <p class="text-xs text-gray-600 mt-2">{{ $requester->first_name ?? '' }} {{ $requester->last_name ?? '' }}</p>
+                <p class="text-xs text-gray-400">{{ $requisition->created_at ? $requisition->created_at->format('d M Y') : '' }}</p>
+            </div>
 
-                    @if($wasApproved && $approver && $requisition->status != 'rejected')
-                        @php
-                            $approverSigUrl = $approver->signature_url;
-                            $approverSigPath = public_path(parse_url($approverSigUrl, PHP_URL_PATH));
-                            $approverSigExists = file_exists($approverSigPath);
-                            $approverSigMime = $approverSigExists ? mime_content_type($approverSigPath) : 'image/png';
-                            $approverSigB64 = $approverSigExists ? base64_encode(file_get_contents($approverSigPath)) : null;
-                        @endphp
-                        @if($approverSigB64)
-                            <img src="data:{{ $approverSigMime }};base64,{{ $approverSigB64 }}" class="signature-img mx-auto" alt="Signature">
-                        @elseif($approverSigUrl)
-                            <img src="{{ $approverSigUrl }}" class="signature-img mx-auto" alt="Signature">
-                        @else
-                            <div style="height: 50px;"></div>
-                            <p class="text-xs text-gray-400 mt-2">No signature on file</p>
-                        @endif
-                        <div class="border-t border-gray-300 mt-2 pt-1 w-48 mx-auto"></div>
-                        <p class="text-xs text-gray-600 mt-1">{{ $approver->first_name ?? '' }} {{ $approver->last_name ?? '' }}</p>
-                        <p class="text-xs text-gray-400">{{ $requisition->approved_at ? \Carbon\Carbon::parse($requisition->approved_at)->format('d M Y') : '' }}</p>
-                    @elseif($requisition->status == 'rejected')
-                        <div style="height: 50px;"></div>
-                        <div class="border-t border-gray-300 mt-2 pt-1 w-48 mx-auto"></div>
-                        <p class="text-xs text-red-600 mt-1">REJECTED</p>
-                        @if($requisition->approvedBy)
-                            <p class="text-xs text-gray-500">By: {{ $requisition->approvedBy->first_name }} {{ $requisition->approvedBy->last_name }}</p>
-                        @endif
+            {{-- Approver Signature --}}
+            <div class="signature-box">
+                <p class="text-xs text-gray-500 mb-2">Approved By (Management):</p>
+
+                @php
+                    $wasApproved = $requisition->approved_by && $requisition->approved_at;
+                    $approver = $wasApproved ? $requisition->approvedBy : null;
+                @endphp
+
+                @if($wasApproved && $approver && $requisition->status != 'rejected')
+                    @php
+                        $approverSigUrl = $approver->signature_url;
+                        $approverSigPath = public_path(parse_url($approverSigUrl, PHP_URL_PATH));
+                        $approverSigExists = file_exists($approverSigPath);
+                        $approverSigMime = $approverSigExists ? mime_content_type($approverSigPath) : 'image/png';
+                        $approverSigB64 = $approverSigExists ? base64_encode(file_get_contents($approverSigPath)) : null;
+                    @endphp
+                    @if($approverSigB64)
+                        <img src="data:{{ $approverSigMime }};base64,{{ $approverSigB64 }}" class="signature-img mx-auto" alt="Signature">
+                    @elseif($approverSigUrl)
+                        <img src="{{ $approverSigUrl }}" class="signature-img mx-auto" alt="Signature">
                     @else
                         <div style="height: 50px;"></div>
-                        <div class="border-t border-gray-300 mt-2 pt-1 w-48 mx-auto"></div>
-                        <p class="text-xs text-gray-400 mt-1">Not Yet Approved</p>
+                        <p class="text-xs text-gray-400 mt-2">No signature on file</p>
                     @endif
-                </div>
+                    <div class="signature-line"></div>
+                    <p class="text-xs text-gray-600 mt-2">{{ $approver->first_name ?? '' }} {{ $approver->last_name ?? '' }}</p>
+                    <p class="text-xs text-gray-400">{{ $requisition->approved_at ? \Carbon\Carbon::parse($requisition->approved_at)->format('d M Y') : '' }}</p>
+                @elseif($requisition->status == 'rejected')
+                    <div style="height: 50px;"></div>
+                    <div class="signature-line"></div>
+                    <p class="text-xs text-red-600 mt-2">REJECTED</p>
+                    @if($requisition->approvedBy)
+                        <p class="text-xs text-gray-500">By: {{ $requisition->approvedBy->first_name }} {{ $requisition->approvedBy->last_name }}</p>
+                    @endif
+                @else
+                    <div style="height: 50px;"></div>
+                    <div class="signature-line"></div>
+                    <p class="text-xs text-gray-400 mt-2">Pending Approval</p>
+                @endif
             </div>
         </div>
 
@@ -475,16 +587,41 @@
                     th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
                     th { background-color: #f2f2f2; }
                     .company-logo, .print-logo { max-height: 40px !important; width: auto !important; }
-                    .signature-img { max-height: 50px; max-width: 150px; }
-                    .stock-info { padding: 2px 4px; border-radius: 4px; display: inline-block; font-size: 10px; }
-                    .stock-low { background: #fee2e2; color: #dc2626; }
-                    .stock-ok { background: #dcfce7; color: #16a34a; }
-                    .stock-warning { background: #fef3c7; color: #d97706; }
+                    .signature-img { max-height: 40px !important; }
+                    .batch-info { padding: 2px 4px; border-radius: 4px; display: inline-block; font-size: 10px; }
+                    .batch-low { background: #fee2e2; color: #dc2626; }
+                    .batch-ok { background: #dcfce7; color: #16a34a; }
+                    .batch-warning { background: #fef3c7; color: #d97706; }
+                    .batch-expired { background: #fee2e2; color: #dc2626; }
+                    .batch-expiring-soon { background: #fef3c7; color: #d97706; }
                     .type-badge { padding: 2px 8px; border-radius: 999px; font-size: 10px; }
                     .type-normal { background: #d1fae5; color: #065f46; }
                     .type-emergency { background: #fee2e2; color: #991b1b; }
+                    /* Force signatures to be side by side on print */
+                    .signatures-grid {
+                        display: grid !important;
+                        grid-template-columns: 1fr 1fr !important;
+                        gap: 32px !important;
+                        margin-top: 32px !important;
+                        padding-top: 24px !important;
+                        border-top: 1px solid #ddd !important;
+                    }
+                    .signature-box {
+                        text-align: center !important;
+                    }
+                    .signature-line {
+                        border-top: 1px solid #ccc !important;
+                        width: 192px !important;
+                        margin: 8px auto 0 auto !important;
+                        padding-top: 4px !important;
+                    }
                     @media print {
                         body { margin: 0; padding: 20px; }
+                        .signatures-grid {
+                            display: grid !important;
+                            grid-template-columns: 1fr 1fr !important;
+                            gap: 32px !important;
+                        }
                     }
                 </style>
             </head>

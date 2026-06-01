@@ -1,7 +1,6 @@
 @extends('layouts.kitchen')
 
 @section('title', 'Requisition Details')
-
 @section('page-title', 'Requisition Details')
 
 @section('content')
@@ -83,6 +82,39 @@
         font-size: 0.7rem;
         display: inline-block;
     }
+
+    .sig-img {
+        max-height: 64px;
+        max-width: 240px;
+        object-fit: contain;
+        display: block;
+    }
+
+    .signature-section {
+        margin-top: 40px;
+        padding-top: 30px;
+        border-top: 2px dashed #e2e8f0;
+    }
+
+    .signature-box {
+        text-align: center;
+        padding: 20px;
+        background: #f8fafc;
+        border-radius: 12px;
+        border: 1px solid #e2e8f0;
+    }
+
+    .signature-line {
+        border-top: 1px solid #cbd5e1;
+        width: 80%;
+        margin: 20px auto 10px auto;
+    }
+
+    .signature-label {
+        font-size: 0.7rem;
+        color: #64748b;
+        letter-spacing: 1px;
+    }
 </style>
 
 <div class="bg-white rounded-lg shadow-sm overflow-hidden">
@@ -92,13 +124,13 @@
             <h3 class="text-lg font-semibold text-gray-800">Requisition #{{ $requisition->requisition_number }}</h3>
             <p class="text-sm text-gray-500">Created on {{ $requisition->created_at->format('F d, Y g:i A') }}</p>
         </div>
-        <div class="flex gap-2">
-            <a href="{{ route('kitchen.requisitions.index') }}" class="text-gray-600 hover:text-gray-800">
-                <svg class="w-5 h-5 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
-                </svg>
-                Back to List
+
+        <div class="flex items-center gap-3">
+            <a href="{{ route('kitchen.requisitions.index') }}" class="text-gray-600 hover:text-gray-800 inline-flex items-center gap-1">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
+                <span class="text-sm">Back</span>
             </a>
+
             @if($requisition->status == 'pending')
             <form method="POST" action="{{ route('kitchen.requisitions.cancel', $requisition->id) }}" class="inline">
                 @csrf
@@ -111,7 +143,7 @@
         </div>
     </div>
 
-    <div class="p-6">
+    <div id="requisitionContent" class="p-6">
         {{-- Status Badge --}}
         <div class="mb-6">
             <span class="status-badge status-{{ str_replace('_', '-', $requisition->status) }}">
@@ -150,6 +182,10 @@
                     <div class="flex">
                         <span class="info-label">Requested By:</span>
                         <span class="text-sm text-gray-800">{{ $requisition->requestedBy->first_name ?? '' }} {{ $requisition->requestedBy->last_name ?? '' }}</span>
+                    </div>
+                    <div class="flex">
+                        <span class="info-label">Department:</span>
+                        <span class="text-sm text-gray-800">{{ $requisition->department->name ?? 'Kitchen' }}</span>
                     </div>
                 </div>
             </div>
@@ -316,6 +352,89 @@
                 </table>
             </div>
         </div>
+
+        {{-- SIGNATURES SECTION AT THE BOTTOM --}}
+        <div class="signature-section">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {{-- Requested By Signature --}}
+                <div class="signature-box">
+                    <div class="mb-3">
+                        <svg class="w-8 h-8 mx-auto text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 9h3.75M15 12h3.75M15 15h3.75M4.5 19.5h15a2.25 2.25 0 002.25-2.25V6.75A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25v10.5A2.25 2.25 0 004.5 19.5zm6-10.125a1.875 1.875 0 11-3.75 0 1.875 1.875 0 013.75 0zm1.294 6.336a6.721 6.721 0 01-3.17.789 6.721 6.721 0 01-3.168-.789 3.376 3.376 0 016.338 0z"/>
+                        </svg>
+                    </div>
+                    <div class="font-semibold text-gray-700 mb-2">REQUESTED BY</div>
+                    @if(!empty($requisition->requestedBy->signature_path))
+                        <img src="{{ asset('storage/' . $requisition->requestedBy->signature_path) }}" alt="Requested by signature" class="sig-img mx-auto">
+                    @else
+                        <div class="signature-line"></div>
+                        <div class="text-xs text-gray-400 italic mt-2">No signature uploaded</div>
+                    @endif
+                    <div class="mt-3">
+                        <div class="font-medium text-gray-800">{{ $requisition->requestedBy->first_name ?? '' }} {{ $requisition->requestedBy->last_name ?? '' }}</div>
+                        <div class="text-xs text-gray-500 mt-1">{{ $requisition->created_at->format('F d, Y g:i A') }}</div>
+                    </div>
+                </div>
+
+                {{-- Approved By Signature --}}
+                <div class="signature-box">
+                    <div class="mb-3">
+                        <svg class="w-8 h-8 mx-auto text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12.75L11.25 15 15 9.75M21 12c0 1.268-.63 2.39-1.593 3.068a3.745 3.745 0 01-1.043 3.296 3.745 3.745 0 01-3.296 1.043A3.745 3.745 0 0112 21c-1.268 0-2.39-.63-3.068-1.593a3.746 3.746 0 01-3.296-1.043 3.745 3.745 0 01-1.043-3.296A3.745 3.745 0 013 12c0-1.268.63-2.39 1.593-3.068a3.745 3.745 0 011.043-3.296 3.746 3.746 0 013.296-1.043A3.746 3.746 0 0112 3c1.268 0 2.39.63 3.068 1.593a3.746 3.746 0 013.296 1.043 3.746 3.746 0 011.043 3.296A3.745 3.745 0 0121 12z"/>
+                        </svg>
+                    </div>
+                    <div class="font-semibold text-gray-700 mb-2">APPROVED BY</div>
+                    @if($requisition->approvedBy && !empty($requisition->approvedBy->signature_path))
+                        <img src="{{ asset('storage/' . $requisition->approvedBy->signature_path) }}" alt="Approved by signature" class="sig-img mx-auto">
+                    @else
+                        <div class="signature-line"></div>
+                        <div class="text-xs text-gray-400 italic mt-2">
+                            @if($requisition->status == 'approved' || $requisition->status == 'partially_issued' || $requisition->status == 'issued')
+                                Pending signature
+                            @else
+                                Not yet approved
+                            @endif
+                        </div>
+                    @endif
+                    <div class="mt-3">
+                        <div class="font-medium text-gray-800">
+                            @if($requisition->approvedBy)
+                                {{ $requisition->approvedBy->first_name ?? '' }} {{ $requisition->approvedBy->last_name ?? '' }}
+                            @else
+                                _________________________
+                            @endif
+                        </div>
+                        <div class="text-xs text-gray-500 mt-1">
+                            @if($requisition->approved_at)
+                                {{ date('F d, Y g:i A', strtotime($requisition->approved_at)) }}
+                            @else
+                                Pending approval
+                            @endif
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 </div>
+
+<!-- html2pdf (client-side fallback) -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js" integrity="sha512-GsLlZN/3F2ErC5ifS5QtgpiJtWd43JWSuIgh7mbzZ8zBps+dvLusV+eNQATqgA/HdeKFVgA5v3S/cIrLF7QnIg==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+
+<script>
+    function downloadClientPdf() {
+        const element = document.getElementById('requisitionContent');
+        if (!element) return alert('Nothing to export.');
+
+        const opt = {
+            margin:       0.4,
+            filename:     'Requisition_{{ $requisition->requisition_number }}.pdf',
+            image:        { type: 'jpeg', quality: 0.98 },
+            html2canvas:  { scale: 2, useCORS: true },
+            jsPDF:        { unit: 'in', format: 'a4', orientation: 'portrait' }
+        };
+
+        html2pdf().set(opt).from(element).save();
+    }
+</script>
 @endsection

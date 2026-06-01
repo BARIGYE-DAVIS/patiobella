@@ -14,6 +14,7 @@ class PurchaseOrder extends Model
         'po_number',
         'type',
         'vendor_id',
+        'lpo_id',
         'delivery_address',
         'delivery_terms',
         'payment_method',
@@ -150,6 +151,7 @@ class PurchaseOrder extends Model
     {
         return $this->belongsTo(Vendor::class, 'vendor_id');
     }
+
 
     public function store()
     {

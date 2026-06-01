@@ -10,6 +10,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Barryvdh\DomPDF\Facade\Pdf;
 
 class RequisitionController extends Controller
 {
@@ -28,12 +29,10 @@ class RequisitionController extends Controller
             ->where('department_id', $user->department_id)
             ->where('requested_by', $user->id);
 
-        // Filter by status
         if ($request->filled('status')) {
             $query->where('status', $request->status);
         }
 
-        // Filter by requisition type
         if ($request->filled('requisition_type')) {
             $query->where('requisition_type', $request->requisition_type);
         }
@@ -55,11 +54,29 @@ class RequisitionController extends Controller
         }
 
         $items = InventoryItem::where('is_active', true)->orderBy('name')->get();
-
-        // Get requisition types for dropdown
         $requisitionTypes = DepartmentRequisition::getRequisitionTypes();
 
-        return view('kitchen.requisitions.create', compact('items', 'requisitionTypes'));
+        // Prepare a plain PHP array for the frontend (safe for @json)
+        $itemsForJs = $items->map(function ($item) {
+            return [
+                'id' => $item->id,
+                'name' => $item->name,
+                'code' => $item->item_code ?? 'N/A',
+                'unit_of_measurement' => $item->unit_of_measurement ?? 'piece',
+            ];
+        })->values()->all();
+
+        // Prepare a lightweight current user object for JS (avoid serializing relations)
+        $authUser = Auth::user();
+        $currentUserForJs = $authUser ? [
+            'id' => $authUser->id,
+            'first_name' => $authUser->first_name ?? null,
+            'last_name' => $authUser->last_name ?? null,
+            'signature_path' => $authUser->signature_path ?? null,
+            'email' => $authUser->email ?? null,
+        ] : null;
+
+        return view('kitchen.requisitions.create', compact('items', 'requisitionTypes', 'itemsForJs', 'currentUserForJs'));
     }
 
     /**
@@ -140,36 +157,29 @@ class RequisitionController extends Controller
 
     /**
      * API endpoint to get item details for auto-fill
-     * This returns pack_type, pack_size, base_unit, etc. based on the selected item
      */
     public function getItemDetails($id)
     {
         try {
             $item = InventoryItem::findOrFail($id);
 
-            // Determine pack type from the item's default_unit_of_measure_id or other fields
-            // You can customize this logic based on your database structure
+            $unitOfMeasurement = $item->unit_of_measurement ?? 'piece';
+
             $packType = null;
             $packSize = null;
-            $baseUnit = $item->base_unit ?? 'pcs';
-            $metrics = $item->base_unit ?? 'pcs';
+            $metrics = $unitOfMeasurement;
+            $baseUnit = $unitOfMeasurement;
 
-            // Check if item has a default pack type stored
-            // For example, if default_unit_of_measure_id is 'carton', 'box', 'crate', etc.
             if ($item->default_unit_of_measure_id) {
-                // You might have a mapping table or logic to determine pack type
-                // For now, we'll check common values
                 $packTypeValue = strtolower($item->default_unit_of_measure_id);
                 $packTypes = ['carton', 'box', 'crate', 'dozen', 'pack', 'bag', 'sack', 'bottle'];
 
                 if (in_array($packTypeValue, $packTypes)) {
                     $packType = $packTypeValue;
-                    // You might store pack_size in another column or calculate it
                     $packSize = $item->pack_size ?? null;
                 }
             }
 
-            // Determine if this item is packable (has pack type) or direct unit
             $isPackable = !is_null($packType) && $packSize > 0;
 
             return response()->json([
@@ -213,18 +223,6 @@ class RequisitionController extends Controller
         ->where('department_id', $user->department_id)
         ->where('requested_by', $user->id)
         ->findOrFail($id);
-
-        // Debug: Log the returned quantities to verify they exist
-        foreach ($requisition->items as $item) {
-            Log::info('Kitchen requisition item data', [
-                'item_id' => $item->id,
-                'item_name' => $item->inventoryItem->name ?? 'N/A',
-                'quantity_issued' => $item->quantity_issued,
-                'quantity_consumed' => $item->quantity_consumed,
-                'quantity_returned' => $item->quantity_returned,
-                'returned_total_pieces' => $item->returned_total_pieces,
-            ]);
-        }
 
         return view('kitchen.requisitions.show', compact('requisition'));
     }
@@ -272,5 +270,77 @@ class RequisitionController extends Controller
             ]);
             return redirect()->back()->with('error', 'Error cancelling requisition: ' . $e->getMessage());
         }
+    }
+
+    /**
+     * Preview requisition before printing.
+     */
+    public function preview($id)
+    {
+        $user = Auth::user();
+
+        if (!$user->department || $user->department->name !== 'KITCHEN') {
+            return redirect()->route('dashboard')->with('error', 'Unauthorized access');
+        }
+
+        $requisition = DepartmentRequisition::with([
+            'items.inventoryItem',
+            'requestedBy',
+            'approvedBy'
+        ])
+        ->where('department_id', $user->department_id)
+        ->where('requested_by', $user->id)
+        ->findOrFail($id);
+
+        return view('kitchen.requisitions.preview', compact('requisition'));
+    }
+
+    /**
+     * Print requisition (HTML view for printing).
+     */
+    public function print($id)
+    {
+        $user = Auth::user();
+
+        if (!$user->department || $user->department->name !== 'KITCHEN') {
+            return redirect()->route('dashboard')->with('error', 'Unauthorized access');
+        }
+
+        $requisition = DepartmentRequisition::with([
+            'items.inventoryItem',
+            'requestedBy',
+            'approvedBy'
+        ])
+        ->where('department_id', $user->department_id)
+        ->where('requested_by', $user->id)
+        ->findOrFail($id);
+
+        return view('kitchen.requisitions.print', compact('requisition'));
+    }
+
+    /**
+     * Download requisition as PDF.
+     */
+    public function downloadPdf($id)
+    {
+        $user = Auth::user();
+
+        if (!$user->department || $user->department->name !== 'KITCHEN') {
+            return redirect()->route('dashboard')->with('error', 'Unauthorized access');
+        }
+
+        $requisition = DepartmentRequisition::with([
+            'items.inventoryItem',
+            'requestedBy',
+            'approvedBy'
+        ])
+        ->where('department_id', $user->department_id)
+        ->where('requested_by', $user->id)
+        ->findOrFail($id);
+
+        $pdf = Pdf::loadView('kitchen.requisitions.pdf', compact('requisition'));
+        $pdf->setPaper('A4', 'portrait');
+
+        return $pdf->download('Requisition_' . $requisition->requisition_number . '.pdf');
     }
 }
