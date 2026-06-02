@@ -268,6 +268,14 @@
             </a>
             @endCanNav
 
+
+            <a href="{{ route('management.performance.index') }}"
+               class="flex items-center px-4 py-3 text-sm hover:bg-orange-700 transition sidebar-nav-link
+                      {{ request()->routeIs('management.performance.*') ? 'sidebar-active' : '' }}">
+                <i class="fas fa-chart-line w-5 h-5 mr-3 text-orange-200"></i>
+                <span>Performance</span>
+            </a>
+
             {{-- Menu Items --}}
             @canNav('view_menu_items')
             <a href="{{ route('management.menu-items.index') }}"

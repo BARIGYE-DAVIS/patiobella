@@ -90,7 +90,7 @@
     </div>
 
     {{-- Results Summary & Create Button --}}
-    <div class="flex justify-between items-center">
+    <div class="flex justify-between items-center hidden">
         <div class="text-sm text-gray-600" id="resultsSummary">
             Showing {{ $stockCounts->firstItem() ?? 0 }} to {{ $stockCounts->lastItem() ?? 0 }} of {{ $stockCounts->total() }} results
         </div>

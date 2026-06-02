@@ -10,11 +10,13 @@ use App\Models\Department;
 use App\Models\Store;
 use App\Models\DepartmentRequisitionItem;
 use App\Models\StockVarianceReason;
+use App\Models\Batch;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Barryvdh\DomPDF\Facade\Pdf;
+
 class StoreStockCountController extends Controller
 {
     /**
@@ -69,35 +71,48 @@ class StoreStockCountController extends Controller
      * Show form to create a new stock count (unified with tabs).
      */
     public function create(Request $request)
-    {
-        $type = $request->get('type', 'store');
+{
+    $type = $request->get('type', 'store');
 
-        // For Store counts
-        $storeItems = InventoryItem::where('is_active', true)
-            ->with('category')
-            ->orderBy('name')
-            ->get();
+    $storeItems = InventoryItem::where('is_active', true)
+        ->with('category')
+        ->orderBy('name')
+        ->get();
 
-        // For Department counts
-        $departments = Department::where('is_active', true)
-            ->whereIn('name', ['KITCHEN', 'CAFE', 'BAR'])
-            ->orderBy('name')
-            ->get();
+    $departments = Department::where('is_active', true)
+        ->whereIn('name', ['KITCHEN', 'CAFE', 'BAR'])
+        ->orderBy('name')
+        ->get();
 
-        $selectedDepartment = null;
-        $departmentItems = collect();
+    $selectedDepartment = null;
+    $departmentItems = collect();
 
-        if ($request->filled('department_id')) {
-            $selectedDepartment = Department::find($request->department_id);
-
-            if ($selectedDepartment) {
-                $departmentItems = $this->getDepartmentItemsCalculation($selectedDepartment->id);
-            }
+    if ($request->filled('department_id')) {
+        $selectedDepartment = Department::find($request->department_id);
+        if ($selectedDepartment) {
+            $departmentItems = $this->getDepartmentItemsCalculation($selectedDepartment->id);
         }
-
-        return view('store.stock-counts.create', compact('type', 'storeItems', 'departments', 'selectedDepartment', 'departmentItems'));
     }
 
+    $storeItemsJson = $type === 'store'
+        ? $storeItems->map(fn($i) => [
+            'id'                  => $i->id,
+            'name'                => $i->name,
+            'code'                => $i->item_code ?? 'N/A',
+            'base_unit'           => $i->unit_of_measurement ?? 'units',
+            'empty_bottle_weight' => $i->empty_bottle_weight ?? 0,
+        ])->values()
+        : collect([]);
+
+    return view('store.stock-counts.create', compact(
+        'type',
+        'storeItems',
+        'departments',
+        'selectedDepartment',
+        'departmentItems',
+        'storeItemsJson'
+    ));
+}
     /**
      * Store a new stock count (handles both store and department).
      */
@@ -145,15 +160,25 @@ class StoreStockCountController extends Controller
                 ]);
 
                 foreach ($validated['items'] as $itemData) {
-                    $inventoryItem = InventoryItem::find($itemData['inventory_item_id']);
+                    // Get system quantity from BATCHES (sum of remaining_quantity)
+                    $systemQuantity = Batch::where('inventory_item_id', $itemData['inventory_item_id'])
+                        ->where('batch_status', 'active')
+                        ->sum('remaining_quantity');
+
+                    // Get unit cost from oldest active batch (or fallback to last_purchase_price)
+                    $batch = Batch::where('inventory_item_id', $itemData['inventory_item_id'])
+                        ->where('batch_status', 'active')
+                        ->orderBy('created_at', 'asc')
+                        ->first();
+                    $unitCost = $batch ? $batch->unit_cost : 0;
 
                     StockCountItem::create([
                         'stock_count_id' => $stockCount->id,
                         'inventory_item_id' => $itemData['inventory_item_id'],
-                        'system_quantity' => $inventoryItem->current_stock ?? 0,
+                        'system_quantity' => $systemQuantity,
                         'physical_quantity' => $itemData['physical_quantity'] ?? 0,
                         'physical_quantity_is_gross' => false,
-                        'unit_cost' => $inventoryItem->unit_cost ?? 0,
+                        'unit_cost' => $unitCost,
                         'reason_notes' => $itemData['reason_notes'] ?? null,
                     ]);
                 }
@@ -225,77 +250,74 @@ class StoreStockCountController extends Controller
     }
 
     /**
- * Show edit form for stock count
- */
-public function editCount($id)
-{
-    $stockCount = StockCount::with(['items.inventoryItem', 'creator', 'completer', 'location'])
-        ->findOrFail($id);
+     * Show edit form for stock count
+     */
+    public function editCount($id)
+    {
+        $stockCount = StockCount::with(['items.inventoryItem', 'creator', 'completer', 'location'])
+            ->findOrFail($id);
 
-    if ($stockCount->status !== StockCount::STATUS_DRAFT) {
-        return redirect()->route('store.stock-counts.show', $stockCount->id)
-            ->with('error', 'Only draft counts can be edited.');
+        if ($stockCount->status !== StockCount::STATUS_DRAFT) {
+            return redirect()->route('store.stock-counts.show', $stockCount->id)
+                ->with('error', 'Only draft counts can be edited.');
+        }
+
+        $type = $stockCount->location_type;
+
+        return view('store.stock-counts.edit', compact('stockCount', 'type'));
     }
 
-    $type = $stockCount->location_type;
-
-    return view('store.stock-counts.edit', compact('stockCount', 'type'));
-}
     /**
      * Update physical quantities for items.
      */
-   /**
- * Update physical quantities for items.
- */
-public function updateItems(Request $request, $id)
-{
-    $validated = $request->validate([
-        'items' => 'required|array',
-        'items.*.id' => 'required|exists:stock_count_items,id',
-        'items.*.physical_quantity' => 'required|numeric|min:0',
-        'items.*.reason_notes' => 'nullable|string',  // ← ADD THIS
-        'items.*.reason_details' => 'nullable|string', // ← ADD THIS for details
-    ]);
+    public function updateItems(Request $request, $id)
+    {
+        $validated = $request->validate([
+            'items' => 'required|array',
+            'items.*.id' => 'required|exists:stock_count_items,id',
+            'items.*.physical_quantity' => 'required|numeric|min:0',
+            'items.*.reason_notes' => 'nullable|string',
+            'items.*.reason_details' => 'nullable|string',
+        ]);
 
-    DB::beginTransaction();
+        DB::beginTransaction();
 
-    try {
-        $stockCount = StockCount::findOrFail($id);
+        try {
+            $stockCount = StockCount::findOrFail($id);
 
-        if ($stockCount->status !== StockCount::STATUS_DRAFT) {
-            return redirect()->back()->with('error', 'Only draft counts can be edited.');
-        }
-
-        foreach ($validated['items'] as $itemData) {
-            $countItem = StockCountItem::findOrFail($itemData['id']);
-            $countItem->physical_quantity = $itemData['physical_quantity'];
-
-            // Save reason notes
-            if (isset($itemData['reason_notes'])) {
-                $countItem->reason_notes = $itemData['reason_notes'];
+            if ($stockCount->status !== StockCount::STATUS_DRAFT) {
+                return redirect()->back()->with('error', 'Only draft counts can be edited.');
             }
 
-            // Save reason details (combine with notes if needed)
-            if (isset($itemData['reason_details']) && !empty($itemData['reason_details'])) {
-                $existingNotes = $countItem->reason_notes ?? '';
-                $countItem->reason_notes = $existingNotes
-                    ? $existingNotes . ' - ' . $itemData['reason_details']
-                    : $itemData['reason_details'];
+            foreach ($validated['items'] as $itemData) {
+                $countItem = StockCountItem::findOrFail($itemData['id']);
+                $countItem->physical_quantity = $itemData['physical_quantity'];
+
+                if (isset($itemData['reason_notes'])) {
+                    $countItem->reason_notes = $itemData['reason_notes'];
+                }
+
+                if (isset($itemData['reason_details']) && !empty($itemData['reason_details'])) {
+                    $existingNotes = $countItem->reason_notes ?? '';
+                    $countItem->reason_notes = $existingNotes
+                        ? $existingNotes . ' - ' . $itemData['reason_details']
+                        : $itemData['reason_details'];
+                }
+
+                $countItem->save();
             }
 
-            $countItem->save();
+            DB::commit();
+
+            return redirect()->route('store.stock-counts.show', $stockCount->id)
+                ->with('success', 'Stock count items updated successfully.');
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return redirect()->back()->with('error', 'Failed to update items: ' . $e->getMessage());
         }
-
-        DB::commit();
-
-        return redirect()->route('store.stock-counts.show', $stockCount->id)
-            ->with('success', 'Stock count items updated successfully.');
-
-    } catch (\Exception $e) {
-        DB::rollBack();
-        return redirect()->back()->with('error', 'Failed to update items: ' . $e->getMessage());
     }
-}
+
     /**
      * Submit stock count for review.
      */
@@ -421,7 +443,7 @@ public function updateItems(Request $request, $id)
 
             DB::commit();
 
-            return redirect()->route('management.stock-counts.index')
+            return redirect()->route('store.stock-counts.index')
                 ->with('success', 'Stock count cancelled successfully.');
 
         } catch (\Exception $e) {
@@ -432,16 +454,29 @@ public function updateItems(Request $request, $id)
 
     /**
      * Get store item current stock with empty bottle weight for AJAX.
+     * Uses BATCHES table for stock and unit cost.
      */
     public function getItemStock($id)
     {
         $item = InventoryItem::findOrFail($id);
 
+        // Get stock from BATCHES table
+        $currentStock = Batch::where('inventory_item_id', $id)
+            ->where('batch_status', 'active')
+            ->sum('remaining_quantity');
+
+        // Get unit cost from oldest active batch
+        $batch = Batch::where('inventory_item_id', $id)
+            ->where('batch_status', 'active')
+            ->orderBy('created_at', 'asc')
+            ->first();
+        $unitCost = $batch ? $batch->unit_cost : 0;
+
         return response()->json([
             'success' => true,
-            'current_stock' => $item->current_stock,
-            'unit_cost' => $item->unit_cost,
-            'base_unit' => $item->base_unit,
+            'current_stock' => $currentStock,
+            'unit_cost' => $unitCost,
+            'base_unit' => $item->unit_of_measurement ?? 'units',
             'empty_bottle_weight' => $item->empty_bottle_weight ?? 0,
             'has_empty_bottle_weight' => ($item->empty_bottle_weight ?? 0) > 0,
         ]);
@@ -450,92 +485,92 @@ public function updateItems(Request $request, $id)
     /**
      * Get department items with expected quantities and empty bottle weight for AJAX.
      */
-public function getDepartmentItems($departmentId)
-{
-    try {
-        $department = Department::findOrFail($departmentId);
-        $items = $this->getDepartmentItemsCalculation($departmentId);
+    public function getDepartmentItems($departmentId)
+    {
+        try {
+            $department = Department::findOrFail($departmentId);
+            $items = $this->getDepartmentItemsCalculation($departmentId);
 
-        return response()->json([
-            'success'         => true,
-            'items'           => $items,
-            'department_name' => $department->name,
-            'count'           => $items->count(),
-        ]);
+            return response()->json([
+                'success'         => true,
+                'items'           => $items,
+                'department_name' => $department->name,
+                'count'           => $items->count(),
+            ]);
 
-    } catch (\Exception $e) {
-        Log::error('getDepartmentItems failed', [
-            'department_id' => $departmentId,
-            'error'         => $e->getMessage(),
-            'trace'         => $e->getTraceAsString(),
-        ]);
+        } catch (\Exception $e) {
+            Log::error('getDepartmentItems failed', [
+                'department_id' => $departmentId,
+                'error'         => $e->getMessage(),
+                'trace'         => $e->getTraceAsString(),
+            ]);
 
-        return response()->json([
-            'success' => false,
-            'message' => 'Failed to load department items: ' . $e->getMessage(),
-        ], 500);
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to load department items: ' . $e->getMessage(),
+            ], 500);
+        }
     }
-}
 
     /**
      * Helper method to calculate department items expected quantities.
-     * FIXED: Removed the status filter that was causing no items to load.
+     * Uses last_purchase_price from inventory_items (since unit_cost doesn't exist).
      */
-private function getDepartmentItemsCalculation($departmentId)
-{
-    $rows = DB::table('department_requisition_items as dri')
-        ->join('department_requisitions as dr', 'dr.id', '=', 'dri.department_requisition_id')
-        ->join('inventory_items as ii', 'ii.id', '=', 'dri.inventory_item_id')
-        ->where('dr.department_id', $departmentId)
-        ->whereNull('dr.deleted_at')                          // respect soft deletes manually
-        ->whereNotIn('dr.status', ['cancelled', 'rejected'])
-        ->where('ii.is_active', true)
-        ->select([
-            'dri.inventory_item_id',
-            'ii.name as item_name',
-            'ii.item_code',
-            'ii.base_unit',
-            'ii.unit_cost',
-            'ii.empty_bottle_weight',
-            DB::raw('SUM(COALESCE(dri.issued_total_pieces, 0))   as total_issued'),
-            DB::raw('SUM(COALESCE(dri.quantity_consumed, 0))     as total_consumed'),
-            DB::raw('SUM(COALESCE(dri.returned_total_pieces, 0)) as total_returned'),
-            DB::raw('SUM(COALESCE(dri.quantity_sold, 0))         as total_sold'),
-        ])
-        ->groupBy(
-            'dri.inventory_item_id',
-            'ii.name',
-            'ii.item_code',
-            'ii.base_unit',
-            'ii.unit_cost',
-            'ii.empty_bottle_weight'
-        )
-        ->get();
+    private function getDepartmentItemsCalculation($departmentId)
+    {
+        $rows = DB::table('department_requisition_items as dri')
+            ->join('department_requisitions as dr', 'dr.id', '=', 'dri.department_requisition_id')
+            ->join('inventory_items as ii', 'ii.id', '=', 'dri.inventory_item_id')
+            ->where('dr.department_id', $departmentId)
+            ->whereNull('dr.deleted_at')
+            ->whereNotIn('dr.status', ['cancelled', 'rejected'])
+            ->where('ii.is_active', true)
+            ->select([
+                'dri.inventory_item_id',
+                'ii.name as item_name',
+                'ii.item_code',
+                'ii.unit_of_measurement as base_unit',
+                'ii.last_purchase_price as unit_cost',  // ✅ use last_purchase_price instead of missing column
+                'ii.empty_bottle_weight',
+                DB::raw('SUM(COALESCE(dri.issued_total_pieces, 0))   as total_issued'),
+                DB::raw('SUM(COALESCE(dri.quantity_consumed, 0))     as total_consumed'),
+                DB::raw('SUM(COALESCE(dri.returned_total_pieces, 0)) as total_returned'),
+                DB::raw('SUM(COALESCE(dri.quantity_sold, 0))         as total_sold'),
+            ])
+            ->groupBy(
+                'dri.inventory_item_id',
+                'ii.name',
+                'ii.item_code',
+                'ii.unit_of_measurement',
+                'ii.last_purchase_price',
+                'ii.empty_bottle_weight'
+            )
+            ->get();
 
-    if ($rows->isEmpty()) {
-        return collect([]);
+        if ($rows->isEmpty()) {
+            return collect([]);
+        }
+
+        return $rows->map(function ($row) {
+            $expected = max(0, $row->total_issued - $row->total_consumed - $row->total_returned - $row->total_sold);
+            $emptyBottleWeight = (float) ($row->empty_bottle_weight ?? 0);
+
+            return [
+                'inventory_item_id'      => $row->inventory_item_id,
+                'item_name'              => $row->item_name ?? 'N/A',
+                'item_code'              => $row->item_code  ?? 'N/A',
+                'expected_quantity'      => $expected,
+                'total_issued'           => (float) $row->total_issued,
+                'total_consumed'         => (float) $row->total_consumed,
+                'total_returned'         => (float) $row->total_returned,
+                'total_sold'             => (float) $row->total_sold,
+                'unit_cost'              => (float) ($row->unit_cost ?? 0),
+                'base_unit'              => $row->base_unit ?? 'units',
+                'empty_bottle_weight'    => $emptyBottleWeight,
+                'has_empty_bottle_weight'=> $emptyBottleWeight > 0,
+            ];
+        })->values();
     }
-
-    return $rows->map(function ($row) {
-        $expected = max(0, $row->total_issued - $row->total_consumed - $row->total_returned - $row->total_sold);
-        $emptyBottleWeight = (float) ($row->empty_bottle_weight ?? 0);
-
-        return [
-            'inventory_item_id'      => $row->inventory_item_id,
-            'item_name'              => $row->item_name ?? 'N/A',
-            'item_code'              => $row->item_code  ?? 'N/A',
-            'expected_quantity'      => $expected,
-            'total_issued'           => (float) $row->total_issued,
-            'total_consumed'         => (float) $row->total_consumed,
-            'total_returned'         => (float) $row->total_returned,
-            'total_sold'             => (float) $row->total_sold,
-            'unit_cost'              => (float) ($row->unit_cost ?? 0),
-            'base_unit'              => $row->base_unit ?? 'units',
-            'empty_bottle_weight'    => $emptyBottleWeight,
-            'has_empty_bottle_weight'=> $emptyBottleWeight > 0,
-        ];
-    })->values();
-}
 
     /**
      * Calculate net quantity from gross weight.
@@ -556,199 +591,195 @@ private function getDepartmentItemsCalculation($departmentId)
             'gross_weight' => $validated['gross_weight'],
             'empty_bottle_weight' => $emptyBottleWeight,
             'net_quantity' => $netQuantity,
-            'base_unit' => $item->base_unit ?? 'units',
+            'base_unit' => $item->unit_of_measurement ?? 'units',
         ]);
     }
 
     /**
- * Show review page for stock count (management approval).
- */
-public function review($id)
-{
-    $stockCount = StockCount::with(['items.inventoryItem', 'creator', 'completer', 'location'])
-        ->findOrFail($id);
-
-    if ($stockCount->status !== StockCount::STATUS_IN_PROGRESS) {
-        return redirect()->route('management.stock-counts.show', $stockCount->id)
-            ->with('error', 'Only in-progress counts can be reviewed.');
-    }
-
-    $reasons = StockVarianceReason::active()
-        ->orderBy('sort_order')
-        ->get();
-
-    $type = $stockCount->location_type;
-
-    return view('store.stock-counts.review', compact('stockCount', 'reasons', 'type'));
-}
-
-/**
- * Process review and approve variances.
- */
-public function reviewApprove(Request $request, $id)
-{
-    $validated = $request->validate([
-        'items' => 'required|array',
-        'items.*.id' => 'required|exists:stock_count_items,id',
-        'items.*.reason_code' => 'nullable|string|exists:stock_variance_reasons,code',
-        'items.*.reason_notes' => 'nullable|string',
-        'items.*.approved' => 'nullable|boolean',
-        'review_notes' => 'nullable|string',
-    ]);
-
-    DB::beginTransaction();
-
-    try {
-        $stockCount = StockCount::findOrFail($id);
+     * Show review page for stock count (management approval).
+     */
+    public function review($id)
+    {
+        $stockCount = StockCount::with(['items.inventoryItem', 'creator', 'completer', 'location'])
+            ->findOrFail($id);
 
         if ($stockCount->status !== StockCount::STATUS_IN_PROGRESS) {
-            return redirect()->back()->with('error', 'Only in-progress counts can be reviewed.');
+            return redirect()->route('management.stock-counts.show', $stockCount->id)
+                ->with('error', 'Only in-progress counts can be reviewed.');
         }
 
-        foreach ($validated['items'] as $itemData) {
-            $countItem = StockCountItem::findOrFail($itemData['id']);
-            $isApproved = isset($itemData['approved']) && $itemData['approved'] == 1;
-            $hasVariance = $countItem->variance != 0;
+        $reasons = StockVarianceReason::active()
+            ->orderBy('sort_order')
+            ->get();
 
-            if ($hasVariance) {
-                if ($isApproved && empty($itemData['reason_code'])) {
-                    throw new \Exception('Reason code is required for approved variance on item: ' . ($countItem->inventoryItem->name ?? 'Unknown'));
-                }
+        $type = $stockCount->location_type;
 
-                if ($isApproved) {
-                    $countItem->reason_code = $itemData['reason_code'];
-                    $countItem->reason_notes = $itemData['reason_notes'] ?? null;
-                    $countItem->approved_by = Auth::id();
-                    $countItem->approved_at = now();
-                    $countItem->save();
-                }
-            } else {
-                // Auto-approve items without variance
-                if (!$countItem->isApproved()) {
-                    $countItem->approved_by = Auth::id();
-                    $countItem->approved_at = now();
-                    $countItem->save();
+        return view('store.stock-counts.review', compact('stockCount', 'reasons', 'type'));
+    }
+
+    /**
+     * Process review and approve variances.
+     */
+    public function reviewApprove(Request $request, $id)
+    {
+        $validated = $request->validate([
+            'items' => 'required|array',
+            'items.*.id' => 'required|exists:stock_count_items,id',
+            'items.*.reason_code' => 'nullable|string|exists:stock_variance_reasons,code',
+            'items.*.reason_notes' => 'nullable|string',
+            'items.*.approved' => 'nullable|boolean',
+            'review_notes' => 'nullable|string',
+        ]);
+
+        DB::beginTransaction();
+
+        try {
+            $stockCount = StockCount::findOrFail($id);
+
+            if ($stockCount->status !== StockCount::STATUS_IN_PROGRESS) {
+                return redirect()->back()->with('error', 'Only in-progress counts can be reviewed.');
+            }
+
+            foreach ($validated['items'] as $itemData) {
+                $countItem = StockCountItem::findOrFail($itemData['id']);
+                $isApproved = isset($itemData['approved']) && $itemData['approved'] == 1;
+                $hasVariance = $countItem->variance != 0;
+
+                if ($hasVariance) {
+                    if ($isApproved && empty($itemData['reason_code'])) {
+                        throw new \Exception('Reason code is required for approved variance on item: ' . ($countItem->inventoryItem->name ?? 'Unknown'));
+                    }
+
+                    if ($isApproved) {
+                        $countItem->reason_code = $itemData['reason_code'];
+                        $countItem->reason_notes = $itemData['reason_notes'] ?? null;
+                        $countItem->approved_by = Auth::id();
+                        $countItem->approved_at = now();
+                        $countItem->save();
+                    }
+                } else {
+                    if (!$countItem->isApproved()) {
+                        $countItem->approved_by = Auth::id();
+                        $countItem->approved_at = now();
+                        $countItem->save();
+                    }
                 }
             }
-        }
 
-        // Check if all variances have been approved
-        $unapprovedVariances = $stockCount->items
-            ->filter(function ($item) {
-                return $item->variance != 0 && !$item->isApproved();
-            });
+            // Check if all variances have been approved
+            $unapprovedVariances = $stockCount->items
+                ->filter(function ($item) {
+                    return $item->variance != 0 && !$item->isApproved();
+                });
 
-        if ($unapprovedVariances->count() > 0) {
+            if ($unapprovedVariances->count() > 0) {
+                DB::commit();
+                return redirect()->route('management.stock-counts.show', $stockCount->id)
+                    ->with('warning', 'Review saved. ' . $unapprovedVariances->count() . ' item(s) still pending approval.');
+            }
+
+            // All variances approved, complete the count
+            $stockCount->status = StockCount::STATUS_COMPLETED;
+            $stockCount->completed_by = Auth::id();
+            $stockCount->completed_at = now();
+
+            if ($request->filled('review_notes')) {
+                $existingNotes = $stockCount->notes;
+                $stockCount->notes = $existingNotes
+                    ? $existingNotes . "\n\nReview Notes: " . $request->review_notes
+                    : "Review Notes: " . $request->review_notes;
+            }
+
+            $stockCount->save();
+
             DB::commit();
+
             return redirect()->route('management.stock-counts.show', $stockCount->id)
-                ->with('warning', 'Review saved. ' . $unapprovedVariances->count() . ' item(s) still pending approval.');
+                ->with('success', 'Stock count completed successfully. All variances have been approved.');
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return redirect()->back()->with('error', 'Failed to process review: ' . $e->getMessage());
         }
-
-        // All variances approved, complete the count
-        $stockCount->status = StockCount::STATUS_COMPLETED;
-        $stockCount->completed_by = Auth::id();
-        $stockCount->completed_at = now();
-
-        if ($request->filled('review_notes')) {
-            $existingNotes = $stockCount->notes;
-            $stockCount->notes = $existingNotes
-                ? $existingNotes . "\n\nReview Notes: " . $request->review_notes
-                : "Review Notes: " . $request->review_notes;
-        }
-
-        $stockCount->save();
-
-        DB::commit();
-
-        return redirect()->route('management.stock-counts.show', $stockCount->id)
-            ->with('success', 'Stock count completed successfully. All variances have been approved.');
-
-    } catch (\Exception $e) {
-        DB::rollBack();
-        return redirect()->back()->with('error', 'Failed to process review: ' . $e->getMessage());
-    }
-}
-
-/**
- * Show approve count form.
- */
-public function approveCountForm($id)
-{
-    $stockCount = StockCount::with(['items.inventoryItem', 'creator', 'completer', 'location'])
-        ->findOrFail($id);
-
-    if ($stockCount->status !== StockCount::STATUS_IN_PROGRESS) {
-        return redirect()->route('store.stock-counts.show', $stockCount->id)
-            ->with('error', 'Only in-progress counts can be approved.');
     }
 
-    $type = $stockCount->location_type;
-
-    return view('store.stock-counts.approve-count', compact('stockCount', 'type'));
-}
-
-/**
- * Submit approval for stock count.
- */
-public function approveCountSubmit(Request $request, $id)
-{
-    $validated = $request->validate([
-        'approval_notes' => 'nullable|string',
-    ]);
-
-    DB::beginTransaction();
-
-    try {
-        $stockCount = StockCount::findOrFail($id);
+    /**
+     * Show approve count form.
+     */
+    public function approveCountForm($id)
+    {
+        $stockCount = StockCount::with(['items.inventoryItem', 'creator', 'completer', 'location'])
+            ->findOrFail($id);
 
         if ($stockCount->status !== StockCount::STATUS_IN_PROGRESS) {
-            return redirect()->back()->with('error', 'Only in-progress counts can be approved.');
+            return redirect()->route('store.stock-counts.show', $stockCount->id)
+                ->with('error', 'Only in-progress counts can be approved.');
         }
 
-        $stockCount->status = StockCount::STATUS_COMPLETED;
-        $stockCount->completed_by = Auth::id();
-        $stockCount->completed_at = now();
+        $type = $stockCount->location_type;
 
-        if ($request->filled('approval_notes')) {
-            $existingNotes = $stockCount->notes;
-            $stockCount->notes = $existingNotes
-                ? $existingNotes . "\n\nApproval Notes: " . $request->approval_notes
-                : "Approval Notes: " . $request->approval_notes;
+        return view('store.stock-counts.approve-count', compact('stockCount', 'type'));
+    }
+
+    /**
+     * Submit approval for stock count.
+     */
+    public function approveCountSubmit(Request $request, $id)
+    {
+        $validated = $request->validate([
+            'approval_notes' => 'nullable|string',
+        ]);
+
+        DB::beginTransaction();
+
+        try {
+            $stockCount = StockCount::findOrFail($id);
+
+            if ($stockCount->status !== StockCount::STATUS_IN_PROGRESS) {
+                return redirect()->back()->with('error', 'Only in-progress counts can be approved.');
+            }
+
+            $stockCount->status = StockCount::STATUS_COMPLETED;
+            $stockCount->completed_by = Auth::id();
+            $stockCount->completed_at = now();
+
+            if ($request->filled('approval_notes')) {
+                $existingNotes = $stockCount->notes;
+                $stockCount->notes = $existingNotes
+                    ? $existingNotes . "\n\nApproval Notes: " . $request->approval_notes
+                    : "Approval Notes: " . $request->approval_notes;
+            }
+
+            $stockCount->save();
+
+            DB::commit();
+
+            return redirect()->route('store.stock-counts.show', $stockCount->id)
+                ->with('success', 'Stock count approved and completed successfully.');
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return redirect()->back()->with('error', 'Failed to approve stock count: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Download stock count as PDF.
+     */
+    public function downloadPdf($id)
+    {
+        $stockCount = StockCount::with(['items.inventoryItem', 'creator', 'completer', 'location'])
+            ->findOrFail($id);
+
+        if ($stockCount->status !== StockCount::STATUS_COMPLETED) {
+            return redirect()->back()->with('error', 'Only completed stock counts can be downloaded as PDF.');
         }
 
-        $stockCount->save();
+        $type = $stockCount->location_type;
+        $totalVariance = $stockCount->getTotalVarianceAttribute();
 
-        DB::commit();
+        $pdf = Pdf::loadView('store.stock-counts.pdf', compact('stockCount', 'type', 'totalVariance'));
 
-        return redirect()->route('store.stock-counts.show', $stockCount->id)
-            ->with('success', 'Stock count approved and completed successfully.');
-
-    } catch (\Exception $e) {
-        DB::rollBack();
-        return redirect()->back()->with('error', 'Failed to approve stock count: ' . $e->getMessage());
+        return $pdf->download('stock-count-' . $stockCount->count_number . '.pdf');
     }
-}
-
-
-
-/**
- * Download stock count as PDF.
- */
-public function downloadPdf($id)
-{
-    $stockCount = StockCount::with(['items.inventoryItem', 'creator', 'completer', 'location'])
-        ->findOrFail($id);
-
-    if ($stockCount->status !== StockCount::STATUS_COMPLETED) {
-        return redirect()->back()->with('error', 'Only completed stock counts can be downloaded as PDF.');
-    }
-
-    $type = $stockCount->location_type;
-    $totalVariance = $stockCount->getTotalVarianceAttribute();
-
-    $pdf = Pdf::loadView('store.stock-counts.pdf', compact('stockCount', 'type', 'totalVariance'));
-
-    return $pdf->download('stock-count-' . $stockCount->count_number . '.pdf');
-}
-
 }

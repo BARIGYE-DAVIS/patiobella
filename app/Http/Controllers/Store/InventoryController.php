@@ -578,61 +578,44 @@ class InventoryController extends Controller
     // UPDATE
     // ─────────────────────────────────────────────────────────────────────────────
 
-    public function update(Request $request, $id)
-    {
-        $user = Auth::user();
+public function update(Request $request, $id)
+{
+    // ... auth check ...
 
-        if (!$user->department || $user->department->name !== 'STORE') {
-            return redirect()->route('dashboard')->with('error', 'Unauthorized access');
-        }
+    $item = InventoryItem::findOrFail($id);
 
-        try {
-            $item = InventoryItem::findOrFail($id);
-        } catch (\Exception $e) {
-            return redirect()->route('store.inventory.index')->with('error', 'Inventory item not found.');
-        }
+    $validated = $request->validate([
+        // Remove name, category_id, unit_of_measurement — they're read-only
+        'empty_bottle_weight' => 'nullable|numeric|min:0',
+        'selling_price'       => 'nullable|numeric|min:0',
+        'is_active'           => 'nullable|boolean',
+        'notes'               => 'nullable|string',
+    ]);
 
-        $validated = $request->validate([
-            'name'                => 'required|string|max:255',
-            'category_id'         => 'required|exists:categories,id',
-            'item_code'           => 'nullable|string|max:50|unique:inventory_items,item_code,' . $id,
-            'barcode'             => 'nullable|string|max:100|unique:inventory_items,barcode,' . $id,
-            'empty_bottle_weight' => 'nullable|numeric|min:0',
-            'unit_of_measurement' => 'required|string|max:50',
-            'selling_price'       => 'nullable|numeric|min:0',
-            'is_active'           => 'boolean',
-            'notes'               => 'nullable|string',
+    DB::beginTransaction();
+
+    try {
+        $item->update([
+            // Keep existing values for read-only fields
+            'empty_bottle_weight' => $validated['empty_bottle_weight'] ?? $item->empty_bottle_weight,
+            'selling_price'       => $validated['selling_price'] ?? $item->selling_price,
+            'is_active'           => $request->has('is_active') ? 1 : 0,
+            'notes'               => $validated['notes'] ?? $item->notes,
+            'updated_by'          => Auth::id(),
         ]);
 
-        DB::beginTransaction();
+        DB::commit();
 
-        try {
-            $item->update([
-                'name'                => $validated['name'],
-                'category_id'         => $validated['category_id'],
-                'item_code'           => $validated['item_code'] ?? $item->item_code,
-                'barcode'             => $validated['barcode'] ?? $item->barcode,
-                'empty_bottle_weight' => $validated['empty_bottle_weight'] ?? $item->empty_bottle_weight,
-                'unit_of_measurement' => $validated['unit_of_measurement'],
-                'selling_price'       => $validated['selling_price'] ?? $item->selling_price,
-                'is_active'           => $validated['is_active'] ?? $item->is_active,
-                'notes'               => $validated['notes'] ?? $item->notes,
-                'updated_by'          => Auth::id(),
-            ]);
+        return redirect()->route('store.inventory.show', $item->id)
+            ->with('success', 'Inventory item updated successfully.');
 
-            DB::commit();
-
-            return redirect()->route('store.inventory.show', $item->id)
-                ->with('success', 'Inventory item updated successfully.');
-
-        } catch (\Exception $e) {
-            DB::rollBack();
-            return redirect()->back()
-                ->with('error', 'Failed to update inventory item: ' . $e->getMessage())
-                ->withInput();
-        }
+    } catch (\Exception $e) {
+        DB::rollBack();
+        return redirect()->back()
+            ->with('error', 'Failed to update: ' . $e->getMessage())
+            ->withInput();
     }
-
+}
     // ─────────────────────────────────────────────────────────────────────────────
     // DESTROY
     // ─────────────────────────────────────────────────────────────────────────────

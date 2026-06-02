@@ -434,11 +434,11 @@
                 e.preventDefault();
                 return false;
             }
-            
+
             if (!confirm('All variances have been reviewed. Approve and complete this stock count?')) {
                 e.preventDefault();
             }
         }
     });
 </script>
-@endpush
+@endsection

@@ -52,7 +52,42 @@
         padding-top: 30px;
         border-top: 2px dashed #e2e8f0;
     }
+
+    /* CRITICAL FIX FOR PRINT - Horizontal alignment on same row */
+    @media print {
+        .signature-row {
+            display: flex !important;
+            flex-direction: row !important;
+            justify-content: space-between !important;
+            align-items: flex-start !important;
+            gap: 40px !important;
+            page-break-inside: avoid !important;
+            break-inside: avoid !important;
+        }
+        .signature-box {
+            flex: 1 !important;
+            min-width: 200px !important;
+            margin: 0 !important;
+            break-inside: avoid !important;
+            page-break-inside: avoid !important;
+        }
+        .signature-section .grid {
+            display: block !important;
+        }
+    }
+
+    /* Screen styles - horizontal row */
+    .signature-row {
+        display: flex;
+        flex-direction: row;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 30px;
+        flex-wrap: wrap;
+    }
     .signature-box {
+        flex: 1;
+        min-width: 250px;
         text-align: center;
         padding: 20px;
         background: #f8fafc;
@@ -73,6 +108,22 @@
     }
     .approver-preview .signature-line {
         border-top-color: #f59e0b;
+    }
+
+    /* input highlight for warnings */
+    .approved-qty.invalid {
+        border-color: #ef4444 !important;
+        box-shadow: 0 0 0 3px rgba(239,68,68,0.08);
+    }
+    .small-warning {
+        font-size: 0.75rem;
+        color: #b45309;
+        margin-top: 6px;
+    }
+    .small-error {
+        font-size: 0.75rem;
+        color: #dc2626;
+        margin-top: 6px;
     }
 </style>
 
@@ -95,6 +146,9 @@
                 </p>
             </div>
             <div class="flex gap-2">
+                <button onclick="window.print()" class="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-sm transition">
+                    <i class="fas fa-print mr-1"></i> Print
+                </button>
                 <a href="{{ route('management.department-requisitions.show', $requisition->id) }}"
                    class="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-sm transition">
                     <i class="fas fa-arrow-left mr-1"></i> Back
@@ -108,8 +162,8 @@
         <p class="text-sm text-blue-800">
             <i class="fas fa-info-circle mr-2"></i>
             <strong>Approval Instructions:</strong>
-            Review each requested item and enter the quantity you approve. Items with zero approved quantity will not be issued.
-            <strong class="block mt-2 text-amber-700">Note: Available stock from all batches is shown below. Only approve quantities that can be fulfilled from current stock.</strong>
+            Review each requested item and enter the whole-number quantity you approve. Items with zero approved quantity will not be issued.
+            <strong class="block mt-2 text-amber-700">Note: Available stock from all batches is shown below. You cannot approve more than available stock.</strong>
         </p>
     </div>
 
@@ -146,6 +200,11 @@
                             $lowStock = $totalAvailableStock < $item->quantity_requested;
                             $stockPercentage = $item->quantity_requested > 0 ? min(100, ($totalAvailableStock / $item->quantity_requested) * 100) : 0;
                             $stockStatus = $stockPercentage >= 50 ? 'good' : ($stockPercentage >= 25 ? 'low' : 'critical');
+
+                            // integer available cap
+                            $availableInteger = (int) floor($totalAvailableStock);
+                            $requestedInteger = (int) ceil($item->quantity_requested);
+                            $defaultApproved = min($requestedInteger, $availableInteger);
                         @endphp
                         <tr class="hover:bg-gray-50 {{ $lowStock ? 'bg-red-50' : '' }}">
                             <td class="px-4 py-3">
@@ -204,13 +263,19 @@
                                 @endif
                              </td>
                             <td class="px-4 py-3 text-center">
-                                <input type="number" name="items[{{ $index }}][quantity_approved]"
+                                <input type="text"
+                                       name="items[{{ $index }}][quantity_approved]"
+                                       inputmode="numeric"
+                                       pattern="\d*"
                                        class="approved-qty w-32 px-3 py-2 border border-gray-300 rounded-lg text-center text-sm focus:border-blue-500 focus:ring-blue-500"
-                                       value="{{ min($item->quantity_approved ?? $item->quantity_requested, $totalAvailableStock) }}"
-                                       step="0.01" min="0" required
-                                       data-requested="{{ $item->quantity_requested }}"
-                                       data-available="{{ $totalAvailableStock }}">
-                                <div class="text-xs text-gray-400 mt-1">Max: {{ number_format($totalAvailableStock, 2) }}</div>
+                                       value="{{ $defaultApproved }}"
+                                       data-requested="{{ $requestedInteger }}"
+                                       data-available="{{ $availableInteger }}"
+                                       data-item-index="{{ $index }}"
+                                       autocomplete="off"
+                                       required>
+                                <div class="text-xs text-gray-400 mt-1">Max: {{ number_format($availableInteger, 0) }}</div>
+                                <div class="approval-note" id="note-{{ $index }}"></div>
                              </td>
                          </tr>
                         @endforeach
@@ -230,9 +295,11 @@
                                             ->where('batch_status', 'active')
                                             ->where('remaining_quantity', '>', 0)
                                             ->sum('remaining_quantity');
-                                        $totalApprovedPreview += min($item->quantity_approved ?? $item->quantity_requested, $batches);
+                                        $availableInteger = (int) floor($batches);
+                                        $requestedInteger = (int) ceil($item->quantity_requested);
+                                        $totalApprovedPreview += min($item->quantity_approved ?? $requestedInteger, $availableInteger);
                                     }
-                                    echo number_format($totalApprovedPreview, 2);
+                                    echo number_format($totalApprovedPreview, 0);
                                 @endphp
                             </td>
                         </tr>
@@ -261,10 +328,10 @@
                 </button>
             </div>
 
-            {{-- SIGNATURES SECTION AT THE BOTTOM --}}
+            {{-- SIGNATURES SECTION - HORIZONTAL ROW (SAME LINE) --}}
             <div class="signature-section">
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {{-- Requested By Signature (Always visible, from the person who requested) --}}
+                <div class="signature-row">
+                    {{-- Requested By Signature --}}
                     <div class="signature-box">
                         <div class="mb-3">
                             <svg class="w-8 h-8 mx-auto text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -284,7 +351,7 @@
                         </div>
                     </div>
 
-                    {{-- Approved By Signature (Preview - will be applied after approval) --}}
+                    {{-- Approved By Signature --}}
                     <div class="signature-box approver-preview">
                         <div class="mb-3">
                             <svg class="w-8 h-8 mx-auto text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -309,73 +376,163 @@
                     </div>
                 </div>
             </div>
+
         </form>
     </div>
 </div>
 
 <script>
-    // Update total approved dynamically
+    // helper: sanitize to integer string (remove non-digits)
+    function sanitizeToIntegerString(val) {
+        if (val === undefined || val === null) return '';
+        // remove non-digit characters
+        let s = String(val).replace(/[^\d]/g, '');
+        // strip leading zeros except keep single zero
+        s = s.replace(/^0+/, '');
+        return s === '' ? '0' : s;
+    }
+
+    function showWarningMessage(el, message, type = 'warning') {
+        // el is the note container element
+        if (!el) return;
+        el.innerText = message;
+        el.classList.remove('small-warning', 'small-error');
+        el.classList.add(type === 'error' ? 'small-error' : 'small-warning');
+    }
+
+    function clearWarningMessage(el) {
+        if (!el) return;
+        el.innerText = '';
+        el.classList.remove('small-warning', 'small-error');
+    }
+
+    function clampToAvailableAndInteger(input) {
+        const available = parseInt(input.dataset.available || '0', 10);
+        const requested = parseInt(input.dataset.requested || '0', 10);
+        const idx = input.dataset.itemIndex;
+        const noteEl = document.getElementById('note-' + idx);
+
+        // sanitize current raw value to integer string
+        let raw = input.value;
+        let sanitized = sanitizeToIntegerString(raw);
+        let val = parseInt(sanitized || '0', 10);
+
+        // cap at available (integer)
+        if (val > available) {
+            val = available;
+            showWarningMessage(noteEl, `Approved quantity capped to available stock (${available}).`, 'error');
+            input.classList.add('invalid');
+        } else {
+            // clear error
+            clearWarningMessage(noteEl);
+            input.classList.remove('invalid');
+        }
+
+        // warn if approved exceeds requested (but allow)
+        if (val > requested) {
+            showWarningMessage(noteEl, `Approved quantity (${val}) exceeds requested (${requested}). Please confirm.`, 'warning');
+            // keep input border normal unless also exceeding available
+            if (val <= available) input.classList.remove('invalid');
+        }
+
+        // set integer value (no decimals)
+        input.value = String(Math.floor(val));
+
+        updateTotalApproved();
+    }
+
     function updateTotalApproved() {
         let total = 0;
         document.querySelectorAll('.approved-qty').forEach(input => {
-            total += parseFloat(input.value) || 0;
+            const v = parseInt(sanitizeToIntegerString(input.value || '0'), 10) || 0;
+            total += v;
         });
         const totalElement = document.getElementById('totalApproved');
         if (totalElement) {
-            totalElement.innerText = total.toFixed(2);
+            totalElement.innerText = total.toFixed(0);
         }
     }
 
-    // Warn if approved quantity exceeds requested quantity or available stock
-    document.querySelectorAll('.approved-qty').forEach(input => {
-        input.addEventListener('change', function() {
-            const approved = parseFloat(this.value) || 0;
-            const requested = parseFloat(this.dataset.requested) || 0;
-            const available = parseFloat(this.dataset.available) || 0;
+    // attach behavior to inputs
+    function attachApprovedQtyHandlers() {
+        document.querySelectorAll('.approved-qty').forEach(input => {
+            // ensure only digits allowed while typing (non-destructive)
+            input.addEventListener('input', function(e) {
+                // allow user typing but sanitize immediately to digits only
+                const cleaned = sanitizeToIntegerString(this.value);
+                // keep caret at end: set value to cleaned
+                this.value = cleaned === '' ? '0' : cleaned;
+                // don't yet force cap until blur/change to avoid interrupting typing too much,
+                // but we will enforce on each input to keep values valid and integer.
+                // enforce cap live for immediate feedback
+                clampToAvailableAndInteger(this);
+            });
 
-            if (approved > requested) {
-                alert(`Warning: Approved quantity (${approved}) exceeds requested quantity (${requested}). This will be allowed but please confirm.`);
-            }
+            // on blur/change ensure clamped and integer
+            input.addEventListener('change', function() {
+                clampToAvailableAndInteger(this);
+            });
 
-            if (approved > available) {
-                alert(`Warning: Approved quantity (${approved}) exceeds available stock (${available}). The store may not be able to fulfill this quantity.`);
-            }
-
-            updateTotalApproved();
+            // on paste sanitize
+            input.addEventListener('paste', function(e) {
+                e.preventDefault();
+                const text = (e.clipboardData || window.clipboardData).getData('text');
+                const cleaned = sanitizeToIntegerString(text);
+                this.value = cleaned === '' ? '0' : cleaned;
+                clampToAvailableAndInteger(this);
+            });
         });
+    }
 
-        input.addEventListener('input', updateTotalApproved);
-    });
+    // Set default approved quantity to min(requested, available) integer
+    function setDefaultApprovedQuantities() {
+        document.querySelectorAll('.approved-qty').forEach(input => {
+            const available = parseInt(input.dataset.available || '0', 10);
+            const requested = parseInt(input.dataset.requested || '0', 10);
+            const defaultValue = Math.min(requested, available);
+            input.value = String(Math.floor(defaultValue));
+        });
+        updateTotalApproved();
+    }
 
-    // Set default approved quantity to min(requested, available)
-    document.querySelectorAll('.approved-qty').forEach(input => {
-        const available = parseFloat(input.dataset.available) || 0;
-        const requested = parseFloat(input.dataset.requested) || 0;
-        const defaultValue = Math.min(requested, available);
-        if (parseFloat(input.value) > defaultValue) {
-            input.value = defaultValue;
+    // Initialization
+    document.addEventListener('DOMContentLoaded', function() {
+        setDefaultApprovedQuantities();
+        attachApprovedQtyHandlers();
+
+        // form validation on submit: ensure at least one approved > 0 and none exceed available
+        const form = document.getElementById('approveForm');
+        if (form) {
+            form.addEventListener('submit', function(e) {
+                let hasApprovedItems = false;
+                let invalid = false;
+                document.querySelectorAll('.approved-qty').forEach(input => {
+                    const val = parseInt(sanitizeToIntegerString(input.value || '0'), 10) || 0;
+                    const available = parseInt(input.dataset.available || '0', 10);
+                    if (val > 0) hasApprovedItems = true;
+                    if (val > available) {
+                        invalid = true;
+                        const noteEl = document.getElementById('note-' + input.dataset.itemIndex);
+                        showWarningMessage(noteEl, `Approved quantity (${val}) exceeds available stock (${available}).`, 'error');
+                        input.classList.add('invalid');
+                    }
+                });
+
+                if (invalid) {
+                    e.preventDefault();
+                    alert('One or more approved quantities exceed available stock. Please correct them before submitting.');
+                    return false;
+                }
+
+                if (!hasApprovedItems) {
+                    e.preventDefault();
+                    alert('Please approve at least one item by entering a whole-number quantity greater than zero.');
+                    return false;
+                }
+
+                // successful: allow submit
+            });
         }
     });
-
-    // Form validation
-    document.getElementById('approveForm')?.addEventListener('submit', function(e) {
-        let hasApprovedItems = false;
-        const approvedInputs = document.querySelectorAll('.approved-qty');
-
-        for (let i = 0; i < approvedInputs.length; i++) {
-            if (parseFloat(approvedInputs[i].value) > 0) {
-                hasApprovedItems = true;
-                break;
-            }
-        }
-
-        if (!hasApprovedItems) {
-            e.preventDefault();
-            alert('Please approve at least one item by entering a quantity greater than zero.');
-        }
-    });
-
-    // Initial total calculation
-    updateTotalApproved();
 </script>
 @endsection

@@ -8,6 +8,9 @@ use App\Models\InventoryItem;
 use App\Models\DepartmentRequisition;
 use App\Models\DepartmentRequisitionItem;
 use App\Models\Department;
+use App\Models\Batch;
+use App\Models\StockMovement;
+use App\Models\Store;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -57,11 +60,100 @@ class BarRequisitionController extends Controller
             return redirect()->route('dashboard')->with('error', 'Unauthorized access');
         }
 
-        $items = InventoryItem::where('is_active', true)
-            ->orderBy('name')
-            ->get();
+        $items = InventoryItem::where('is_active', true)->orderBy('name')->get();
 
-        return view('bar.requisitions.create', compact('items'));
+        // Prepare items for JavaScript with unit_of_measurement
+        $itemsForJs = $items->map(function ($item) {
+            return [
+                'id' => $item->id,
+                'name' => $item->name,
+                'code' => $item->item_code ?? 'N/A',
+                'unit_of_measurement' => $item->unit_of_measurement ?? 'piece',
+            ];
+        })->values()->all();
+
+        // Requisition types for dropdown
+        $requisitionTypes = [
+            'daily' => 'Daily',
+            'weekly' => 'Weekly',
+            'monthly' => 'Monthly'
+        ];
+
+        // Lightweight user object for JavaScript
+        $currentUserForJs = [
+            'id' => $user->id,
+            'first_name' => $user->first_name ?? null,
+            'last_name' => $user->last_name ?? null,
+            'signature_path' => $user->signature_path ?? null,
+            'email' => $user->email ?? null,
+        ];
+
+        return view('bar.requisitions.create', compact('items', 'itemsForJs', 'requisitionTypes', 'currentUserForJs'));
+    }
+
+    /**
+     * API endpoint to get item details for auto-fill
+     */
+    public function getItemDetails($id)
+    {
+        try {
+            $item = InventoryItem::findOrFail($id);
+
+            // Get actual unit of measurement from the inventory item
+            $unitOfMeasurement = $item->unit_of_measurement ?? 'piece';
+
+            // Get available stock from batches
+            $batches = Batch::where('inventory_item_id', $item->id)
+                ->where('batch_status', 'active')
+                ->where('remaining_quantity', '>', 0)
+                ->orderBy('expiry_date', 'asc')
+                ->get();
+
+            $totalAvailableStock = $batches->sum('remaining_quantity');
+
+            $packType = null;
+            $packSize = null;
+
+            if ($item->default_unit_of_measure_id) {
+                $packTypeValue = strtolower($item->default_unit_of_measure_id);
+                $packTypes = ['carton', 'box', 'crate', 'dozen', 'pack', 'bag', 'sack', 'bottle'];
+
+                if (in_array($packTypeValue, $packTypes)) {
+                    $packType = $packTypeValue;
+                    $packSize = $item->pack_size ?? null;
+                }
+            }
+
+            $isPackable = !is_null($packType) && $packSize > 0;
+
+            return response()->json([
+                'success' => true,
+                'data' => [
+                    'id' => $item->id,
+                    'name' => $item->name,
+                    'item_code' => $item->item_code,
+                    'unit_of_measurement' => $unitOfMeasurement,
+                    'metrics' => $unitOfMeasurement,
+                    'pack_type' => $packType,
+                    'pack_size' => $packSize,
+                    'is_packable' => $isPackable,
+                    'available_stock' => $totalAvailableStock,
+                    'batches' => $batches->map(function($batch) {
+                        return [
+                            'batch_number' => $batch->batch_number,
+                            'remaining_quantity' => $batch->remaining_quantity,
+                            'expiry_date' => $batch->expiry_date ? date('d/m/Y', strtotime($batch->expiry_date)) : null,
+                        ];
+                    }),
+                ]
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Item not found'
+            ], 404);
+        }
     }
 
     /**
@@ -76,6 +168,7 @@ class BarRequisitionController extends Controller
         }
 
         $request->validate([
+            'requisition_type'             => 'required|in:daily,weekly,monthly',
             'date_needed'                  => 'nullable|date',
             'department_notes'             => 'nullable|string|max:500',
             'items'                        => 'required|array|min:1',
@@ -94,6 +187,7 @@ class BarRequisitionController extends Controller
 
             $requisition = DepartmentRequisition::create([
                 'requisition_number' => $requisitionNumber,
+                'requisition_type'   => $request->requisition_type,
                 'department_id'      => $user->department_id,
                 'requested_by'       => Auth::id(),
                 'date_needed'        => $request->date_needed,
@@ -159,7 +253,55 @@ class BarRequisitionController extends Controller
                 ->with('error', 'You do not have permission to view this requisition.');
         }
 
-        return view('bar.requisitions.show', compact('requisition'));
+        // Get available stock from BATCHES for each item
+        foreach ($requisition->items as $item) {
+            if ($item->inventoryItem) {
+                // Get all active batches with remaining quantity
+                $batches = Batch::where('inventory_item_id', $item->inventoryItem->id)
+                    ->where('batch_status', 'active')
+                    ->where('remaining_quantity', '>', 0)
+                    ->orderBy('expiry_date', 'asc')
+                    ->get();
+
+                $item->available_batches = $batches;
+                $item->total_available_stock = $batches->sum('remaining_quantity');
+                $item->remaining_to_issue = max(0, ($item->quantity_approved ?? $item->quantity_requested) - ($item->quantity_issued ?? 0));
+
+                // Calculate stock percentage
+                $requestedQty = $item->quantity_approved ?? $item->quantity_requested;
+                if ($requestedQty > 0) {
+                    $item->stock_percentage = min(100, round(($item->total_available_stock / $requestedQty) * 100, 2));
+                    $item->stock_status = $item->stock_percentage >= 50 ? 'good' : ($item->stock_percentage >= 25 ? 'low' : 'critical');
+                } else {
+                    $item->stock_percentage = 0;
+                    $item->stock_status = 'critical';
+                }
+
+                // Get the unit of measurement from inventory item
+                $item->display_unit = $item->inventoryItem->unit_of_measurement ?? 'piece';
+            } else {
+                $item->available_batches = collect();
+                $item->total_available_stock = 0;
+                $item->remaining_to_issue = 0;
+                $item->stock_percentage = 0;
+                $item->stock_status = 'critical';
+                $item->display_unit = 'piece';
+            }
+        }
+
+        // Get stock movement for this requisition (issuance)
+        $stockMovement = StockMovement::where('reason', 'LIKE', '%' . $requisition->requisition_number . '%')
+            ->where('movement_type_id', 5) // Issuance type
+            ->first();
+
+        // Get return movement if any
+        $returnMovement = null;
+        if (in_array($requisition->status, ['returned', 'partially_returned'])) {
+            $returnMovement = StockMovement::where('reason', 'LIKE', '%RETURN%' . $requisition->requisition_number . '%')
+                ->first();
+        }
+
+        return view('bar.requisitions.show', compact('requisition', 'stockMovement', 'returnMovement'));
     }
 
     /**
@@ -250,8 +392,8 @@ class BarRequisitionController extends Controller
 
                 // Append consumption note to item notes
                 $timestamp   = now()->format('Y-m-d H:i');
-                $noteEntry   = "{$timestamp} - Bar consumed: {$newConsumed} " .
-                               ($reqItem->metrics ?? ($reqItem->inventoryItem->base_unit ?? 'units'));
+                $unit = $reqItem->metrics ?? ($reqItem->inventoryItem->unit_of_measurement ?? 'units');
+                $noteEntry   = "{$timestamp} - Bar consumed: {$newConsumed} " . $unit;
                 $reqItem->notes = $reqItem->notes
                     ? $reqItem->notes . "\n" . $noteEntry
                     : $noteEntry;

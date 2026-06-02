@@ -3,568 +3,295 @@
 @extends('layouts.bar')
 
 @section('title', 'Create Requisition')
-
 @section('page-title', 'Create New Requisition')
 
 @section('content')
-<style>
-    .form-card {
-        background: white;
-        border-radius: 12px;
-        border: 1px solid #e5e7eb;
-        overflow: hidden;
-        margin-bottom: 1.5rem;
-    }
-    .form-header {
-        padding: 1rem 1.5rem;
-        border-bottom: 1px solid #e5e7eb;
-        background: #f8fafc;
-    }
-    .form-body {
-        padding: 1.5rem;
-    }
-    .form-label {
-        display: block;
-        font-size: 0.75rem;
-        font-weight: 600;
-        color: #374151;
-        margin-bottom: 0.5rem;
-    }
-    .form-label .required {
-        color: #ef4444;
-        margin-left: 0.25rem;
-    }
-    .form-input, .form-select, .form-textarea {
-        width: 100%;
-        padding: 0.5rem 0.75rem;
-        border: 1px solid #d1d5db;
-        border-radius: 8px;
-        font-size: 0.875rem;
-        transition: all 0.2s;
-    }
-    .form-input:focus, .form-select:focus, .form-textarea:focus {
-        outline: none;
-        border-color: #ea580c;
-        box-shadow: 0 0 0 3px rgba(234, 88, 12, 0.1);
-    }
-    .form-textarea {
-        min-height: 80px;
-    }
-    .form-row {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-        gap: 1.5rem;
-        margin-bottom: 1.5rem;
-    }
-    .items-table-container {
-        margin-bottom: 1rem;
-    }
-    .items-table {
-        width: 100%;
-        border-collapse: collapse;
-        font-size: 0.75rem;
-    }
-    .items-table th {
-        background: #f8fafc;
-        padding: 0.75rem;
-        text-align: left;
-        font-weight: 600;
-        color: #475569;
-        border-bottom: 2px solid #e2e8f0;
-    }
-    .items-table td {
-        padding: 0.75rem;
-        border-bottom: 1px solid #e2e8f0;
-        vertical-align: middle;
-    }
-    .btn-add {
-        background: #10b981;
-        color: white;
-        padding: 0.5rem 1rem;
-        border-radius: 8px;
-        font-size: 0.75rem;
-        transition: all 0.2s;
-        border: none;
-        cursor: pointer;
-        width: 100%;
-    }
-    .btn-add:hover {
-        background: #059669;
-    }
-    .btn-remove {
-        background: #ef4444;
-        color: white;
-        padding: 0.25rem 0.5rem;
-        border-radius: 6px;
-        font-size: 0.7rem;
-        border: none;
-        cursor: pointer;
-    }
-    .btn-remove:hover {
-        background: #dc2626;
-    }
-    .btn-submit {
-        background: #ea580c;
-        color: white;
-        padding: 0.5rem 1.5rem;
-        border-radius: 8px;
-        font-size: 0.875rem;
-        font-weight: 500;
-        transition: all 0.2s;
-        border: none;
-        cursor: pointer;
-    }
-    .btn-submit:hover {
-        background: #c2410c;
-    }
-    .btn-cancel {
-        background: #f3f4f6;
-        color: #374151;
-        padding: 0.5rem 1.5rem;
-        border-radius: 8px;
-        font-size: 0.875rem;
-        font-weight: 500;
-        transition: all 0.2s;
-        text-decoration: none;
-        display: inline-block;
-    }
-    .btn-cancel:hover {
-        background: #e5e7eb;
-    }
-
-    /* Enhanced Search Dropdown Styles */
-    .item-search-wrapper {
-        position: relative;
-        width: 100%;
-    }
-    .item-search-input {
-        width: 100%;
-        padding: 0.5rem 0.75rem;
-        border: 1px solid #d1d5db;
-        border-radius: 8px;
-        font-size: 0.875rem;
-        transition: all 0.2s;
-        cursor: pointer;
-    }
-    .item-search-input:focus {
-        outline: none;
-        border-color: #ea580c;
-        box-shadow: 0 0 0 3px rgba(234, 88, 12, 0.1);
-    }
-    .search-results-dropdown {
-        position: absolute;
-        top: 100%;
-        left: 0;
-        right: 0;
-        background: white;
-        border: 1px solid #e5e7eb;
-        border-radius: 8px;
-        max-height: 280px;
-        overflow-y: auto;
-        z-index: 1000;
-        box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1);
-        display: none;
-    }
-    .search-results-dropdown.show {
-        display: block;
-    }
-    .search-result-item {
-        padding: 0.75rem;
-        cursor: pointer;
-        border-bottom: 1px solid #f3f4f6;
-        transition: background 0.15s;
-    }
-    .search-result-item:hover {
-        background: #fef3c7;
-    }
-    .search-result-item .item-name {
-        font-weight: 600;
-        font-size: 0.875rem;
-        color: #1f2937;
-    }
-    .search-result-item .item-code {
-        font-size: 0.7rem;
-        color: #6b7280;
-        margin-top: 0.125rem;
-    }
-    .selected-item-badge {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        background: #fef3c7;
-        padding: 0.5rem 0.75rem;
-        border-radius: 8px;
-        margin-bottom: 0.5rem;
-        border: 1px solid #fed7aa;
-    }
-    .selected-item-badge .item-info {
-        font-weight: 600;
-        font-size: 0.875rem;
-        color: #92400e;
-    }
-    .selected-item-badge .clear-item-btn {
-        background: none;
-        border: none;
-        color: #ef4444;
-        cursor: pointer;
-        font-size: 0.75rem;
-        padding: 0.25rem 0.5rem;
-        border-radius: 6px;
-        transition: background 0.2s;
-    }
-    .selected-item-badge .clear-item-btn:hover {
-        background: #fee2e2;
-    }
-    .field-disabled {
-        background-color: #f9fafb;
-        cursor: not-allowed;
-        opacity: 0.7;
-    }
-
-    /* Dropdown arrow indicator */
-    .item-search-wrapper::after {
-        content: '▾';
-        position: absolute;
-        right: 0.75rem;
-        top: 0.55rem;
-        color: #9ca3af;
-        pointer-events: none;
-        font-size: 0.85rem;
-    }
-    .item-search-wrapper.has-selection::after {
-        display: none;
-    }
-</style>
-
-<div class="form-card">
-    <div class="form-header">
-        <h3 class="text-lg font-semibold text-gray-800">
-            <i class="fas fa-clipboard-list mr-2 text-blue-600"></i>
+<div class="bg-white rounded-xl border border-gray-200">
+    <div class="px-6 py-4 border-b border-gray-200 bg-gray-50">
+        <h3 class="text-lg font-semibold text-gray-800 flex items-center gap-2">
+            <i class="fas fa-clipboard-list text-blue-600"></i>
             Create New Bar Requisition
         </h3>
         <p class="text-xs text-gray-500 mt-1">Request items from the store for bar operations</p>
     </div>
 
-    <div class="form-body">
+    <div class="p-6">
         <form method="POST" action="{{ route('bar.requisitions.store') }}" id="requisitionForm">
             @csrf
 
-            <div class="form-row">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
                 <div>
-                    <label class="form-label">Date Needed</label>
-                    <input type="date" name="date_needed" class="form-input" value="{{ old('date_needed') }}">
+                    <label class="block text-xs font-semibold text-gray-700 mb-1">
+                        Requisition Type <span class="text-red-500">*</span>
+                    </label>
+                    <select name="requisition_type" id="requisition_type" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500" required>
+                        <option value="">Select Type</option>
+                        @foreach($requisitionTypes as $value => $label)
+                            <option value="{{ $value }}" {{ old('requisition_type') == $value ? 'selected' : '' }}>
+                                {{ $label }}
+                            </option>
+                        @endforeach
+                    </select>
                 </div>
+
                 <div>
-                    <label class="form-label">Notes (for Store)</label>
-                    <textarea name="department_notes" class="form-textarea" placeholder="Any special instructions for the store...">{{ old('department_notes') }}</textarea>
+                    <label class="block text-xs font-semibold text-gray-700 mb-1">Date Needed</label>
+                    <input type="date" name="date_needed" id="date_needed" min="{{ date('Y-m-d') }}" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500" value="{{ old('date_needed') }}">
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold text-gray-700 mb-1">Notes (for Store)</label>
+                    <textarea name="department_notes" id="department_notes" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500" rows="2" placeholder="Any special instructions for the store...">{{ old('department_notes') }}</textarea>
                 </div>
             </div>
 
-            <div class="mt-4 mb-3">
+            <div class="mt-6 mb-3">
                 <h4 class="font-semibold text-gray-700">Items Requested</h4>
             </div>
 
-            <div class="items-table-container">
-                <table class="items-table">
+            <div class=" mb-4">
+                <table class="w-full text-sm">
                     <thead>
-                        <tr>
-                            <th style="width: 30%">Item</th>
-                            <th style="width: 10%">Quantity</th>
-                            <th style="width: 12%">Pack Type</th>
-                            <th style="width: 10%">Pcs/Pack</th>
-                            <th style="width: 12%">Metrics</th>
-                            <th style="width: 20%">Notes</th>
-                            <th style="width: 6%">Action</th>
+                        <tr class="bg-gray-50 border-b-2 border-gray-200">
+                            <th class="w-[45%] px-3 py-3 text-left font-semibold text-gray-600">Item <span class="text-red-500">*</span></th>
+                            <th class="w-[25%] px-3 py-3 text-left font-semibold text-gray-600">Quantity <span class="text-red-500">*</span></th>
+                            <th class="w-[20%] px-3 py-3 text-left font-semibold text-gray-600">Metrics</th>
+                            <th class="w-[10%] px-3 py-3 text-center font-semibold text-gray-600">Action</th>
                         </tr>
                     </thead>
-                    <tbody id="itemsBody">
-                        <!-- Rows will be added dynamically -->
-                    </tbody>
+                    <tbody id="itemsBody"></tbody>
                 </table>
             </div>
 
-            <div class="mt-3 mb-4">
-                <button type="button" id="addItemBtn" class="btn-add">
-                    <i class="fas fa-plus mr-1"></i> Add Item
+            <div class="mb-4 flex gap-3">
+                <button type="button" id="addItemBtn" class="flex-1 bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg text-sm transition-colors flex items-center justify-center gap-2">
+                    <i class="fas fa-plus"></i> Add Item
+                </button>
+                <button type="button" id="previewBtn" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm transition-colors flex items-center justify-center gap-2">
+                    <i class="fas fa-eye"></i> Preview & Print
                 </button>
             </div>
 
             <div class="flex justify-end gap-3 mt-6 pt-4 border-t border-gray-200">
-                <a href="{{ route('bar.requisitions.index') }}" class="btn-cancel">
-                    <i class="fas fa-times mr-1"></i> Cancel
+                <a href="{{ route('bar.requisitions.index') }}" class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-5 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2">
+                    <i class="fas fa-times"></i> Cancel
                 </a>
-                <button type="submit" class="btn-submit">
-                    <i class="fas fa-paper-plane mr-1"></i> Submit Requisition
+                <button type="submit" class="bg-orange-600 hover:bg-orange-700 text-white px-5 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2">
+                    <i class="fas fa-paper-plane"></i> Submit Requisition
                 </button>
             </div>
         </form>
     </div>
 </div>
 
+<!-- Preview Modal -->
+<div id="previewModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden overflow-y-auto">
+    <div class="min-h-screen p-4 flex items-center justify-center">
+        <div class="bg-white rounded-xl shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+            <div class="sticky top-0 bg-white px-6 py-4 border-b border-gray-200 flex justify-between items-center">
+                <h3 class="text-lg font-semibold text-gray-800 flex items-center gap-2">
+                    <i class="fas fa-file-alt text-blue-600"></i>
+                    Requisition Preview
+                </h3>
+                <div class="flex gap-2">
+                    <button onclick="printPreview()" class="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg text-sm transition-colors flex items-center gap-2">
+                        <i class="fas fa-print"></i> Print
+                    </button>
+                    <button onclick="downloadPreviewPDF()" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm transition-colors flex items-center gap-2">
+                        <i class="fas fa-file-pdf"></i> PDF
+                    </button>
+                    <button onclick="closePreviewModal()" class="bg-gray-200 hover:bg-gray-300 text-gray-700 px-4 py-2 rounded-lg text-sm transition-colors flex items-center gap-2">
+                        <i class="fas fa-times"></i> Close
+                    </button>
+                </div>
+            </div>
+            <div id="previewContent" class="p-6">
+                <!-- Preview content will be loaded here -->
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- html2pdf -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js" integrity="sha512-GsLlZN/3F2ErC5ifS5QtgpiJtWd43JWSuIgh7mbzZ8zBps+dvLusV+eNQATqgA/HdeKFVgA5v3S/cIrLF7QnIg==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+
 <script>
-    // Items data from backend
-    let itemsList = @json($items->map(function($item) {
-        return [
-            'id' => $item->id,
-            'name' => $item->name,
-            'code' => $item->item_code ?? 'N/A'
-        ];
-    }));
-
+    // Backend-provided lists (prepared in controller)
+    let itemsList = @json($itemsForJs);
+    let requisitionTypes = @json($requisitionTypes);
     let rowCounter = 0;
+    let searchTimeout = null;
+    let currentUser = @json($currentUserForJs);
+    const storageBaseUrl = "{{ asset('storage') }}";
 
-    // Render dropdown with items (filtered or all)
-    function renderDropdown(dropdownElement, items) {
+    async function fetchItemDetails(itemId, rowElement) {
+        if (!itemId) return;
+
+        const loadingSpinner = rowElement.querySelector('.loading-spinner');
+        if (loadingSpinner) loadingSpinner.classList.remove('hidden');
+
+        try {
+            const response = await fetch(`/bar/requisitions/item-details/${itemId}`);
+            const result = await response.json();
+
+            if (result.success) {
+                updateRowWithItemData(rowElement, result.data);
+            }
+        } catch (error) {
+            console.error('Error fetching item details:', error);
+        } finally {
+            if (loadingSpinner) loadingSpinner.classList.add('hidden');
+        }
+    }
+
+    function updateRowWithItemData(rowElement, data) {
+        const metricsInput = rowElement.querySelector('.item-metrics');
+
+        if (metricsInput && data.metrics) {
+            metricsInput.value = data.metrics;
+        }
+    }
+
+    function filterItems(searchTerm) {
+        if (!searchTerm.trim()) {
+            return itemsList;
+        }
+        return itemsList.filter(item =>
+            item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            item.code.toLowerCase().includes(searchTerm.toLowerCase())
+        );
+    }
+
+    function renderDropdown(dropdownElement, items, searchInput, rowElement) {
         if (!dropdownElement) return;
 
         if (items.length === 0) {
-            dropdownElement.innerHTML = '<div class="search-result-item" style="color:#6b7280;">No items found</div>';
-            dropdownElement.classList.add('show');
+            dropdownElement.innerHTML = '<div class="px-3 py-2 text-gray-500 text-sm">No items found</div>';
+            dropdownElement.classList.remove('hidden');
             return;
         }
 
         dropdownElement.innerHTML = items.map(item => `
-            <div class="search-result-item" data-id="${item.id}" data-name="${escapeHtml(item.name)}" data-code="${escapeHtml(item.code)}">
-                <div class="item-name">${escapeHtml(item.name)}</div>
-                <div class="item-code">Code: ${escapeHtml(item.code)}</div>
+            <div class="search-result-item px-3 py-2 cursor-pointer hover:bg-orange-50 border-b border-gray-100 last:border-0 transition-colors" data-id="${item.id}" data-name="${escapeHtml(item.name)}" data-code="${escapeHtml(item.code)}" data-unit="${escapeHtml(item.unit_of_measurement)}">
+                <div class="font-semibold text-sm text-gray-800">${escapeHtml(item.name)}</div>
+                <div class="text-xs text-gray-500">Code: ${escapeHtml(item.code)} | Unit: ${escapeHtml(item.unit_of_measurement)}</div>
             </div>
         `).join('');
-        dropdownElement.classList.add('show');
+        dropdownElement.classList.remove('hidden');
 
-        // Add click handlers to each result
         dropdownElement.querySelectorAll('.search-result-item').forEach(el => {
-            el.addEventListener('click', (e) => {
+            el.addEventListener('click', async (e) => {
                 e.stopPropagation();
-                const wrapper = dropdownElement.closest('.item-search-wrapper');
-                const rowElement = wrapper.closest('.item-row');
-                const searchInputElem = wrapper.querySelector('.item-search-input');
-                const selectedBadge = wrapper.querySelector('.selected-item-badge');
-                const selectedInfoSpan = selectedBadge.querySelector('.item-info');
-                const hiddenId = wrapper.querySelector('.selected-item-id');
-
                 const itemId = el.dataset.id;
                 const itemName = el.dataset.name;
                 const itemCode = el.dataset.code;
+                const unitOfMeasure = el.dataset.unit;
+                const wrapper = searchInput.closest('.item-search-wrapper');
+                const selectedBadge = wrapper.querySelector('.selected-item-badge');
+                const selectedInfoSpan = selectedBadge.querySelector('.item-info');
+                const hiddenId = wrapper.querySelector('.selected-item-id');
+                const metricsInput = rowElement.querySelector('.item-metrics');
 
-                // Update UI with selected item
                 hiddenId.value = itemId;
-                searchInputElem.value = itemName;
-                searchInputElem.style.display = 'none';
-                selectedInfoSpan.innerHTML = `${escapeHtml(itemName)} <span style="font-size:0.7rem; color:#6b7280;">(${escapeHtml(itemCode)})</span>`;
-                selectedBadge.style.display = 'flex';
-                dropdownElement.classList.remove('show');
+                searchInput.value = itemName;
+                searchInput.classList.add('hidden');
+                selectedInfoSpan.innerHTML = `${escapeHtml(itemName)} <span class="text-xs text-gray-500">(${escapeHtml(itemCode)})</span>`;
+                selectedBadge.classList.remove('hidden');
+                dropdownElement.classList.add('hidden');
 
-                // Mark wrapper as having a selection (hides the arrow)
-                wrapper.classList.add('has-selection');
+                if (metricsInput) {
+                    metricsInput.value = unitOfMeasure;
+                }
 
-                // Enable fields
-                toggleFieldsForRow(rowElement, true);
+                const quantityInput = rowElement.querySelector('.item-quantity');
+                quantityInput.disabled = false;
+                quantityInput.required = true;
             });
         });
     }
 
-    // Create a new row with enhanced search
-    function createNewRow() {
-        const index = rowCounter++;
-        const newRow = document.createElement('tr');
-        newRow.className = 'item-row';
-        newRow.dataset.index = index;
-        newRow.id = `row-${index}`;
-
-        newRow.innerHTML = `
-            <td class="item-cell">
-                <div class="item-search-wrapper" data-row-index="${index}">
-                    <input type="text" class="item-search-input" placeholder="Click to select an item..." autocomplete="off" readonly>
-                    <div class="search-results-dropdown"></div>
-                    <div class="selected-item-badge" style="display: none;">
-                        <span class="item-info"></span>
-                        <button type="button" class="clear-item-btn">✕ Remove</button>
-                    </div>
-                    <input type="hidden" name="items[${index}][inventory_item_id]" class="selected-item-id" value="">
-                </div>
-              </td>
-              <td>
-                <input type="number" name="items[${index}][quantity]" step="0.01" class="form-input item-quantity" placeholder="0.00" disabled>
-              </td>
-              <td>
-                <select name="items[${index}][pack_type]" class="form-select item-pack-type" disabled>
-                    <option value="">-- None --</option>
-                    <option value="carton">Carton</option>
-                    <option value="box">Box</option>
-                    <option value="crate">Crate</option>
-                    <option value="dozen">Dozen</option>
-                    <option value="pack">Pack</option>
-                    <option value="bag">Bag</option>
-                    <option value="sack">Sack</option>
-                    <option value="bottle">Bottle</option>
-                </select>
-              </td>
-              <td>
-                <input type="number" name="items[${index}][pack_size]" step="1" class="form-input item-pack-size" placeholder="e.g., 12" disabled>
-              </td>
-              <td>
-                <select name="items[${index}][metrics]" class="form-select item-metrics" disabled>
-                    <option value="">-- Select --</option>
-                    <option value="kg">Kilograms (kg)</option>
-                    <option value="litres">Litres (L)</option>
-                    <option value="pcs">Pieces (pcs)</option>
-                    <option value="grams">Grams (g)</option>
-                    <option value="millilitres">Millilitres (ml)</option>
-                    <option value="bottles">Bottles</option>
-                </select>
-              </td>
-              <td>
-                <input type="text" name="items[${index}][notes]" class="form-input item-notes" placeholder="Optional notes" disabled>
-              </td>
-              <td class="text-center">
-                <button type="button" class="btn-remove remove-item" data-index="${index}">
-                    <i class="fas fa-trash"></i>
-                </button>
-              </td>
-        `;
-
-        return newRow;
+    function performLiveSearch(searchInput, dropdownElement, rowElement) {
+        const searchTerm = searchInput.value;
+        const filteredItems = filterItems(searchTerm);
+        renderDropdown(dropdownElement, filteredItems, searchInput, rowElement);
     }
 
-    // Enable/disable fields based on selection state
-    function toggleFieldsForRow(rowElement, enabled) {
-        const quantity = rowElement.querySelector('.item-quantity');
-        const packType = rowElement.querySelector('.item-pack-type');
-        const packSize = rowElement.querySelector('.item-pack-size');
-        const metrics = rowElement.querySelector('.item-metrics');
-        const notes = rowElement.querySelector('.item-notes');
-
-        quantity.disabled = !enabled;
-        packType.disabled = !enabled;
-        packSize.disabled = !enabled;
-        metrics.disabled = !enabled;
-        notes.disabled = !enabled;
-
-        if (enabled) {
-            quantity.required = true;
-        } else {
-            quantity.required = false;
-            quantity.value = '';
-            packType.value = '';
-            packSize.value = '';
-            metrics.value = '';
-            notes.value = '';
-        }
-    }
-
-    // Clear selected item in a row
     function clearSelectedItem(wrapper, rowElement) {
         const searchInput = wrapper.querySelector('.item-search-input');
         const dropdown = wrapper.querySelector('.search-results-dropdown');
         const selectedBadge = wrapper.querySelector('.selected-item-badge');
         const hiddenId = wrapper.querySelector('.selected-item-id');
+        const quantityInput = rowElement.querySelector('.item-quantity');
+        const metricsInput = rowElement.querySelector('.item-metrics');
 
-        // Reset UI
         searchInput.value = '';
-        searchInput.style.display = 'block';
-        selectedBadge.style.display = 'none';
+        searchInput.classList.remove('hidden');
+        selectedBadge.classList.add('hidden');
         hiddenId.value = '';
-        dropdown.classList.remove('show');
+        dropdown.classList.add('hidden');
         dropdown.innerHTML = '';
 
-        // Remove has-selection class to restore arrow
-        wrapper.classList.remove('has-selection');
-
-        // Disable and clear fields
-        toggleFieldsForRow(rowElement, false);
+        quantityInput.disabled = true;
+        quantityInput.required = false;
+        quantityInput.value = '';
+        metricsInput.value = '';
     }
 
-    // Show all items in dropdown
-    function showAllItems(dropdownElement) {
-        renderDropdown(dropdownElement, itemsList);
-    }
-
-    // Filter items based on search term
-    function filterAndShowItems(dropdownElement, searchTerm) {
-        if (searchTerm.trim() === '') {
-            renderDropdown(dropdownElement, itemsList);
-        } else {
-            const filtered = itemsList.filter(item =>
-                item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                item.code.toLowerCase().includes(searchTerm.toLowerCase())
-            );
-            renderDropdown(dropdownElement, filtered);
-        }
-    }
-
-    // Setup search functionality for a specific row
+    // Normal dropdown: show full list when input is focused/clicked; typing filters results.
     function setupRowSearch(rowElement) {
         const wrapper = rowElement.querySelector('.item-search-wrapper');
         if (!wrapper) return;
 
         const searchInput = wrapper.querySelector('.item-search-input');
         const dropdown = wrapper.querySelector('.search-results-dropdown');
-        const selectedBadge = wrapper.querySelector('.selected-item-badge');
-        const clearBtn = selectedBadge.querySelector('.clear-item-btn');
+        const clearBtn = wrapper.querySelector('.clear-item-btn');
 
-        let typingTimeout;
-
-        // Clear button handler
-        clearBtn.addEventListener('click', () => {
-            clearSelectedItem(wrapper, rowElement);
-        });
-
-        // Open dropdown immediately on mousedown (feels instant)
-        searchInput.addEventListener('mousedown', function(e) {
+        function showAllItems() {
             const hiddenId = wrapper.querySelector('.selected-item-id');
-            if (!hiddenId.value) {
-                e.preventDefault();
-                searchInput.focus();
-                showAllItems(dropdown);
-            }
+            if (hiddenId.value) return; // if already selected, don't open
+            renderDropdown(dropdown, itemsList, searchInput, rowElement);
+        }
+
+        // Show all items when input focused or clicked
+        searchInput.addEventListener('focus', (e) => {
+            showAllItems();
+        });
+        searchInput.addEventListener('click', (e) => {
+            showAllItems();
         });
 
-        // Also open on focus (keyboard navigation / tab)
-        searchInput.addEventListener('focus', function() {
-            const hiddenId = wrapper.querySelector('.selected-item-id');
-            if (!hiddenId.value) {
-                showAllItems(dropdown);
-            }
-        });
-
-        // Once dropdown is open, allow typing to filter
-        searchInput.addEventListener('keydown', function() {
-            searchInput.removeAttribute('readonly');
-        });
-
-        // Search/filter input handler with debounce
+        // Live-search while typing (debounced)
         searchInput.addEventListener('input', function() {
             const hiddenId = wrapper.querySelector('.selected-item-id');
             if (hiddenId.value) return;
 
-            clearTimeout(typingTimeout);
-            typingTimeout = setTimeout(() => {
-                filterAndShowItems(dropdown, this.value);
-            }, 200);
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(() => {
+                performLiveSearch(searchInput, dropdown, rowElement);
+            }, 250);
         });
 
-        // Close dropdown when clicking outside
+        clearBtn.addEventListener('click', () => {
+            clearSelectedItem(wrapper, rowElement);
+            searchInput.focus();
+        });
+
+        // Clicking outside closes dropdown
         document.addEventListener('click', function(e) {
             if (!wrapper.contains(e.target)) {
-                dropdown.classList.remove('show');
-                searchInput.setAttribute('readonly', true);
-                const hiddenId = wrapper.querySelector('.selected-item-id');
-                if (!hiddenId.value) {
-                    searchInput.value = '';
-                }
+                dropdown.classList.add('hidden');
             }
         });
 
-        // Prevent dropdown from closing when clicking inside it
+        // Prevent dropdown clicks from bubbling to document
         dropdown.addEventListener('click', (e) => {
             e.stopPropagation();
         });
     }
 
-    // Helper to escape HTML
     function escapeHtml(str) {
         if (!str) return '';
-        return str.replace(/[&<>]/g, function(m) {
+        return String(str).replace(/[&<>]/g, function(m) {
             if (m === '&') return '&amp;';
             if (m === '<') return '&lt;';
             if (m === '>') return '&gt;';
@@ -572,7 +299,43 @@
         });
     }
 
-    // Remove item row
+    function createNewRow() {
+        const index = rowCounter++;
+        const newRow = document.createElement('tr');
+        newRow.className = 'item-row border-b border-gray-100';
+        newRow.dataset.index = index;
+
+        newRow.innerHTML = `
+            <td class="px-3 py-2 align-top">
+                <div class="relative item-search-wrapper">
+                    <input type="text" class="item-search-input w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500" placeholder="Click to browse items or type to search..." autocomplete="off">
+                    <div class="search-results-dropdown absolute z-10 left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-y-auto hidden"></div>
+                    <div class="selected-item-badge hidden flex justify-between items-center bg-orange-50 px-3 py-2 rounded-lg border border-orange-200">
+                        <span class="item-info font-semibold text-sm text-orange-800"></span>
+                        <button type="button" class="clear-item-btn text-red-500 hover:text-red-700 text-xs px-2 py-1 rounded hover:bg-red-50 transition-colors">✕ Remove</button>
+                    </div>
+                    <input type="hidden" name="items[${index}][inventory_item_id]" class="selected-item-id" value="">
+                    <div class="loading-spinner hidden absolute right-3 top-2">
+                        <div class="w-4 h-4 border-2 border-orange-600 border-t-transparent rounded-full animate-spin"></div>
+                    </div>
+                </div>
+            </td>
+            <td class="px-3 py-2">
+                <input type="number" name="items[${index}][quantity]" step="0.01" class="item-quantity w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 disabled:bg-gray-100 disabled:cursor-not-allowed" placeholder="0.00" disabled>
+            </td>
+            <td class="px-3 py-2">
+                <input type="text" name="items[${index}][metrics]" class="item-metrics w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-gray-50 cursor-not-allowed" placeholder="Auto-filled" readonly>
+            </td>
+            <td class="px-3 py-2 text-center align-top">
+                <button type="button" class="remove-item bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded text-xs transition-colors">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </td>
+        `;
+
+        return newRow;
+    }
+
     function removeItemRow(button) {
         const row = button.closest('.item-row');
         if (row) {
@@ -581,14 +344,11 @@
         }
     }
 
-    // Reindex rows after removal
     function reindexRows() {
         const rows = document.querySelectorAll('.item-row');
         rows.forEach((row, newIndex) => {
             row.dataset.index = newIndex;
-            row.id = `row-${newIndex}`;
-
-            const inputs = row.querySelectorAll('input, select');
+            const inputs = row.querySelectorAll('input');
             inputs.forEach(input => {
                 const name = input.getAttribute('name');
                 if (name) {
@@ -596,60 +356,283 @@
                     input.setAttribute('name', newName);
                 }
             });
-
-            const removeBtn = row.querySelector('.remove-item');
-            if (removeBtn) removeBtn.dataset.index = newIndex;
-
-            const wrapper = row.querySelector('.item-search-wrapper');
-            if (wrapper) wrapper.dataset.rowIndex = newIndex;
         });
+        rowCounter = rows.length;
     }
 
-    // Add new item button handler
+    function getFormItems() {
+        const items = [];
+        const rows = document.querySelectorAll('.item-row');
+
+        rows.forEach(row => {
+            const itemId = row.querySelector('.selected-item-id').value;
+            const itemNameElement = row.querySelector('.selected-item-badge .item-info');
+            let itemName = '';
+            if (itemNameElement) {
+                itemName = itemNameElement.innerText.split('(')[0].trim();
+            }
+            const quantity = row.querySelector('.item-quantity').value;
+            const metrics = row.querySelector('.item-metrics').value;
+
+            if (itemId && parseFloat(quantity) > 0) {
+                items.push({
+                    id: itemId,
+                    name: itemName,
+                    quantity: quantity,
+                    metrics: metrics
+                });
+            }
+        });
+
+        return items;
+    }
+
+    function generatePreviewHTML() {
+        const requisitionType = document.getElementById('requisition_type').value;
+        let requisitionTypeLabel = requisitionType;
+        if (requisitionTypes && requisitionTypes[requisitionType]) {
+            requisitionTypeLabel = requisitionTypes[requisitionType];
+        }
+        const dateNeeded = document.getElementById('date_needed').value;
+        const departmentNotes = document.getElementById('department_notes').value;
+        const items = getFormItems();
+
+        const now = new Date();
+        const formattedDate = now.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+
+        // Requested By signature block
+        let requestedByBlock = `<div style="display:flex; flex-direction:column; align-items:center; gap:8px;">
+                    <div style="margin-top:12px; text-align:center; width:100%;">
+                <p style="margin:0; color:#6b7280; font-size:12px;">No signature available</p>
+                <p style="margin-top:8px;"><strong>${currentUser ? (escapeHtml(currentUser.first_name || '') + ' ' + escapeHtml(currentUser.last_name || '')) : 'N/A'}</strong></p>
+                <p style="font-size:12px; color:#6b7280; margin:0;">Requested By</p>
+            </div>
+            <div style="border-top: 1px solid #111827; padding-top: 10px; display:inline-block; min-width:200px; text-align:center;">
+                <strong>Signature</strong>
+            </div>
+
+        </div>`
+
+        if (currentUser && currentUser.signature_path) {
+            const signatureUrl = storageBaseUrl + '/' + currentUser.signature_path;
+            requestedByBlock = `
+                <div style="display:flex; flex-direction:column; gap:8px; align-items:center;">
+                    <div style="border-top: 1px solid #111827; padding-top: 10px; display:inline-block; min-width:200px; text-align:center;">
+                        <strong>Signature</strong>
+                    </div>
+                    <div style="display:flex; align-items:center; gap:12px; margin-top:12px;">
+                        <div style="flex-shrink:0;">
+                            <img src="${signatureUrl}" style="max-height:60px; max-width:200px; display:block;">
+                        </div>
+                        <div style="text-align:left;">
+                            <p style="margin:0;"><strong>${escapeHtml(currentUser.first_name || '')} ${escapeHtml(currentUser.last_name || '')}</strong></p>
+                            <p style="font-size:12px; color:#6b7280; margin:2px 0 0;">Requested By</p>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Approved By placeholder block
+        const approvedByBlock = `
+            <div style="display:flex; flex-direction:column; gap:8px; align-items:center;">
+                <div style="border-top: 1px solid #111827; padding-top: 10px; display:inline-block; min-width:200px; text-align:center;">
+                    <strong>Approved By Signature</strong>
+                </div>
+                <div style="margin-top:12px; text-align:center; width:100%;">
+                    <p style="color:#9ca3af; font-size:12px; margin:0;">(To be signed upon approval)</p>
+                    <p style="margin-top:8px;"><strong>_________________________</strong></p>
+                    <p style="font-size:12px; color:#6b7280; margin:0;">Approved By</p>
+                </div>
+            </div>
+        `;
+
+        return `
+            <div style="font-family: Arial, sans-serif; max-width: 100%; margin: 0 auto;">
+                <div style="text-align: center; margin-bottom: 20px; border-bottom: 2px solid #e5e7eb; padding-bottom: 12px;">
+                    <h2 style="margin: 0; color: #111827;">BAR REQUISITION FORM</h2>
+                    <p style="margin: 4px 0 0; color: #6b7280;">Department Requisition Slip</p>
+                </div>
+
+                <div style="margin-bottom: 18px;">
+                    <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
+                        <tr>
+                            <td style="padding: 6px; width:33%;"><strong>Date Created:</strong> ${formattedDate}</td>
+                            <td style="padding: 6px; width:33%;"><strong>Department:</strong> Bar</td>
+                            <td style="padding: 6px; width:33%;"><strong>Requisition Type:</strong> ${escapeHtml(requisitionTypeLabel)}</td>
+                        </tr>
+                        <tr>
+                            <td style="padding: 6px;"><strong>Date Needed:</strong> ${dateNeeded || 'Not specified'}</td>
+                            <td style="padding: 6px;"><strong>Status:</strong> Pending</td>
+                            <td style="padding: 6px;"><strong>Requested By:</strong> ${currentUser ? (escapeHtml(currentUser.first_name || '') + ' ' + escapeHtml(currentUser.last_name || '')) : 'N/A'}</td>
+                        </tr>
+                    </table>
+                </div>
+
+                ${departmentNotes ? `
+                <div style="margin-bottom: 16px; padding: 8px; background: #f9fafb; border-left: 4px solid #3b82f6;">
+                    <strong>Notes:</strong>
+                    <p style="margin: 6px 0 0; color: #4b5563;">${escapeHtml(departmentNotes)}</p>
+                </div>
+                ` : ''}
+
+                <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
+                    <thead>
+                        <tr>
+                            <th style="border: 1px solid #e5e7eb; padding: 8px; background: #3b82f6; color: #fff; text-align: left;">#</th>
+                            <th style="border: 1px solid #e5e7eb; padding: 8px; background: #3b82f6; color: #fff; text-align: left;">Item Name</th>
+                            <th style="border: 1px solid #e5e7eb; padding: 8px; background: #3b82f6; color: #fff; text-align: left;">Quantity</th>
+                            <th style="border: 1px solid #e5e7eb; padding: 8px; background: #3b82f6; color: #fff; text-align: left;">Metrics</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${items.map((item, idx) => `
+                            <tr>
+                                <td style="border: 1px solid #e5e7eb; padding: 8px;">${idx + 1}</td>
+                                <td style="border: 1px solid #e5e7eb; padding: 8px;">${escapeHtml(item.name)}</td>
+                                <td style="border: 1px solid #e5e7eb; padding: 8px;">${parseFloat(item.quantity).toFixed(2)}</td>
+                                <td style="border: 1px solid #e5e7eb; padding: 8px;">${escapeHtml(item.metrics) || 'pcs'}</td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+
+                <div style="margin-top: 24px;">
+                    <table style="width: 100%; border-collapse: collapse;">
+                        <tr>
+                            <td style="width: 50%; padding: 18px; vertical-align: top;">
+                                ${requestedByBlock}
+                            </td>
+                            <td style="width: 50%; padding: 18px; vertical-align: top;">
+                                ${approvedByBlock}
+                            </td>
+                        </tr>
+                    </table>
+                </div>
+
+                <div style="margin-top: 24px; text-align: center; font-size: 10px; color: #9ca3af; border-top: 1px solid #eef2f7; padding-top: 12px;">
+                    <p>This is a system-generated requisition. Please verify all items before approval.</p>
+                </div>
+            </div>
+        `;
+    }
+
+    function showPreviewModal() {
+        const requisitionType = document.getElementById('requisition_type').value;
+
+        if (!requisitionType) {
+            alert('Please select a requisition type first.');
+            return;
+        }
+
+        const dateNeeded = document.getElementById('date_needed').value;
+        if (dateNeeded) {
+            const picked = new Date(dateNeeded);
+            picked.setHours(0,0,0,0);
+            const today = new Date();
+            today.setHours(0,0,0,0);
+            if (picked < today) {
+                alert('Please select today or a future date for Date Needed.');
+                return;
+            }
+        }
+
+        const items = getFormItems();
+        if (items.length === 0) {
+            alert('Please add at least one item to preview.');
+            return;
+        }
+
+        const previewContent = generatePreviewHTML();
+        document.getElementById('previewContent').innerHTML = previewContent;
+        document.getElementById('previewModal').classList.remove('hidden');
+    }
+
+    function closePreviewModal() {
+        document.getElementById('previewModal').classList.add('hidden');
+    }
+
+    function printPreview() {
+        const printContent = document.getElementById('previewContent').innerHTML;
+        const printWindow = window.open('', '_blank');
+        printWindow.document.write(`
+            <html>
+                <head>
+                    <title>Bar Requisition Preview</title>
+                    <style>
+                        body { font-family: Arial, sans-serif; padding: 20px; }
+                        @media print {
+                            body { margin: 0; padding: 0; }
+                        }
+                    </style>
+                </head>
+                <body>
+                    ${printContent}
+                    <script>
+                        window.onload = function() { window.print(); window.close(); };
+                    <\/script>
+                </body>
+            </html>
+        `);
+        printWindow.document.close();
+    }
+
+    function downloadPreviewPDF() {
+        const element = document.getElementById('previewContent');
+        const opt = {
+            margin: [0.5, 0.5, 0.5, 0.5],
+            filename: 'Bar_Requisition_Preview_' + new Date().toISOString().slice(0,19) + '.pdf',
+            image: { type: 'jpeg', quality: 0.98 },
+            html2canvas: { scale: 2, letterRendering: true, useCORS: true },
+            jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' }
+        };
+        html2pdf().set(opt).from(element).save();
+    }
+
+    // Add initial row and wire events
     document.getElementById('addItemBtn').addEventListener('click', function() {
         const tbody = document.getElementById('itemsBody');
         const newRow = createNewRow();
         tbody.appendChild(newRow);
-
         setupRowSearch(newRow);
 
-        const removeBtn = newRow.querySelector('.remove-item');
-        removeBtn.addEventListener('click', () => removeItemRow(removeBtn));
+        newRow.querySelector('.remove-item').addEventListener('click', function() {
+            removeItemRow(this);
+        });
     });
 
-    // Initialize existing rows (if any from validation errors)
-    function initializeExistingRows() {
-        const rows = document.querySelectorAll('.item-row');
-        rows.forEach(row => {
-            setupRowSearch(row);
-            const removeBtn = row.querySelector('.remove-item');
-            if (removeBtn) {
-                removeBtn.addEventListener('click', () => removeItemRow(removeBtn));
-            }
+    document.getElementById('previewBtn').addEventListener('click', showPreviewModal);
 
-            const hiddenId = row.querySelector('.selected-item-id');
-            if (hiddenId && hiddenId.value) {
-                const wrapper = row.querySelector('.item-search-wrapper');
-                const searchInput = wrapper.querySelector('.item-search-input');
-                const selectedBadge = wrapper.querySelector('.selected-item-badge');
-                const selectedInfoSpan = selectedBadge.querySelector('.item-info');
-
-                const selectedItem = itemsList.find(item => item.id == hiddenId.value);
-                if (selectedItem) {
-                    searchInput.style.display = 'none';
-                    selectedInfoSpan.innerHTML = `${escapeHtml(selectedItem.name)} <span style="font-size:0.7rem; color:#6b7280;">(${escapeHtml(selectedItem.code)})</span>`;
-                    selectedBadge.style.display = 'flex';
-                    wrapper.classList.add('has-selection');
-                    toggleFieldsForRow(row, true);
-                }
-            }
-        });
+    // Ensure at least one row on load
+    if (document.querySelectorAll('.item-row').length === 0) {
+        document.getElementById('addItemBtn').click();
     }
 
     // Form validation before submit
     document.getElementById('requisitionForm').addEventListener('submit', function(e) {
         let hasValidItem = false;
         const rows = document.querySelectorAll('.item-row');
+        const requisitionType = document.querySelector('select[name="requisition_type"]').value;
+
+        if (!requisitionType) {
+            e.preventDefault();
+            alert('Please select a requisition type (Daily, Weekly, or Monthly).');
+            return false;
+        }
+
+        // Prevent submitting a past Date Needed
+        const dateNeeded = document.getElementById('date_needed').value;
+        if (dateNeeded) {
+            const picked = new Date(dateNeeded);
+            picked.setHours(0,0,0,0);
+            const today = new Date();
+            today.setHours(0,0,0,0);
+            if (picked < today) {
+                e.preventDefault();
+                alert('Please select today or a future date for Date Needed.');
+                return false;
+            }
+        }
 
         for (let i = 0; i < rows.length; i++) {
             const row = rows[i];
@@ -667,12 +650,14 @@
             alert('Please add at least one item with a valid quantity.');
         }
     });
-
-    // Add initial empty row if no rows exist
-    if (document.querySelectorAll('.item-row').length === 0) {
-        document.getElementById('addItemBtn').click();
-    } else {
-        initializeExistingRows();
-    }
 </script>
+
+<style>
+    .hidden { display: none !important; }
+    @keyframes spin {
+        from { transform: rotate(0deg); }
+        to { transform: rotate(360deg); }
+    }
+    .animate-spin { animation: spin 1s linear infinite; }
+</style>
 @endsection

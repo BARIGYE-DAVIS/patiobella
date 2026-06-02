@@ -29,23 +29,21 @@
         ->orderBy('created_at', 'desc')
         ->first();
 
-    $takenBy = $issueMovement->taken_by ?? null;
+    $takenBy = $issueMovement->taken_by ?? $requisition->taken_by ?? null;
+    $issuedBy = $issueMovement->createdBy ?? null;
 
     $approver     = $requisition->approved_by ? \App\Models\User::find($requisition->approved_by) : null;
     $approverName = $approver ? trim(($approver->first_name ?? '') . ' ' . ($approver->last_name ?? '')) : null;
 @endphp
 
-<div class="space-y-4">
+<div id="requisitionPrintArea">
 
-    {{-- ── Page Header ──────────────────────────────────────────────────────── --}}
-    <div class="bg-white rounded-xl border border-gray-200 shadow-sm px-6 py-4 flex items-center justify-between flex-wrap gap-3">
+    {{-- Page Header --}}
+    <div class="bg-white rounded-xl border border-gray-200 shadow-sm px-6 py-4 flex items-center justify-between flex-wrap gap-3 print-hide">
         <div class="flex items-center gap-3">
             <a href="{{ route('store.department-requisitions.index') }}"
                class="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-800 border border-gray-200 rounded-lg px-3 py-1.5 hover:bg-gray-50 transition">
-                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
-                    <path d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
-                </svg>
-                Back
+                <i class="fas fa-arrow-left text-xs"></i> Back
             </a>
             <div class="h-5 w-px bg-gray-200"></div>
             <div>
@@ -57,62 +55,76 @@
                 </p>
             </div>
         </div>
-        <span class="inline-block px-3 py-1 text-xs font-semibold rounded-full border {{ $sc['pill'] }}">
-            {{ $sc['label'] }}
-        </span>
+        <div class="flex items-center gap-2 print-hide">
+            <span class="inline-block px-3 py-1 text-xs font-semibold rounded-full border {{ $sc['pill'] }}">
+                <i class="fas fa-tag mr-1 text-xs"></i> {{ $sc['label'] }}
+            </span>
+            <button onclick="printRequisition()" class="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg text-sm transition-colors flex items-center gap-2">
+                <i class="fas fa-print"></i> Print
+            </button>
+        </div>
     </div>
 
-    {{-- ── Info Cards Row ───────────────────────────────────────────────────── --}}
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+    {{-- PRINT HEADER - Only visible when printing --}}
+    <div class="print-header hidden">
+        <div style="text-align: center; margin-bottom: 20px; border-bottom: 2px solid #2563eb; padding-bottom: 15px;">
+            <h1 style="margin: 0; color: #1f2937; font-size: 24px;">STORE REQUISITION FORM</h1>
+            <p style="margin: 5px 0 0; color: #6b7280; font-size: 12px;">Official Department Requisition Document</p>
+        </div>
+    </div>
 
-        {{-- Requisition Info --}}
+    {{-- Info Cards Row --}}
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div class="bg-white rounded-xl border border-gray-200 shadow-sm px-6 py-5">
-            <h3 class="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-4">Requisition Information</h3>
+            <h3 class="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-4 flex items-center gap-2">
+                <i class="fas fa-info-circle text-gray-400"></i> Requisition Information
+            </h3>
             <dl class="space-y-3">
                 <div class="flex items-start gap-2">
-                    <dt class="text-xs font-medium text-gray-500 w-36 shrink-0 pt-0.5">Requisition No</dt>
+                    <dt class="text-xs font-medium text-gray-500 w-36 shrink-0">Requisition No</dt>
                     <dd class="text-sm font-mono font-semibold text-gray-800">{{ $requisition->requisition_number }}</dd>
                 </div>
                 <div class="flex items-start gap-2">
-                    <dt class="text-xs font-medium text-gray-500 w-36 shrink-0 pt-0.5">Department</dt>
-                    <dd>
-                        <span class="inline-block px-2.5 py-0.5 text-xs font-medium rounded-full bg-gray-100 text-gray-600 border border-gray-200">
-                            {{ $requisition->department->name ?? 'N/A' }}
-                        </span>
-                    </dd>
+                    <dt class="text-xs font-medium text-gray-500 w-36 shrink-0">Department</dt>
+                    <dd class="text-sm text-gray-800">{{ $requisition->department->name ?? 'N/A' }}</dd>
                 </div>
                 <div class="flex items-start gap-2">
-                    <dt class="text-xs font-medium text-gray-500 w-36 shrink-0 pt-0.5">Requested By</dt>
+                    <dt class="text-xs font-medium text-gray-500 w-36 shrink-0">Requisition Type</dt>
+                    <dd class="text-sm text-gray-800 capitalize">{{ $requisition->requisition_type ?? 'Normal' }}</dd>
+                </div>
+                <div class="flex items-start gap-2">
+                    <dt class="text-xs font-medium text-gray-500 w-36 shrink-0">Requested By</dt>
                     <dd class="text-sm text-gray-800">
                         {{ trim(($requisition->requestedBy->first_name ?? '') . ' ' . ($requisition->requestedBy->last_name ?? '')) ?: '—' }}
                     </dd>
                 </div>
                 <div class="flex items-start gap-2">
-                    <dt class="text-xs font-medium text-gray-500 w-36 shrink-0 pt-0.5">Date Needed</dt>
+                    <dt class="text-xs font-medium text-gray-500 w-36 shrink-0">Date Needed</dt>
                     <dd class="text-sm text-gray-800">
                         {{ $requisition->date_needed ? date('F d, Y', strtotime($requisition->date_needed)) : 'Not specified' }}
                     </dd>
                 </div>
                 <div class="flex items-start gap-2">
-                    <dt class="text-xs font-medium text-gray-500 w-36 shrink-0 pt-0.5">Date Created</dt>
+                    <dt class="text-xs font-medium text-gray-500 w-36 shrink-0">Date Created</dt>
                     <dd class="text-sm text-gray-800">{{ $requisition->created_at->format('F d, Y \a\t h:i A') }}</dd>
                 </div>
             </dl>
         </div>
 
-        {{-- Processing Info --}}
         <div class="bg-white rounded-xl border border-gray-200 shadow-sm px-6 py-5">
-            <h3 class="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-4">Processing Information</h3>
+            <h3 class="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-4 flex items-center gap-2">
+                <i class="fas fa-cogs text-gray-400"></i> Processing Information
+            </h3>
             <dl class="space-y-3">
                 @if($approverName)
                 <div class="flex items-start gap-2">
-                    <dt class="text-xs font-medium text-gray-500 w-36 shrink-0 pt-0.5">Approved By</dt>
+                    <dt class="text-xs font-medium text-gray-500 w-36 shrink-0">Approved By</dt>
                     <dd class="text-sm text-gray-800">{{ $approverName }}</dd>
                 </div>
                 @endif
                 @if($requisition->approved_at)
                 <div class="flex items-start gap-2">
-                    <dt class="text-xs font-medium text-gray-500 w-36 shrink-0 pt-0.5">Approved At</dt>
+                    <dt class="text-xs font-medium text-gray-500 w-36 shrink-0">Approved At</dt>
                     <dd class="text-sm text-gray-800">
                         {{ \Carbon\Carbon::parse($requisition->approved_at)->format('F d, Y \a\t h:i A') }}
                     </dd>
@@ -120,28 +132,20 @@
                 @endif
                 @if($takenBy)
                 <div class="flex items-start gap-2">
-                    <dt class="text-xs font-medium text-gray-500 w-36 shrink-0 pt-0.5">Taken By</dt>
-                    <dd>
-                        <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 text-xs font-semibold rounded-full bg-green-50 text-green-700 border border-green-200">
-                            <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
-                                <path d="M5 13l4 4L19 7"/>
-                            </svg>
-                            {{ $takenBy }}
-                        </span>
-                    </dd>
+                    <dt class="text-xs font-medium text-gray-500 w-36 shrink-0">Received By</dt>
+                    <dd class="text-sm font-semibold text-green-700">{{ $takenBy }}</dd>
+                </div>
+                @endif
+                @if($issuedBy)
+                <div class="flex items-start gap-2">
+                    <dt class="text-xs font-medium text-gray-500 w-36 shrink-0">Issued By</dt>
+                    <dd class="text-sm text-gray-800">{{ $issuedBy->first_name ?? '' }} {{ $issuedBy->last_name ?? '' }}</dd>
                 </div>
                 @endif
                 @if($requisition->returned_by)
                 <div class="flex items-start gap-2">
-                    <dt class="text-xs font-medium text-gray-500 w-36 shrink-0 pt-0.5">Returned By</dt>
-                    <dd>
-                        <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 text-xs font-semibold rounded-full bg-purple-50 text-purple-700 border border-purple-200">
-                            <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
-                                <path d="M3 10h10a8 8 0 018 8v2M3 10l6 6M3 10l6-6"/>
-                            </svg>
-                            {{ $requisition->returned_by }}
-                        </span>
-                    </dd>
+                    <dt class="text-xs font-medium text-gray-500 w-36 shrink-0">Returned By</dt>
+                    <dd class="text-sm font-semibold text-purple-700">{{ $requisition->returned_by }}</dd>
                 </div>
                 @endif
                 @if(!$approverName && !$takenBy && !$requisition->returned_by)
@@ -151,130 +155,95 @@
         </div>
     </div>
 
-    {{-- ── Notes Row ────────────────────────────────────────────────────────── --}}
+    {{-- Notes Row --}}
     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div class="bg-white rounded-xl border border-gray-200 shadow-sm px-6 py-5">
-            <h3 class="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-3">Department Notes</h3>
+            <h3 class="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-3 flex items-center gap-2">
+                <i class="fas fa-sticky-note text-gray-400"></i> Department Notes
+            </h3>
             <p class="text-sm text-gray-700 leading-relaxed">
                 {{ $requisition->department_notes ?: 'No notes provided.' }}
             </p>
         </div>
         @if($requisition->store_notes)
         <div class="bg-white rounded-xl border border-amber-200 shadow-sm px-6 py-5">
-            <h3 class="text-xs font-semibold uppercase tracking-wider text-amber-500 mb-3">Store Notes</h3>
+            <h3 class="text-xs font-semibold uppercase tracking-wider text-amber-500 mb-3 flex items-center gap-2">
+                <i class="fas fa-store text-amber-500"></i> Store Notes
+            </h3>
             <p class="text-sm text-gray-700 leading-relaxed whitespace-pre-line">{{ $requisition->store_notes }}</p>
         </div>
         @endif
     </div>
 
-    {{-- ── Items Table ──────────────────────────────────────────────────────── --}}
+    {{-- Items Table --}}
     <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-        <div class="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
-            <h3 class="text-xs font-semibold uppercase tracking-wider text-gray-400">Requested Items</h3>
-            <span class="text-xs text-gray-500">
-                {{ $requisition->items->count() }} item{{ $requisition->items->count() !== 1 ? 's' : '' }}
-            </span>
+        <div class="px-6 py-4 border-b border-gray-200">
+            <h3 class="text-xs font-semibold uppercase tracking-wider text-gray-400 flex items-center gap-2">
+                <i class="fas fa-boxes text-gray-400"></i> Requested Items
+            </h3>
         </div>
         <div class="overflow-x-auto">
             <table class="w-full text-sm">
                 <thead class="bg-gray-50 border-b border-gray-200">
                     <tr>
-                        <th class="px-4 py-3 text-left text-[10px] font-semibold uppercase tracking-wider text-gray-500">Item</th>
-                        <th class="px-4 py-3 text-left text-[10px] font-semibold uppercase tracking-wider text-gray-500">Metrics</th>
-                        <th class="px-4 py-3 text-center text-[10px] font-semibold uppercase tracking-wider text-gray-500">Requested</th>
-
-                        {{-- APPROVED --}}
-                        <th class="px-4 py-3 text-center text-[10px] font-semibold uppercase tracking-wider text-blue-600 border-l border-gray-200 bg-blue-50">
-                            Approved
-                        </th>
-
-                        {{-- ISSUED group --}}
-                        <th class="px-4 py-3 text-center text-[10px] font-semibold uppercase tracking-wider text-green-600 border-l border-gray-200 bg-green-50">
-                            Issued
-                        </th>
-
-                        {{-- RETURNED group --}}
-                        <th class="px-4 py-3 text-center text-[10px] font-semibold uppercase tracking-wider text-purple-600 border-l border-gray-200 bg-purple-50">
-                            Returned
-                        </th>
+                        <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600">Item</th>
+                        <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600">Unit</th>
+                        <th class="px-4 py-3 text-center text-xs font-semibold text-gray-600">Requested</th>
+                        <th class="px-4 py-3 text-center text-xs font-semibold text-blue-600 bg-blue-50">Approved</th>
+                        <th class="px-4 py-3 text-center text-xs font-semibold text-green-600 bg-green-50">Issued</th>
+                        <th class="px-4 py-3 text-center text-xs font-semibold text-purple-600 bg-purple-50">Returned</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-100">
                     @foreach($requisition->items as $item)
                     @php
-                        $unit          = $item->metrics ?? ($item->inventoryItem->base_unit ?? 'units');
+                        $unit          = $item->metrics ?? ($item->inventoryItem->unit_of_measurement ?? 'units');
                         $requested     = (float) $item->quantity_requested;
                         $approvedQty   = (float) ($item->quantity_approved ?? $requested);
                         $issuedTotal   = (float) ($item->issued_total_pieces ?? 0);
-                        $fullyIssued   = $issuedTotal >= $requested;
                         $returnedTotal = (float) ($item->returned_total_pieces ?? 0);
                     @endphp
                     <tr class="hover:bg-gray-50 transition-colors">
-
                         <td class="px-4 py-3">
                             <p class="font-medium text-gray-800 text-sm">{{ $item->inventoryItem->name ?? 'N/A' }}</p>
                             <p class="text-xs text-gray-400 mt-0.5 font-mono">{{ $item->inventoryItem->item_code ?? '' }}</p>
                         </td>
-
                         <td class="px-4 py-3 text-gray-500 text-sm">{{ $unit }}</td>
-
-                        {{-- Requested --}}
-                        <td class="px-4 py-3 text-center tabular-nums font-semibold text-gray-800">
-                            {{ number_format($requested, 2) }}
-                            <div class="text-xs text-gray-400 font-normal">{{ $unit }}</div>
-                        </td>
-
-                        {{-- Approved --}}
-                        <td class="px-4 py-3 text-center tabular-nums bg-blue-50 border-l border-gray-100">
+                        <td class="px-4 py-3 text-center font-semibold text-gray-800">{{ number_format($requested, 2) }}</td>
+                        <td class="px-4 py-3 text-center bg-blue-50">
                             <span class="font-semibold text-blue-700">{{ number_format($approvedQty, 2) }}</span>
-                            <div class="text-xs text-gray-400">{{ $unit }}</div>
                         </td>
-
-                        {{-- Issued Total --}}
-                        <td class="px-4 py-3 text-center tabular-nums font-semibold border-l border-gray-100">
+                        <td class="px-4 py-3 text-center">
                             @if($issuedTotal > 0)
-                                <span class="{{ $fullyIssued ? 'text-green-600' : 'text-orange-500' }}">
-                                    {{ number_format($issuedTotal, 2) }}
-                                    <span class="text-xs text-gray-400 font-normal">{{ $unit }}</span>
-                                </span>
+                                <span class="font-semibold text-green-600">{{ number_format($issuedTotal, 2) }}</span>
                             @else
                                 <span class="text-gray-300">—</span>
                             @endif
                         </td>
-
-                        {{-- Returned Total --}}
-                        <td class="px-4 py-3 text-center tabular-nums font-semibold border-l border-gray-100">
+                        <td class="px-4 py-3 text-center">
                             @if($returnedTotal > 0)
-                                <span class="text-purple-600">
-                                    {{ number_format($returnedTotal, 2) }}
-                                    <span class="text-xs text-gray-400 font-normal">{{ $unit }}</span>
-                                </span>
+                                <span class="font-semibold text-purple-600">{{ number_format($returnedTotal, 2) }}</span>
                             @else
                                 <span class="text-gray-300">—</span>
                             @endif
                         </td>
-
                     </tr>
                     @endforeach
                 </tbody>
-
                 <tfoot class="bg-gray-50 border-t-2 border-gray-200">
                     <tr>
-                        <td colspan="2" class="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Totals</td>
-                        <td class="px-4 py-3 text-center tabular-nums font-bold text-gray-800">
+                        <td colspan="2" class="px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Totals</td>
+                        <td class="px-4 py-3 text-center font-bold text-gray-800">
                             {{ number_format($requisition->items->sum('quantity_requested'), 2) }}
                         </td>
-                        <td class="px-4 py-3 text-center tabular-nums font-bold text-blue-600 bg-blue-50 border-l border-gray-200">
+                        <td class="px-4 py-3 text-center font-bold text-blue-600 bg-blue-50">
                             {{ number_format($requisition->items->sum('quantity_approved'), 2) }}
-                            <div class="text-xs text-gray-400 font-normal">base units</div>
                         </td>
-                        <td class="px-4 py-3 text-center tabular-nums font-bold text-green-600 border-l border-gray-200">
+                        <td class="px-4 py-3 text-center font-bold text-green-600">
                             {{ number_format($requisition->items->sum('issued_total_pieces'), 2) }}
-                            <div class="text-xs text-gray-400 font-normal">base units</div>
                         </td>
-                        <td class="px-4 py-3 text-center tabular-nums font-bold text-purple-600 border-l border-gray-200">
+                        <td class="px-4 py-3 text-center font-bold text-purple-600">
                             {{ number_format($requisition->items->sum('returned_total_pieces'), 2) }}
-                            <div class="text-xs text-gray-400 font-normal">base units</div>
                         </td>
                     </tr>
                 </tfoot>
@@ -282,65 +251,124 @@
         </div>
     </div>
 
-    {{-- ── Action Buttons ───────────────────────────────────────────────────── --}}
+    {{-- SIGNATURES SECTION - Professional Layout --}}
+    <div class="signatures-print mt-8 pt-6 border-t-2 border-dashed border-gray-300">
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+            <div class="text-center">
+                <div class="border-t border-gray-400 w-40 mx-auto mb-3"></div>
+                @if($requisition->requestedBy && $requisition->requestedBy->signature_path)
+                    <img src="{{ asset('storage/' . $requisition->requestedBy->signature_path) }}" alt="Requested By Signature" class="h-14 mx-auto mb-2 object-contain">
+                @else
+                    <div class="h-14 mb-2"></div>
+                @endif
+                <div class="font-semibold text-gray-800 text-sm">
+                    {{ trim(($requisition->requestedBy->first_name ?? '') . ' ' . ($requisition->requestedBy->last_name ?? '')) ?: '_________________' }}
+                </div>
+                <div class="text-xs text-gray-500 mt-1">Requested By</div>
+                <div class="text-xs text-gray-400 mt-0.5">{{ $requisition->created_at->format('F d, Y') }}</div>
+            </div>
 
-    @if($requisition->status === 'pending')
-    <div class="flex justify-end gap-3">
-        <button type="button" onclick="document.getElementById('rejectModal').classList.remove('hidden')"
-                class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium hidden text-red-600 border border-red-200 rounded-lg hover:bg-red-50 transition">
-            Reject
-        </button>
-        <form action="{{ route('store.department-requisitions.approve', $requisition->id) }}" method="POST">
-            @csrf
-            <button type="submit"
-                    class="inline-flex items-center gap-2 px-4 py-2 text-sm hidden font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition">
-                Approve Requisition
+            <div class="text-center">
+                <div class="border-t border-gray-400 w-40 mx-auto mb-3"></div>
+                @if($approver && $approver->signature_path)
+                    <img src="{{ asset('storage/' . $approver->signature_path) }}" alt="Approved By Signature" class="h-14 mx-auto mb-2 object-contain">
+                @else
+                    <div class="h-14 mb-2"></div>
+                @endif
+                <div class="font-semibold text-gray-800 text-sm">
+                    {{ $approverName ?: ($requisition->status == 'approved' ? 'Pending Signature' : '_________________') }}
+                </div>
+                <div class="text-xs text-gray-500 mt-1">Approved By</div>
+                <div class="text-xs text-gray-400 mt-0.5">
+                    {{ $requisition->approved_at ? date('F d, Y', strtotime($requisition->approved_at)) : '________' }}
+                </div>
+            </div>
+
+            <div class="text-center">
+                <div class="border-t border-gray-400 w-40 mx-auto mb-3"></div>
+                @if($issuedBy && $issuedBy->signature_path)
+                    <img src="{{ asset('storage/' . $issuedBy->signature_path) }}" alt="Issued By Signature" class="h-14 mx-auto mb-2 object-contain">
+                @else
+                    <div class="h-14 mb-2"></div>
+                @endif
+                <div class="font-semibold text-gray-800 text-sm">
+                    {{ $issuedBy ? (($issuedBy->first_name ?? '') . ' ' . ($issuedBy->last_name ?? '')) : ($takenBy ? 'Pending Signature' : '_________________') }}
+                </div>
+                <div class="text-xs text-gray-500 mt-1">Issued By</div>
+                <div class="text-xs text-gray-400 mt-0.5">
+                    {{ $issueMovement ? $issueMovement->created_at->format('F d, Y') : '________' }}
+                </div>
+            </div>
+
+            <div class="text-center">
+                <div class="border-t border-gray-400 w-40 mx-auto mb-3"></div>
+                <div class="h-14 mb-2"></div>
+                <div class="font-semibold text-gray-800 text-sm">
+                    {{ $takenBy ?: '_________________' }}
+                </div>
+                <div class="text-xs text-gray-500 mt-1">Received By</div>
+                <div class="text-xs text-gray-400 mt-0.5">
+                    {{ $issueMovement ? $issueMovement->created_at->format('F d, Y') : '________' }}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {{-- Action Buttons - Hidden when printing --}}
+    <div class="print-hide">
+        @if($requisition->status === 'pending')
+        <div class="flex justify-end gap-3 mt-6">
+            <button type="button" onclick="document.getElementById('rejectModal').classList.remove('hidden')"
+                    class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-red-600 border border-red-200 rounded-lg hover:bg-red-50 transition">
+                <i class="fas fa-times"></i> Reject
             </button>
-        </form>
+            <form action="{{ route('store.department-requisitions.approve', $requisition->id) }}" method="POST">
+                @csrf
+                <button type="submit"
+                        class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition">
+                    <i class="fas fa-check"></i> Approve Requisition
+                </button>
+            </form>
+        </div>
+        @endif
+
+        @if($requisition->status === 'approved')
+        <div class="flex justify-end mt-6">
+            <a href="{{ route('store.department-requisitions.issue-form', $requisition->id) }}"
+               class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-lg hover:bg-green-700 transition">
+                <i class="fas fa-truck"></i> Issue Items
+            </a>
+        </div>
+        @endif
+
+        @php
+            $canProcessReturn = in_array($requisition->status, ['issued', 'partially_issued', 'partially_returned', 'partially_consumed']);
+        @endphp
+
+        @if($canProcessReturn)
+        <div class="flex justify-end mt-4">
+            <a href="{{ route('store.department-requisitions.return-form', $requisition->id) }}"
+               class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-orange-600 rounded-lg hover:bg-orange-700 transition">
+                <i class="fas fa-undo-alt"></i> Process Return
+            </a>
+        </div>
+        @endif
     </div>
-    @endif
-
-    @if($requisition->status === 'approved')
-    <div class="flex justify-end">
-        <a href="{{ route('store.department-requisitions.issue-form', $requisition->id) }}"
-           class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-lg hover:bg-green-700 transition">
-            Issue Items
-        </a>
-    </div>
-    @endif
-
-    @php
-        $canProcessReturn = in_array($requisition->status, ['issued', 'partially_issued', 'partially_returned', 'partially_consumed']);
-    @endphp
-
-    @if($canProcessReturn)
-    <div class="flex justify-end mt-2">
-        <a href="{{ route('store.department-requisitions.return-form', $requisition->id) }}"
-           class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-orange-600 rounded-lg hover:bg-orange-700 transition">
-            Process Return
-        </a>
-    </div>
-    @endif
-
 </div>
 
-{{-- ── Rejection Modal ──────────────────────────────────────────────────────── --}}
-<div id="rejectModal" class="fixed inset-0 z-50 flex items-center justify-center hidden" style="background:rgba(0,0,0,0.45)">
+{{-- Rejection Modal --}}
+<div id="rejectModal" class="fixed inset-0 z-50 flex items-center justify-center hidden print-hide" style="background:rgba(0,0,0,0.45)">
     <div class="bg-white rounded-xl shadow-xl w-full max-w-md mx-4 overflow-hidden">
         <div class="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
             <div class="flex items-center gap-2">
                 <div class="w-7 h-7 rounded-full bg-red-100 flex items-center justify-center shrink-0">
-                    <svg class="w-3.5 h-3.5 text-red-600" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
-                        <path d="M18 6 6 18M6 6l12 12"/>
-                    </svg>
+                    <i class="fas fa-times text-red-600 text-sm"></i>
                 </div>
                 <h3 class="text-sm font-semibold text-gray-900">Reject Requisition</h3>
             </div>
             <button onclick="document.getElementById('rejectModal').classList.add('hidden')"
                     class="text-gray-400 hover:text-gray-600 transition">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
-                    <path d="M18 6 6 18M6 6l12 12"/>
-                </svg>
+                <i class="fas fa-times"></i>
             </button>
         </div>
         <form action="{{ route('store.department-requisitions.reject', $requisition->id) }}" method="POST">
@@ -349,17 +377,12 @@
                 <label class="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-2">
                     Reason for rejection <span class="text-red-500">*</span>
                 </label>
-                <textarea
-                    name="rejection_reason"
-                    rows="4"
-                    required
+                <textarea name="rejection_reason" rows="4" required
                     placeholder="Please provide a reason for rejecting this requisition…"
-                    class="w-full text-sm px-3 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-400 focus:border-transparent resize-none text-gray-800 placeholder-gray-400"
-                ></textarea>
+                    class="w-full text-sm px-3 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-400 focus:border-transparent resize-none"></textarea>
             </div>
             <div class="px-6 py-4 bg-gray-50 border-t border-gray-200 flex justify-end gap-3">
-                <button type="button"
-                        onclick="document.getElementById('rejectModal').classList.add('hidden')"
+                <button type="button" onclick="document.getElementById('rejectModal').classList.add('hidden')"
                         class="px-4 py-2 text-sm font-medium text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-100 transition">
                     Cancel
                 </button>
@@ -372,10 +395,130 @@
     </div>
 </div>
 
+<style>
+    /* Print Styles - Professional Document */
+    @media print {
+        /* Hide all print-hide elements */
+        .print-hide {
+            display: none !important;
+        }
+
+        /* Show print header */
+        .print-header {
+            display: block !important;
+        }
+
+        /* Reset body for print */
+        body {
+            background: white !important;
+            padding: 0 !important;
+            margin: 0 !important;
+            font-family: 'Segoe UI', 'Arial', sans-serif !important;
+        }
+
+        /* Ensure all containers have white background */
+        .bg-white, .rounded-xl, .border, .shadow-sm {
+            background: white !important;
+            box-shadow: none !important;
+            border-color: #e5e7eb !important;
+        }
+
+        /* Remove borders on print for cleaner look */
+        .border-t-2 {
+            border-top: 1px solid #d1d5db !important;
+        }
+
+        /* Ensure signatures display properly */
+        .signatures-print {
+            margin-top: 40px !important;
+            page-break-inside: avoid !important;
+        }
+
+        /* Keep table borders clean */
+        table {
+            border-collapse: collapse !important;
+            width: 100% !important;
+        }
+
+        th, td {
+            border: 1px solid #e5e7eb !important;
+            padding: 8px !important;
+        }
+
+        thead th {
+            background: #f9fafb !important;
+        }
+
+        /* Page break controls */
+        .page-break-before {
+            page-break-before: always !important;
+        }
+
+        .page-break-inside-avoid {
+            page-break-inside: avoid !important;
+        }
+
+        /* Signature images */
+        img {
+            max-height: 60px !important;
+            max-width: 180px !important;
+            object-fit: contain !important;
+        }
+
+        /* Hide icons on print */
+        i, .fas, .far {
+            display: none !important;
+        }
+
+        /* Professional spacing */
+        .mt-8 {
+            margin-top: 2rem !important;
+        }
+
+        .pt-6 {
+            padding-top: 1.5rem !important;
+        }
+
+        /* Ensure text is readable */
+        .text-gray-400, .text-gray-500 {
+            color: #6b7280 !important;
+        }
+
+        .text-gray-800, .text-gray-900 {
+            color: #1f2937 !important;
+        }
+
+        /* Keep grid layout for signatures on print */
+        .grid {
+            display: grid !important;
+        }
+
+        .grid-cols-1 {
+            grid-template-columns: repeat(1, minmax(0, 1fr)) !important;
+        }
+
+        .md\:grid-cols-4 {
+            grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+        }
+
+        .gap-6 {
+            gap: 1.5rem !important;
+        }
+    }
+
+    /* Print header - hidden by default */
+    .print-header {
+        display: none;
+    }
+</style>
+
 <script>
-    document.getElementById('rejectModal').addEventListener('click', function(e) {
+    document.getElementById('rejectModal')?.addEventListener('click', function(e) {
         if (e.target === this) this.classList.add('hidden');
     });
-</script>
 
+    function printRequisition() {
+        window.print();
+    }
+</script>
 @endsection
