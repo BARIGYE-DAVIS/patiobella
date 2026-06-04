@@ -42,6 +42,9 @@
     .beverage-row {
         background-color: #e0f2fe;
     }
+    .stock-row {
+        background-color: #f0fdf4;
+    }
 </style>
 
 <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
@@ -97,6 +100,7 @@
 
 <script>
 let menuItemsData = [];
+let stockItemsData = [];
 
 document.getElementById('loadBtn').addEventListener('click', function() {
     const departmentId = document.getElementById('department_id').value;
@@ -113,8 +117,9 @@ function loadDepartmentData(departmentId) {
     fetch(`/management/performance/department-stock-data/${departmentId}`)
         .then(response => response.json())
         .then(data => {
-            if (data.success && data.items && data.items.length > 0) {
-                menuItemsData = data.items;
+            if (data.success) {
+                menuItemsData = data.items || [];
+                stockItemsData = data.stock_items || [];
                 renderTable();
             } else {
                 showEmpty(data.message || 'No menu items found for this department.');
@@ -130,31 +135,27 @@ function renderTable() {
     const container = document.getElementById('itemsContainer');
 
     let html = `
-        <table class="stock-table">
-            <thead>
-                <tr>
-                    <th rowspan="2">MENU ITEM</th>
-                    <th rowspan="2">QUANTITY<br>SOLD</th>
-                    <th rowspan="2">SELLING<br>PRICE</th>
-                    <th colspan="4">INGREDIENTS</th>
-                    <th colspan="5">GENERAL STOCK</th>
-                    <th rowspan="2">COGS</th>
-                    <th rowspan="2">PROFIT<br>MARGIN</th>
-                    <th rowspan="2">PROFIT/<br>MARK UP</th>
-                </tr>
-                <tr>
-                    <th>NAME</th>
-                    <th>QUANTITY</th>
-                    <th>UOM</th>
-                    <th>COST</th>
-                    <th>ITEM NAME</th>
-                    <th>UOM</th>
-                    <th>OPENING</th>
-                    <th>USED</th>
-                    <th>CLOSING</th>
-                </tr>
-            </thead>
-            <tbody>
+        <div style="margin-bottom: 30px;">
+            <h4 class="font-semibold text-gray-800 mb-2">MENU ITEMS & INGREDIENTS</h4>
+            <table class="stock-table">
+                <thead>
+                    <tr>
+                        <th rowspan="2">MENU ITEM</th>
+                        <th rowspan="2">QUANTITY<br>SOLD</th>
+                        <th rowspan="2">SELLING<br>PRICE</th>
+                        <th colspan="4">INGREDIENTS</th>
+                        <th rowspan="2">COGS</th>
+                        <th rowspan="2">PROFIT<br>MARGIN</th>
+                        <th rowspan="2">PROFIT/<br>MARK UP</th>
+                    </tr>
+                    <tr>
+                        <th>NAME</th>
+                        <th>QUANTITY</th>
+                        <th>UOM</th>
+                        <th>COST</th>
+                    </tr>
+                </thead>
+                <tbody>
     `;
 
     for (let mi = 0; mi < menuItemsData.length; mi++) {
@@ -169,59 +170,86 @@ function renderTable() {
 
             html += `<tr class="${item.is_beverage ? 'beverage-row' : 'ingredient-row'}">`;
 
-            // MENU ITEM, QUANTITY SOLD, SELLING PRICE (span multiple rows)
             if (isFirstRow) {
                 html += `<td rowspan="${rowspan}" class="font-semibold">${escapeHtml(item.menu_item_name)}</td>`;
                 html += `<td rowspan="${rowspan}"><input type="number" class="stock-input qty-sold" data-menu-index="${mi}" value="0" step="1" min="0"></td>`;
                 html += `<td rowspan="${rowspan}"><input type="number" class="stock-input selling-price" data-menu-index="${mi}" value="${item.selling_price}" step="100" min="0"></td>`;
             }
 
-            // INGREDIENTS columns
             html += `<td>${escapeHtml(ing.inventory_item_name)}</td>`;
             html += `<td><input type="text" class="stock-input readonly-input" value="${ing.quantity_required}" readonly></td>`;
             html += `<td>${escapeHtml(ing.uom)}</td>`;
             html += `<td class="font-mono">${formatMoney(ing.unit_cost)}</td>`;
 
-            // GENERAL STOCK columns (5 columns: ITEM NAME, UOM, OPENING, USED, CLOSING)
-            html += `<td>${escapeHtml(ing.inventory_item_name)}</td>`;
-            html += `<td>${escapeHtml(ing.uom)}</td>`;
-            html += `<td><input type="number" class="stock-input opening-stock" data-menu-index="${mi}" data-ing-index="${ig}" value="${ing.opening_stock}" step="1" min="0"></td>`;
-            html += `<td class="used-display-${mi}-${ig}">0</td>`;
-            html += `<td class="closing-display-${mi}-${ig}">${ing.opening_stock}</td>`;
-
-            // COGS, PROFIT MARGIN, PROFIT MARK UP (only on first row)
             if (isFirstRow) {
                 html += `<td rowspan="${rowspan}"><span class="cogs-display-${mi}">0 UGX</span></td>`;
                 html += `<td rowspan="${rowspan}"><span class="margin-display-${mi}">0%</span></td>`;
                 html += `<td rowspan="${rowspan}"><span class="profit-display-${mi}">0 UGX</span></td>`;
             }
 
-            // Hidden fields for database storage
+            // Hidden fields for submission
             html += `<input type="hidden" class="inventory-id-${mi}-${ig}" value="${ing.inventory_item_id}">`;
             html += `<input type="hidden" class="quantity-required-${mi}-${ig}" value="${ing.quantity_required}">`;
             html += `<input type="hidden" class="unit-cost-hidden-${mi}-${ig}" value="${ing.unit_cost}">`;
             html += `<input type="hidden" class="used-hidden-${mi}-${ig}" value="0">`;
-            html += `<input type="hidden" class="opening-hidden-${mi}-${ig}" value="${ing.opening_stock}">`;
-            html += `<input type="hidden" class="closing-hidden-${mi}-${ig}" value="${ing.opening_stock}">`;
 
             html += `</tr>`;
         }
     }
 
     html += `
-            </tbody>
-            <tfoot class="bg-gray-100 font-semibold">
-                <tr>
-                    <td colspan="8" class="text-right">TOTALS:</td>
-                    <td id="totalOpening">0</td>
-                    <td id="totalUsed">0</td>
-                    <td id="totalClosing">0</td>
-                    <td id="totalCogs">0 UGX</td>
-                    <td id="totalMargin">0%</td>
-                    <td id="totalProfit">0 UGX</td>
-                </tr>
-            </tfoot>
-        </table>
+                </tbody>
+            </table>
+        </div>
+
+        <div>
+            <h4 class="font-semibold text-gray-800 mb-2">GENERAL STOCK</h4>
+            <table class="stock-table">
+                <thead>
+                    <tr>
+                        <th>ITEM NAME</th>
+                        <th>UOM</th>
+                        <th>OPENING</th>
+                        <th>USED</th>
+                        <th>CLOSING</th>
+                    </tr>
+                </thead>
+                <tbody>
+    `;
+
+    for (let si = 0; si < stockItemsData.length; si++) {
+        const stockItem = stockItemsData[si];
+
+        html += `
+            <tr class="stock-row" data-stock-index="${si}">
+                <td>${escapeHtml(stockItem.inventory_item_name)}</td>
+                <td>${escapeHtml(stockItem.uom)}</td>
+                <td><input type="number" class="stock-input opening-stock-input" data-stock-index="${si}" value="${stockItem.opening_stock}" step="1" min="0"></td>
+                <td class="stock-used-display-${si}">0</td>
+                <td class="stock-closing-display-${si}">${stockItem.opening_stock}</td>
+            </tr>
+        `;
+
+        // Hidden fields for stock items
+        html += `<input type="hidden" class="stock-inventory-id-${si}" value="${stockItem.inventory_item_id}">`;
+        html += `<input type="hidden" class="stock-unit-cost-${si}" value="${stockItem.unit_cost}">`;
+        html += `<input type="hidden" class="stock-opening-hidden-${si}" value="${stockItem.opening_stock}">`;
+        html += `<input type="hidden" class="stock-used-hidden-${si}" value="0">`;
+        html += `<input type="hidden" class="stock-closing-hidden-${si}" value="${stockItem.opening_stock}">`;
+    }
+
+    html += `
+                </tbody>
+                <tfoot class="bg-gray-100 font-semibold">
+                    <tr>
+                        <td colspan="2" class="text-right">TOTALS:</td>
+                        <td id="totalOpening">0</td>
+                        <td id="totalUsed">0</td>
+                        <td id="totalClosing">0</td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
     `;
 
     container.innerHTML = html;
@@ -234,6 +262,7 @@ function attachEventListeners() {
         input.addEventListener('input', function() {
             const menuIndex = parseInt(this.dataset.menuIndex);
             calculateMenuRow(menuIndex);
+            calculateAllUsage();
             calculateTotals();
         });
     });
@@ -247,22 +276,22 @@ function attachEventListeners() {
         });
     });
 
-    // Opening stock inputs
-    document.querySelectorAll('.opening-stock').forEach(input => {
+    // Opening stock inputs for GENERAL STOCK
+    document.querySelectorAll('.opening-stock-input').forEach(input => {
         input.addEventListener('input', function() {
-            const menuIndex = parseInt(this.dataset.menuIndex);
-            const ingIndex = parseInt(this.dataset.ingIndex);
+            const stockIndex = parseInt(this.dataset.stockIndex);
             const value = parseFloat(this.value) || 0;
-
-            const used = parseFloat(document.querySelector(`.used-hidden-${menuIndex}-${ingIndex}`)?.value) || 0;
+            const used = parseFloat(document.querySelector(`.stock-used-hidden-${stockIndex}`)?.value) || 0;
             let closing = value - used;
             if (closing < 0) closing = 0;
 
-            const closingDisplay = document.querySelector(`.closing-display-${menuIndex}-${ingIndex}`);
-            const closingHidden = document.querySelector(`.closing-hidden-${menuIndex}-${ingIndex}`);
+            const closingDisplay = document.querySelector(`.stock-closing-display-${stockIndex}`);
+            const closingHidden = document.querySelector(`.stock-closing-hidden-${stockIndex}`);
+            const openingHidden = document.querySelector(`.stock-opening-hidden-${stockIndex}`);
 
             if (closingDisplay) closingDisplay.innerText = closing;
             if (closingHidden) closingHidden.value = closing;
+            if (openingHidden) openingHidden.value = value;
 
             calculateTotals();
         });
@@ -283,25 +312,18 @@ function calculateMenuRow(menuIndex) {
         const ing = ingredients[ig];
         const quantityRequired = ing.quantity_required;
         const unitCost = ing.unit_cost;
-        const openingStock = parseFloat(document.querySelector(`.opening-stock[data-menu-index="${menuIndex}"][data-ing-index="${ig}"]`)?.value) || 0;
 
-        // USED = Quantity Sold × Quantity Required
         const used = qtySold * quantityRequired;
-        let closing = openingStock - used;
-        if (closing < 0) closing = 0;
 
-        // Update displays
-        const usedDisplay = document.querySelector(`.used-display-${menuIndex}-${ig}`);
-        const closingDisplay = document.querySelector(`.closing-display-${menuIndex}-${ig}`);
         const usedHidden = document.querySelector(`.used-hidden-${menuIndex}-${ig}`);
-        const closingHidden = document.querySelector(`.closing-hidden-${menuIndex}-${ig}`);
-
-        if (usedDisplay) usedDisplay.innerText = used.toFixed(2);
-        if (closingDisplay) closingDisplay.innerText = closing.toFixed(2);
         if (usedHidden) usedHidden.value = used;
-        if (closingHidden) closingHidden.value = closing;
+    }
 
-        // Calculate COGS
+    for (let ig = 0; ig < numIngredients; ig++) {
+        const ing = ingredients[ig];
+        const unitCost = ing.unit_cost;
+        const used = parseFloat(document.querySelector(`.used-hidden-${menuIndex}-${ig}`)?.value) || 0;
+
         const cogs = used * unitCost;
         totalCogs += cogs;
     }
@@ -310,7 +332,6 @@ function calculateMenuRow(menuIndex) {
     const profit = totalRevenue - totalCogs;
     const profitMargin = totalRevenue > 0 ? (profit / totalRevenue) * 100 : 0;
 
-    // Update menu row totals
     const cogsDisplay = document.querySelector(`.cogs-display-${menuIndex}`);
     const marginDisplay = document.querySelector(`.margin-display-${menuIndex}`);
     const profitDisplay = document.querySelector(`.profit-display-${menuIndex}`);
@@ -320,47 +341,75 @@ function calculateMenuRow(menuIndex) {
     if (profitDisplay) profitDisplay.innerText = formatMoney(profit);
 }
 
+function calculateAllUsage() {
+    // Reset all stock used values to 0
+    for (let si = 0; si < stockItemsData.length; si++) {
+        document.querySelector(`.stock-used-hidden-${si}`).value = 0;
+    }
+
+    // Calculate total used for each stock item across all menu items
+    for (let mi = 0; mi < menuItemsData.length; mi++) {
+        const item = menuItemsData[mi];
+        const qtySold = parseFloat(document.querySelector(`.qty-sold[data-menu-index="${mi}"]`)?.value) || 0;
+
+        if (qtySold === 0) continue;
+
+        const ingredients = item.ingredients;
+
+        for (let ig = 0; ig < ingredients.length; ig++) {
+            const ing = ingredients[ig];
+            const inventoryItemId = ing.inventory_item_id;
+            const quantityRequired = ing.quantity_required;
+            const used = qtySold * quantityRequired;
+
+            // Find matching stock item
+            for (let si = 0; si < stockItemsData.length; si++) {
+                const stockItemId = stockItemsData[si].inventory_item_id;
+                if (stockItemId == inventoryItemId) {
+                    const currentUsed = parseFloat(document.querySelector(`.stock-used-hidden-${si}`)?.value) || 0;
+                    const newUsed = currentUsed + used;
+                    document.querySelector(`.stock-used-hidden-${si}`).value = newUsed;
+
+                    // Update display
+                    const usedDisplay = document.querySelector(`.stock-used-display-${si}`);
+                    if (usedDisplay) usedDisplay.innerText = newUsed.toFixed(2);
+
+                    // Update closing
+                    const opening = parseFloat(document.querySelector(`.opening-stock-input[data-stock-index="${si}"]`)?.value) || 0;
+                    let closing = opening - newUsed;
+                    if (closing < 0) closing = 0;
+
+                    const closingDisplay = document.querySelector(`.stock-closing-display-${si}`);
+                    const closingHidden = document.querySelector(`.stock-closing-hidden-${si}`);
+                    if (closingDisplay) closingDisplay.innerText = closing;
+                    if (closingHidden) closingHidden.value = closing;
+
+                    break;
+                }
+            }
+        }
+    }
+}
+
 function calculateTotals() {
     let totalOpening = 0;
     let totalUsed = 0;
     let totalClosing = 0;
-    let totalCogs = 0;
-    let totalRevenue = 0;
-    let totalProfit = 0;
 
-    for (let mi = 0; mi < menuItemsData.length; mi++) {
-        const item = menuItemsData[mi];
-        const numIngredients = item.ingredients.length;
-        const qtySold = parseFloat(document.querySelector(`.qty-sold[data-menu-index="${mi}"]`)?.value) || 0;
-        const sellingPrice = parseFloat(document.querySelector(`.selling-price[data-menu-index="${mi}"]`)?.value) || 0;
+    for (let si = 0; si < stockItemsData.length; si++) {
+        const opening = parseFloat(document.querySelector(`.opening-stock-input[data-stock-index="${si}"]`)?.value) || 0;
+        const used = parseFloat(document.querySelector(`.stock-used-hidden-${si}`)?.value) || 0;
+        let closing = opening - used;
+        if (closing < 0) closing = 0;
 
-        let menuCogs = 0;
-
-        for (let ig = 0; ig < numIngredients; ig++) {
-            const opening = parseFloat(document.querySelector(`.opening-stock[data-menu-index="${mi}"][data-ing-index="${ig}"]`)?.value) || 0;
-            const used = parseFloat(document.querySelector(`.used-hidden-${mi}-${ig}`)?.value) || 0;
-            const closing = parseFloat(document.querySelector(`.closing-hidden-${mi}-${ig}`)?.value) || 0;
-            const unitCost = parseFloat(document.querySelector(`.unit-cost-hidden-${mi}-${ig}`)?.value) || 0;
-
-            totalOpening += opening;
-            totalUsed += used;
-            totalClosing += closing;
-            menuCogs += used * unitCost;
-        }
-
-        totalCogs += menuCogs;
-        totalRevenue += qtySold * sellingPrice;
-        totalProfit += (qtySold * sellingPrice) - menuCogs;
+        totalOpening += opening;
+        totalUsed += used;
+        totalClosing += closing;
     }
-
-    const totalMargin = totalRevenue > 0 ? (totalProfit / totalRevenue) * 100 : 0;
 
     document.getElementById('totalOpening').innerText = totalOpening.toFixed(2);
     document.getElementById('totalUsed').innerText = totalUsed.toFixed(2);
     document.getElementById('totalClosing').innerText = totalClosing.toFixed(2);
-    document.getElementById('totalCogs').innerText = formatMoney(totalCogs);
-    document.getElementById('totalMargin').innerText = totalMargin.toFixed(1) + '%';
-    document.getElementById('totalProfit').innerText = formatMoney(totalProfit);
 }
 
 function formatMoney(amount) {
@@ -401,7 +450,7 @@ function escapeHtml(str) {
     });
 }
 
-// Form submission - stores ALL data to database
+// Form submission
 document.getElementById('performanceForm').addEventListener('submit', function(e) {
     e.preventDefault();
 
@@ -429,9 +478,20 @@ document.getElementById('performanceForm').addEventListener('submit', function(e
             const inventoryItemId = document.querySelector(`.inventory-id-${mi}-${ig}`)?.value;
             const quantityRequired = parseFloat(document.querySelector(`.quantity-required-${mi}-${ig}`)?.value) || 0;
             const usedQuantity = parseFloat(document.querySelector(`.used-hidden-${mi}-${ig}`)?.value) || 0;
-            const openingStock = parseFloat(document.querySelector(`.opening-stock[data-menu-index="${mi}"][data-ing-index="${ig}"]`)?.value) || 0;
-            const closingStock = parseFloat(document.querySelector(`.closing-hidden-${mi}-${ig}`)?.value) || 0;
             const unitCost = parseFloat(document.querySelector(`.unit-cost-hidden-${mi}-${ig}`)?.value) || 0;
+
+            // Find opening and closing from stock items
+            let openingStock = 0;
+            let closingStock = 0;
+
+            for (let si = 0; si < stockItemsData.length; si++) {
+                const stockItemId = stockItemsData[si].inventory_item_id;
+                if (stockItemId == inventoryItemId) {
+                    openingStock = parseFloat(document.querySelector(`.opening-stock-input[data-stock-index="${si}"]`)?.value) || 0;
+                    closingStock = parseFloat(document.querySelector(`.stock-closing-hidden-${si}`)?.value) || 0;
+                    break;
+                }
+            }
 
             ingredients.push({
                 inventory_item_id: inventoryItemId,
