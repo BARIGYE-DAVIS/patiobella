@@ -59,7 +59,10 @@ class Vendor extends Model
         return $query->where('payment_method', $method);
     }
 
+    // =====================================================
     // Relationships
+    // =====================================================
+
     public function creator()
     {
         return $this->belongsTo(User::class, 'created_by');
@@ -80,17 +83,56 @@ class Vendor extends Model
         return $this->hasMany(GoodsReceivedNote::class, 'vendor_id');
     }
 
-    // Alias for goodsReceivedNotes
     public function grns()
     {
         return $this->hasMany(GoodsReceivedNote::class, 'vendor_id');
     }
 
-    // Rating relationships
     public function ratings()
     {
         return $this->hasMany(VendorRating::class, 'vendor_id');
     }
+
+    // =====================================================
+    // NEW: Categories Relationship (Many-to-Many)
+    // =====================================================
+
+    /**
+     * Categories that this vendor supplies
+     */
+    public function categories()
+    {
+        return $this->belongsToMany(Category::class, 'vendor_categories')
+                    ->withTimestamps();
+    }
+
+    /**
+     * Get category IDs supplied by this vendor
+     */
+    public function getCategoryIdsAttribute()
+    {
+        return $this->categories->pluck('id')->toArray();
+    }
+
+    /**
+     * Check if vendor supplies a specific category
+     */
+    public function suppliesCategory($categoryId)
+    {
+        return $this->categories()->where('category_id', $categoryId)->exists();
+    }
+
+    /**
+     * Sync categories supplied by this vendor
+     */
+    public function syncCategories($categoryIds)
+    {
+        $this->categories()->sync($categoryIds);
+    }
+
+    // =====================================================
+    // Rating Methods
+    // =====================================================
 
     public function updateAverageRating()
     {

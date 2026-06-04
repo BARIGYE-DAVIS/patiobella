@@ -45,6 +45,50 @@
     .stock-row {
         background-color: #f0fdf4;
     }
+    .side-by-side {
+        display: flex;
+        gap: 20px;
+        overflow-x: auto;
+    }
+    .menu-section {
+        flex: 2;
+        min-width: 800px;
+    }
+    .stock-section {
+        flex: 1;
+        min-width: 300px;
+    }
+    .section-title {
+        font-size: 14px;
+        font-weight: bold;
+        margin-bottom: 10px;
+        padding: 8px;
+        background-color: #e5e7eb;
+        border-radius: 6px;
+    }
+    .totals-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 15px;
+    }
+    .total-card {
+        background: white;
+        border-radius: 12px;
+        padding: 12px;
+        text-align: center;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        border: 1px solid #e5e7eb;
+    }
+    .total-label {
+        font-size: 11px;
+        text-transform: uppercase;
+        color: #6b7280;
+        margin-bottom: 5px;
+    }
+    .total-value {
+        font-size: 20px;
+        font-weight: bold;
+    }
 </style>
 
 <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
@@ -81,10 +125,37 @@
                 </div>
             </div>
 
-            <div id="itemsContainer" class="overflow-x-auto">
-                <div class="text-center py-8 text-gray-400 border-2 border-dashed rounded-lg">
+            <div id="itemsContainer" class="side-by-side">
+                <div class="text-center py-8 text-gray-400 border-2 border-dashed rounded-lg w-full">
                     <i class="fas fa-utensils text-3xl mb-2 block"></i>
                     <p>Select a department and click "Load Menu Items"</p>
+                </div>
+            </div>
+
+            <!-- TOTALS SECTION -->
+            <div id="totalsSection" class="mt-6 p-4 bg-gray-100 rounded-lg border border-gray-200" style="display: none;">
+                <h4 class="font-semibold text-gray-800 mb-3">SUMMARY TOTALS</h4>
+                <div class="totals-grid">
+                    <div class="total-card">
+                        <div class="total-label">TOTAL SALES</div>
+                        <div class="total-value text-emerald-600" id="totalSalesAmount">0 UGX</div>
+                    </div>
+                    <div class="total-card">
+                        <div class="total-label">TOTAL COGS</div>
+                        <div class="total-value text-red-600" id="totalCogsAmount">0 UGX</div>
+                    </div>
+                    <div class="total-card">
+                        <div class="total-label">TOTAL PROFIT</div>
+                        <div class="total-value text-blue-600" id="totalProfitAmount">0 UGX</div>
+                    </div>
+                    <div class="total-card">
+                        <div class="total-label">AVERAGE PROFIT MARGIN</div>
+                        <div class="total-value text-purple-600" id="avgMarginDisplay">0%</div>
+                    </div>
+                    <div class="total-card">
+                        <div class="total-label">AVERAGE PROFIT</div>
+                        <div class="total-value text-orange-600" id="avgProfitDisplay">0 UGX</div>
+                    </div>
                 </div>
             </div>
 
@@ -120,28 +191,31 @@ function loadDepartmentData(departmentId) {
             if (data.success) {
                 menuItemsData = data.items || [];
                 stockItemsData = data.stock_items || [];
-                renderTable();
+                renderSideBySide();
+                document.getElementById('totalsSection').style.display = 'block';
             } else {
                 showEmpty(data.message || 'No menu items found for this department.');
+                document.getElementById('totalsSection').style.display = 'none';
             }
         })
         .catch(error => {
             console.error('Error:', error);
             showEmpty('Failed to load data. Please try again.');
+            document.getElementById('totalsSection').style.display = 'none';
         });
 }
 
-function renderTable() {
+function renderSideBySide() {
     const container = document.getElementById('itemsContainer');
 
     let html = `
-        <div style="margin-bottom: 30px;">
-            <h4 class="font-semibold text-gray-800 mb-2">MENU ITEMS & INGREDIENTS</h4>
+        <div class="menu-section">
+            <div class="section-title">MENU ITEMS & INGREDIENTS</div>
             <table class="stock-table">
                 <thead>
                     <tr>
                         <th rowspan="2">MENU ITEM</th>
-                        <th rowspan="2">QUANTITY<br>SOLD</th>
+                        <th rowspan="2">QTY<br>SOLD</th>
                         <th rowspan="2">SELLING<br>PRICE</th>
                         <th colspan="4">INGREDIENTS</th>
                         <th rowspan="2">COGS</th>
@@ -150,7 +224,7 @@ function renderTable() {
                     </tr>
                     <tr>
                         <th>NAME</th>
-                        <th>QUANTITY</th>
+                        <th>QTY</th>
                         <th>UOM</th>
                         <th>COST</th>
                     </tr>
@@ -187,7 +261,7 @@ function renderTable() {
                 html += `<td rowspan="${rowspan}"><span class="profit-display-${mi}">0 UGX</span></td>`;
             }
 
-            // Hidden fields for submission
+            // Hidden fields
             html += `<input type="hidden" class="inventory-id-${mi}-${ig}" value="${ing.inventory_item_id}">`;
             html += `<input type="hidden" class="quantity-required-${mi}-${ig}" value="${ing.quantity_required}">`;
             html += `<input type="hidden" class="unit-cost-hidden-${mi}-${ig}" value="${ing.unit_cost}">`;
@@ -202,12 +276,12 @@ function renderTable() {
             </table>
         </div>
 
-        <div>
-            <h4 class="font-semibold text-gray-800 mb-2">GENERAL STOCK</h4>
+        <div class="stock-section">
+            <div class="section-title">GENERAL STOCK</div>
             <table class="stock-table">
                 <thead>
                     <tr>
-                        <th>ITEM NAME</th>
+                        <th>ITEM</th>
                         <th>UOM</th>
                         <th>OPENING</th>
                         <th>USED</th>
@@ -221,7 +295,7 @@ function renderTable() {
         const stockItem = stockItemsData[si];
 
         html += `
-            <tr class="stock-row" data-stock-index="${si}">
+            <tr class="stock-row">
                 <td>${escapeHtml(stockItem.inventory_item_name)}</td>
                 <td>${escapeHtml(stockItem.uom)}</td>
                 <td><input type="number" class="stock-input opening-stock-input" data-stock-index="${si}" value="${stockItem.opening_stock}" step="1" min="0"></td>
@@ -230,7 +304,7 @@ function renderTable() {
             </tr>
         `;
 
-        // Hidden fields for stock items
+        // Hidden fields
         html += `<input type="hidden" class="stock-inventory-id-${si}" value="${stockItem.inventory_item_id}">`;
         html += `<input type="hidden" class="stock-unit-cost-${si}" value="${stockItem.unit_cost}">`;
         html += `<input type="hidden" class="stock-opening-hidden-${si}" value="${stockItem.opening_stock}">`;
@@ -257,26 +331,24 @@ function renderTable() {
 }
 
 function attachEventListeners() {
-    // Quantity sold inputs
     document.querySelectorAll('.qty-sold').forEach(input => {
         input.addEventListener('input', function() {
             const menuIndex = parseInt(this.dataset.menuIndex);
             calculateMenuRow(menuIndex);
             calculateAllUsage();
             calculateTotals();
+            calculateSummaryTotals();
         });
     });
 
-    // Selling price inputs
     document.querySelectorAll('.selling-price').forEach(input => {
         input.addEventListener('input', function() {
             const menuIndex = parseInt(this.dataset.menuIndex);
             calculateMenuRow(menuIndex);
-            calculateTotals();
+            calculateSummaryTotals();
         });
     });
 
-    // Opening stock inputs for GENERAL STOCK
     document.querySelectorAll('.opening-stock-input').forEach(input => {
         input.addEventListener('input', function() {
             const stockIndex = parseInt(this.dataset.stockIndex);
@@ -285,13 +357,9 @@ function attachEventListeners() {
             let closing = value - used;
             if (closing < 0) closing = 0;
 
-            const closingDisplay = document.querySelector(`.stock-closing-display-${stockIndex}`);
-            const closingHidden = document.querySelector(`.stock-closing-hidden-${stockIndex}`);
-            const openingHidden = document.querySelector(`.stock-opening-hidden-${stockIndex}`);
-
-            if (closingDisplay) closingDisplay.innerText = closing;
-            if (closingHidden) closingHidden.value = closing;
-            if (openingHidden) openingHidden.value = value;
+            document.querySelector(`.stock-closing-display-${stockIndex}`).innerText = closing;
+            document.querySelector(`.stock-closing-hidden-${stockIndex}`).value = closing;
+            document.querySelector(`.stock-opening-hidden-${stockIndex}`).value = value;
 
             calculateTotals();
         });
@@ -301,89 +369,57 @@ function attachEventListeners() {
 function calculateMenuRow(menuIndex) {
     const item = menuItemsData[menuIndex];
     const ingredients = item.ingredients;
-    const numIngredients = ingredients.length;
-
     const qtySold = parseFloat(document.querySelector(`.qty-sold[data-menu-index="${menuIndex}"]`)?.value) || 0;
     const sellingPrice = parseFloat(document.querySelector(`.selling-price[data-menu-index="${menuIndex}"]`)?.value) || 0;
 
     let totalCogs = 0;
 
-    for (let ig = 0; ig < numIngredients; ig++) {
-        const ing = ingredients[ig];
-        const quantityRequired = ing.quantity_required;
-        const unitCost = ing.unit_cost;
-
+    for (let ig = 0; ig < ingredients.length; ig++) {
+        const quantityRequired = ingredients[ig].quantity_required;
+        const unitCost = ingredients[ig].unit_cost;
         const used = qtySold * quantityRequired;
 
-        const usedHidden = document.querySelector(`.used-hidden-${menuIndex}-${ig}`);
-        if (usedHidden) usedHidden.value = used;
-    }
-
-    for (let ig = 0; ig < numIngredients; ig++) {
-        const ing = ingredients[ig];
-        const unitCost = ing.unit_cost;
-        const used = parseFloat(document.querySelector(`.used-hidden-${menuIndex}-${ig}`)?.value) || 0;
-
-        const cogs = used * unitCost;
-        totalCogs += cogs;
+        document.querySelector(`.used-hidden-${menuIndex}-${ig}`).value = used;
+        totalCogs += used * unitCost;
     }
 
     const totalRevenue = qtySold * sellingPrice;
     const profit = totalRevenue - totalCogs;
     const profitMargin = totalRevenue > 0 ? (profit / totalRevenue) * 100 : 0;
 
-    const cogsDisplay = document.querySelector(`.cogs-display-${menuIndex}`);
-    const marginDisplay = document.querySelector(`.margin-display-${menuIndex}`);
-    const profitDisplay = document.querySelector(`.profit-display-${menuIndex}`);
-
-    if (cogsDisplay) cogsDisplay.innerText = formatMoney(totalCogs);
-    if (marginDisplay) marginDisplay.innerText = profitMargin.toFixed(1) + '%';
-    if (profitDisplay) profitDisplay.innerText = formatMoney(profit);
+    document.querySelector(`.cogs-display-${menuIndex}`).innerText = formatMoney(totalCogs);
+    document.querySelector(`.margin-display-${menuIndex}`).innerText = profitMargin.toFixed(1) + '%';
+    document.querySelector(`.profit-display-${menuIndex}`).innerText = formatMoney(profit);
 }
 
 function calculateAllUsage() {
-    // Reset all stock used values to 0
     for (let si = 0; si < stockItemsData.length; si++) {
         document.querySelector(`.stock-used-hidden-${si}`).value = 0;
     }
 
-    // Calculate total used for each stock item across all menu items
     for (let mi = 0; mi < menuItemsData.length; mi++) {
-        const item = menuItemsData[mi];
         const qtySold = parseFloat(document.querySelector(`.qty-sold[data-menu-index="${mi}"]`)?.value) || 0;
-
         if (qtySold === 0) continue;
 
-        const ingredients = item.ingredients;
+        const ingredients = menuItemsData[mi].ingredients;
 
         for (let ig = 0; ig < ingredients.length; ig++) {
             const ing = ingredients[ig];
             const inventoryItemId = ing.inventory_item_id;
-            const quantityRequired = ing.quantity_required;
-            const used = qtySold * quantityRequired;
+            const used = qtySold * ing.quantity_required;
 
-            // Find matching stock item
             for (let si = 0; si < stockItemsData.length; si++) {
-                const stockItemId = stockItemsData[si].inventory_item_id;
-                if (stockItemId == inventoryItemId) {
+                if (stockItemsData[si].inventory_item_id == inventoryItemId) {
                     const currentUsed = parseFloat(document.querySelector(`.stock-used-hidden-${si}`)?.value) || 0;
                     const newUsed = currentUsed + used;
                     document.querySelector(`.stock-used-hidden-${si}`).value = newUsed;
+                    document.querySelector(`.stock-used-display-${si}`).innerText = newUsed.toFixed(2);
 
-                    // Update display
-                    const usedDisplay = document.querySelector(`.stock-used-display-${si}`);
-                    if (usedDisplay) usedDisplay.innerText = newUsed.toFixed(2);
-
-                    // Update closing
                     const opening = parseFloat(document.querySelector(`.opening-stock-input[data-stock-index="${si}"]`)?.value) || 0;
                     let closing = opening - newUsed;
                     if (closing < 0) closing = 0;
-
-                    const closingDisplay = document.querySelector(`.stock-closing-display-${si}`);
-                    const closingHidden = document.querySelector(`.stock-closing-hidden-${si}`);
-                    if (closingDisplay) closingDisplay.innerText = closing;
-                    if (closingHidden) closingHidden.value = closing;
-
+                    document.querySelector(`.stock-closing-display-${si}`).innerText = closing;
+                    document.querySelector(`.stock-closing-hidden-${si}`).value = closing;
                     break;
                 }
             }
@@ -392,19 +428,12 @@ function calculateAllUsage() {
 }
 
 function calculateTotals() {
-    let totalOpening = 0;
-    let totalUsed = 0;
-    let totalClosing = 0;
+    let totalOpening = 0, totalUsed = 0, totalClosing = 0;
 
     for (let si = 0; si < stockItemsData.length; si++) {
-        const opening = parseFloat(document.querySelector(`.opening-stock-input[data-stock-index="${si}"]`)?.value) || 0;
-        const used = parseFloat(document.querySelector(`.stock-used-hidden-${si}`)?.value) || 0;
-        let closing = opening - used;
-        if (closing < 0) closing = 0;
-
-        totalOpening += opening;
-        totalUsed += used;
-        totalClosing += closing;
+        totalOpening += parseFloat(document.querySelector(`.opening-stock-input[data-stock-index="${si}"]`)?.value) || 0;
+        totalUsed += parseFloat(document.querySelector(`.stock-used-hidden-${si}`)?.value) || 0;
+        totalClosing += parseFloat(document.querySelector(`.stock-closing-hidden-${si}`)?.value) || 0;
     }
 
     document.getElementById('totalOpening').innerText = totalOpening.toFixed(2);
@@ -412,32 +441,48 @@ function calculateTotals() {
     document.getElementById('totalClosing').innerText = totalClosing.toFixed(2);
 }
 
+function calculateSummaryTotals() {
+    let totalSales = 0;
+    let totalCogs = 0;
+    let totalProfit = 0;
+    let itemCount = 0;
+
+    for (let mi = 0; mi < menuItemsData.length; mi++) {
+        const qtySold = parseFloat(document.querySelector(`.qty-sold[data-menu-index="${mi}"]`)?.value) || 0;
+        if (qtySold === 0) continue;
+
+        const sellingPrice = parseFloat(document.querySelector(`.selling-price[data-menu-index="${mi}"]`)?.value) || 0;
+        const salesAmount = qtySold * sellingPrice;
+
+        const cogsText = document.querySelector(`.cogs-display-${mi}`)?.innerText || '0 UGX';
+        const cogs = parseFloat(cogsText.replace(' UGX', '').replace(/,/g, '')) || 0;
+
+        totalSales += salesAmount;
+        totalCogs += cogs;
+        totalProfit += (salesAmount - cogs);
+        itemCount++;
+    }
+
+    const avgMargin = totalSales > 0 ? (totalProfit / totalSales) * 100 : 0;
+    const avgProfit = itemCount > 0 ? totalProfit / itemCount : 0;
+
+    document.getElementById('totalSalesAmount').innerText = formatMoney(totalSales);
+    document.getElementById('totalCogsAmount').innerText = formatMoney(totalCogs);
+    document.getElementById('totalProfitAmount').innerText = formatMoney(totalProfit);
+    document.getElementById('avgMarginDisplay').innerText = avgMargin.toFixed(1) + '%';
+    document.getElementById('avgProfitDisplay').innerText = formatMoney(avgProfit);
+}
+
 function formatMoney(amount) {
     return Math.round(parseFloat(amount) || 0).toLocaleString('en-UG') + ' UGX';
 }
 
 function showLoading() {
-    const container = document.getElementById('itemsContainer');
-    if (container) {
-        container.innerHTML = `
-            <div class="text-center py-8 text-gray-400">
-                <i class="fas fa-spinner fa-spin text-2xl mb-2"></i>
-                <p>Loading menu items...</p>
-            </div>
-        `;
-    }
+    document.getElementById('itemsContainer').innerHTML = `<div class="text-center py-8 text-gray-400 w-full"><i class="fas fa-spinner fa-spin text-2xl mb-2"></i><p>Loading menu items...</p></div>`;
 }
 
 function showEmpty(message) {
-    const container = document.getElementById('itemsContainer');
-    if (container) {
-        container.innerHTML = `
-            <div class="text-center py-8 text-gray-400 border-2 border-dashed rounded-lg">
-                <i class="fas fa-utensils text-3xl mb-2 block"></i>
-                <p>${message}</p>
-            </div>
-        `;
-    }
+    document.getElementById('itemsContainer').innerHTML = `<div class="text-center py-8 text-gray-400 border-2 border-dashed rounded-lg w-full"><i class="fas fa-utensils text-3xl mb-2 block"></i><p>${message}</p></div>`;
 }
 
 function escapeHtml(str) {
@@ -480,13 +525,9 @@ document.getElementById('performanceForm').addEventListener('submit', function(e
             const usedQuantity = parseFloat(document.querySelector(`.used-hidden-${mi}-${ig}`)?.value) || 0;
             const unitCost = parseFloat(document.querySelector(`.unit-cost-hidden-${mi}-${ig}`)?.value) || 0;
 
-            // Find opening and closing from stock items
-            let openingStock = 0;
-            let closingStock = 0;
-
+            let openingStock = 0, closingStock = 0;
             for (let si = 0; si < stockItemsData.length; si++) {
-                const stockItemId = stockItemsData[si].inventory_item_id;
-                if (stockItemId == inventoryItemId) {
+                if (stockItemsData[si].inventory_item_id == inventoryItemId) {
                     openingStock = parseFloat(document.querySelector(`.opening-stock-input[data-stock-index="${si}"]`)?.value) || 0;
                     closingStock = parseFloat(document.querySelector(`.stock-closing-hidden-${si}`)?.value) || 0;
                     break;

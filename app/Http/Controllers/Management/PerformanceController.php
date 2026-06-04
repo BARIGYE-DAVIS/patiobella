@@ -49,12 +49,14 @@ class PerformanceController extends Controller
 
     /**
      * Get current department stock for an inventory item
+     * Formula: SUM(issued_total_pieces) - SUM(quantity_sold + quantity_consumed + quantity_returned)
      */
     private function getDepartmentStock($departmentId, $inventoryItemId)
     {
         $stock = DepartmentRequisitionItem::whereHas('requisition', function($query) use ($departmentId) {
                 $query->where('department_id', $departmentId)
-                      ->where('status', '!=', 'cancelled');
+                      ->where('status', '!=', 'cancelled')
+                      ->where('status', '!=', 'rejected');
             })
             ->where('inventory_item_id', $inventoryItemId)
             ->select(DB::raw('
@@ -111,139 +113,136 @@ class PerformanceController extends Controller
 
     /**
      * Get department data with menu items, recipes, and current stock
+     * Returns:
+     * - items: menu items with their ingredients (for INGREDIENTS section)
+     * - stock_items: unique inventory items with current stock (for GENERAL STOCK section)
      */
-    /**
- * Get department data with menu items, recipes, and current stock
- * GENERAL STOCK shows each inventory item ONCE with total usage across all menu items
- */
-public function getDepartmentStockData($departmentId, Request $request)
-{
-    try {
-        $department = Department::find($departmentId);
-        if (!$department) {
-            return response()->json(['success' => false, 'message' => 'Department not found'], 404);
-        }
+    public function getDepartmentStockData($departmentId, Request $request)
+    {
+        try {
+            $department = Department::find($departmentId);
+            if (!$department) {
+                return response()->json(['success' => false, 'message' => 'Department not found'], 404);
+            }
 
-        // Get all menu items for this department
-        $menuItems = MenuItem::whereHas('menu', function($query) use ($departmentId) {
-                $query->where('department_id', $departmentId);
-            })
-            ->where('is_active', true)
-            ->get();
-
-        $menuItemsData = [];
-        $stockItemsMap = []; // To track unique inventory items for GENERAL STOCK
-
-        foreach ($menuItems as $menuItem) {
-            // Get recipe ingredients for this menu item
-            $recipeItems = RecipeItem::where('menu_item_id', $menuItem->id)
-                ->with('inventoryItem')
+            // Get all menu items for this department
+            $menuItems = MenuItem::whereHas('menu', function($query) use ($departmentId) {
+                    $query->where('department_id', $departmentId);
+                })
+                ->where('is_active', true)
                 ->get();
 
-            if ($recipeItems->isEmpty()) {
-                // Beverage item - has direct inventory_item_id
-                $inventoryItemId = $menuItem->inventory_item_id;
+            $menuItemsData = [];
+            $stockItemsMap = []; // For unique inventory items
 
-                if ($inventoryItemId) {
-                    $inventoryItem = InventoryItem::find($inventoryItemId);
-                    $openingStock = $this->getDepartmentStock($departmentId, $inventoryItemId);
+            foreach ($menuItems as $menuItem) {
+                $recipeItems = RecipeItem::where('menu_item_id', $menuItem->id)
+                    ->with('inventoryItem')
+                    ->get();
 
-                    $menuItemsData[] = [
-                        'menu_item_id' => $menuItem->id,
-                        'menu_item_name' => $menuItem->name,
-                        'selling_price' => (float)$menuItem->selling_price,
-                        'is_beverage' => true,
-                        'ingredients' => [
-                            [
-                                'inventory_item_id' => $inventoryItemId,
-                                'inventory_item_name' => $inventoryItem ? $inventoryItem->name : 'Unknown',
-                                'uom' => $inventoryItem ? ($inventoryItem->unit_of_measurement ?? 'piece') : 'piece',
-                                'quantity_required' => 1,
-                                'unit_cost' => (float)($menuItem->m_cost ?? 0),
-                            ]
-                        ]
-                    ];
+                if ($recipeItems->isEmpty()) {
+                    // Beverage item - has direct inventory_item_id
+                    $inventoryItemId = $menuItem->inventory_item_id;
 
-                    // Track for GENERAL STOCK
-                    if (!isset($stockItemsMap[$inventoryItemId])) {
-                        $stockItemsMap[$inventoryItemId] = [
-                            'inventory_item_id' => $inventoryItemId,
-                            'inventory_item_name' => $inventoryItem ? $inventoryItem->name : 'Unknown',
-                            'uom' => $inventoryItem ? ($inventoryItem->unit_of_measurement ?? 'piece') : 'piece',
-                            'opening_stock' => $openingStock,
-                            'unit_cost' => (float)($menuItem->m_cost ?? 0),
-                            'total_used' => 0,
-                        ];
-                    }
-                }
-            } else {
-                // Recipe item - has multiple ingredients
-                $ingredients = [];
-
-                foreach ($recipeItems as $recipe) {
-                    if ($recipe->inventoryItem) {
-                        $inventoryItemId = $recipe->inventory_item_id;
+                    if ($inventoryItemId) {
+                        $inventoryItem = InventoryItem::find($inventoryItemId);
                         $openingStock = $this->getDepartmentStock($departmentId, $inventoryItemId);
-                        $quantityRequired = (float)$recipe->quantity_required;
 
-                        $ingredients[] = [
-                            'inventory_item_id' => $inventoryItemId,
-                            'inventory_item_name' => $recipe->inventoryItem->name,
-                            'uom' => $recipe->inventoryItem->unit_of_measurement ?? 'piece',
-                            'quantity_required' => $quantityRequired,
-                            'unit_cost' => (float)($menuItem->m_cost ?? 0),
+                        $menuItemsData[] = [
+                            'menu_item_id' => $menuItem->id,
+                            'menu_item_name' => $menuItem->name,
+                            'selling_price' => (float)$menuItem->selling_price,
+                            'is_beverage' => true,
+                            'ingredients' => [
+                                [
+                                    'inventory_item_id' => $inventoryItemId,
+                                    'inventory_item_name' => $inventoryItem ? $inventoryItem->name : 'Unknown',
+                                    'uom' => $inventoryItem ? ($inventoryItem->unit_of_measurement ?? 'piece') : 'piece',
+                                    'quantity_required' => 1,
+                                    'unit_cost' => (float)($menuItem->m_cost ?? 0),
+                                ]
+                            ]
                         ];
 
                         // Track for GENERAL STOCK
                         if (!isset($stockItemsMap[$inventoryItemId])) {
                             $stockItemsMap[$inventoryItemId] = [
                                 'inventory_item_id' => $inventoryItemId,
-                                'inventory_item_name' => $recipe->inventoryItem->name,
-                                'uom' => $recipe->inventoryItem->unit_of_measurement ?? 'piece',
+                                'inventory_item_name' => $inventoryItem ? $inventoryItem->name : 'Unknown',
+                                'uom' => $inventoryItem ? ($inventoryItem->unit_of_measurement ?? 'piece') : 'piece',
                                 'opening_stock' => $openingStock,
                                 'unit_cost' => (float)($menuItem->m_cost ?? 0),
-                                'total_used' => 0,
                             ];
                         }
                     }
+                } else {
+                    // Recipe item - has multiple ingredients
+                    $ingredients = [];
+
+                    foreach ($recipeItems as $recipe) {
+                        if ($recipe->inventoryItem) {
+                            $inventoryItemId = $recipe->inventory_item_id;
+                            $openingStock = $this->getDepartmentStock($departmentId, $inventoryItemId);
+                            $quantityRequired = (float)$recipe->quantity_required;
+
+                            $ingredients[] = [
+                                'inventory_item_id' => $inventoryItemId,
+                                'inventory_item_name' => $recipe->inventoryItem->name,
+                                'uom' => $recipe->inventoryItem->unit_of_measurement ?? 'piece',
+                                'quantity_required' => $quantityRequired,
+                                'unit_cost' => (float)($menuItem->m_cost ?? 0),
+                            ];
+
+                            // Track for GENERAL STOCK
+                            if (!isset($stockItemsMap[$inventoryItemId])) {
+                                $stockItemsMap[$inventoryItemId] = [
+                                    'inventory_item_id' => $inventoryItemId,
+                                    'inventory_item_name' => $recipe->inventoryItem->name,
+                                    'uom' => $recipe->inventoryItem->unit_of_measurement ?? 'piece',
+                                    'opening_stock' => $openingStock,
+                                    'unit_cost' => (float)($menuItem->m_cost ?? 0),
+                                ];
+                            }
+                        }
+                    }
+
+                    $menuItemsData[] = [
+                        'menu_item_id' => $menuItem->id,
+                        'menu_item_name' => $menuItem->name,
+                        'selling_price' => (float)$menuItem->selling_price,
+                        'is_beverage' => false,
+                        'ingredients' => $ingredients,
+                    ];
                 }
-
-                $menuItemsData[] = [
-                    'menu_item_id' => $menuItem->id,
-                    'menu_item_name' => $menuItem->name,
-                    'selling_price' => (float)$menuItem->selling_price,
-                    'is_beverage' => false,
-                    'ingredients' => $ingredients,
-                ];
             }
+
+            return response()->json([
+                'success' => true,
+                'items' => $menuItemsData,
+                'stock_items' => array_values($stockItemsMap),
+                'department_name' => $department->name,
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('getDepartmentStockData error', [
+                'department_id' => $departmentId,
+                'error' => $e->getMessage(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to load department data: ' . $e->getMessage(),
+            ], 500);
         }
-
-        return response()->json([
-            'success' => true,
-            'items' => $menuItemsData,
-            'stock_items' => array_values($stockItemsMap), // GENERAL STOCK data (unique items)
-            'department_name' => $department->name,
-        ]);
-
-    } catch (\Exception $e) {
-        Log::error('getDepartmentStockData error', [
-            'department_id' => $departmentId,
-            'error' => $e->getMessage(),
-        ]);
-
-        return response()->json([
-            'success' => false,
-            'message' => 'Failed to load department data: ' . $e->getMessage(),
-        ], 500);
     }
-}
+
     /**
      * Store performance stock take data
      */
     public function store(Request $request)
     {
         if (!$this->checkAuthorization()) {
-            return redirect()->route('dashboard')->with('error', 'Unauthorized access.');
+            return response()->json(['success' => false, 'message' => 'Unauthorized access.'], 403);
         }
 
         $validated = $request->validate([
@@ -288,7 +287,6 @@ public function getDepartmentStockData($departmentId, Request $request)
                 $salesAmount = $quantitySold * $sellingPrice;
 
                 $totalSales += $salesAmount;
-
                 $menuItemCogs = 0;
 
                 foreach ($saleData['ingredients'] as $ingredient) {
@@ -310,7 +308,7 @@ public function getDepartmentStockData($departmentId, Request $request)
                         'selling_price' => $sellingPrice,
                         'cogs' => $ingredientCogs,
                         'sales_amount' => $salesAmount,
-                        'profit' => 0,
+                        'profit' => 0, // Will be updated later
                         'profit_margin' => 0,
                     ]);
                 }
@@ -318,6 +316,28 @@ public function getDepartmentStockData($departmentId, Request $request)
                 $totalCogs += $menuItemCogs;
                 $profit = $salesAmount - $menuItemCogs;
                 $totalProfit += $profit;
+            }
+
+            // Update profit and margin for each performance item
+            foreach ($validated['sales_data'] as $saleData) {
+                $quantitySold = (float)$saleData['quantity_sold'];
+                $sellingPrice = (float)$saleData['selling_price'];
+                $salesAmount = $quantitySold * $sellingPrice;
+
+                $itemCogs = PerformanceItem::where('performance_report_id', $report->id)
+                    ->where('menu_item_id', $saleData['menu_item_id'])
+                    ->sum('cogs');
+
+                $profit = $salesAmount - $itemCogs;
+                $profitMargin = $salesAmount > 0 ? ($profit / $salesAmount) * 100 : 0;
+
+                PerformanceItem::where('performance_report_id', $report->id)
+                    ->where('menu_item_id', $saleData['menu_item_id'])
+                    ->update([
+                        'profit' => $profit,
+                        'profit_margin' => $profitMargin,
+                        'sales_amount' => $salesAmount,
+                    ]);
             }
 
             $profitMargin = $totalSales > 0 ? ($totalProfit / $totalSales) * 100 : 0;
@@ -337,8 +357,11 @@ public function getDepartmentStockData($departmentId, Request $request)
                 'department_id' => $validated['department_id'],
             ]);
 
-            return redirect()->route('management.performance.show', $report->id)
-                ->with('success', 'Performance stock take saved successfully.');
+            return response()->json([
+                'success' => true,
+                'redirect' => route('management.performance.show', $report->id),
+                'message' => 'Performance stock take saved successfully.'
+            ]);
 
         } catch (\Exception $e) {
             DB::rollBack();
@@ -347,9 +370,11 @@ public function getDepartmentStockData($departmentId, Request $request)
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString(),
             ]);
-            return redirect()->back()
-                ->with('error', 'Failed to save performance stock take: ' . $e->getMessage())
-                ->withInput();
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to save performance stock take: ' . $e->getMessage(),
+            ], 500);
         }
     }
 
@@ -419,5 +444,47 @@ public function getDepartmentStockData($departmentId, Request $request)
         }
 
         return 'PERF-' . $year . $month . '-' . $newNumber;
+    }
+
+    /**
+     * Get chart data for dashboard
+     */
+    public function chartData(Request $request)
+    {
+        if (!$this->checkAuthorization()) {
+            return response()->json(['success' => false, 'message' => 'Unauthorized'], 403);
+        }
+
+        $departmentId = $request->get('department_id');
+        $days = $request->get('days', 30);
+
+        $reports = PerformanceReport::with(['items.menuItem'])
+            ->when($departmentId, function($query) use ($departmentId) {
+                return $query->where('department_id', $departmentId);
+            })
+            ->where('report_date', '>=', now()->subDays($days))
+            ->orderBy('report_date', 'asc')
+            ->get();
+
+        $chartData = [
+            'dates' => [],
+            'sales' => [],
+            'cogs' => [],
+            'profit' => [],
+            'margins' => [],
+        ];
+
+        foreach ($reports as $report) {
+            $chartData['dates'][] = $report->report_date->format('Y-m-d');
+            $chartData['sales'][] = $report->total_sales;
+            $chartData['cogs'][] = $report->total_cogs;
+            $chartData['profit'][] = $report->total_profit;
+            $chartData['margins'][] = round($report->profit_margin, 2);
+        }
+
+        return response()->json([
+            'success' => true,
+            'data' => $chartData,
+        ]);
     }
 }

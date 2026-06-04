@@ -152,6 +152,16 @@
         border-color: #fbbf24;
         box-shadow: 0 2px 8px rgba(0,0,0,0.05);
     }
+    .category-badge {
+        display: inline-block;
+        background: #e0f2fe;
+        color: #0369a1;
+        padding: 4px 10px;
+        border-radius: 20px;
+        font-size: 11px;
+        font-weight: 500;
+        margin: 2px;
+    }
 </style>
 @endpush
 
@@ -381,22 +391,38 @@
             </div>
         </div>
 
-        {{-- Additional Information --}}
+        {{-- Categories Supplied --}}
         <div class="bg-white rounded-xl border border-gray-200 overflow-hidden info-card">
             <div class="px-5 py-3 bg-gradient-to-r from-gray-50 to-white border-b border-gray-200">
                 <h4 class="info-section-title mb-0">
-                    <i class="fas fa-info-circle"></i> Additional Information
+                    <i class="fas fa-tags"></i> Categories Supplied
                 </h4>
             </div>
             <div class="p-5">
-                <div class="detail-row">
-                    <span class="detail-label"><i class="fas fa-tags mr-2 text-gray-400"></i> Payment Terms</span>
-                    <span class="detail-value">{{ $vendor->payment_terms ?? 'Net 30' }}</span>
-                </div>
-                <div class="detail-row">
-                    <span class="detail-label"><i class="fas fa-sticky-note mr-2 text-gray-400"></i> Notes</span>
-                    <span class="detail-value">{{ $vendor->notes ?? '—' }}</span>
-                </div>
+                @if($vendor->categories && $vendor->categories->count() > 0)
+                    <div class="flex flex-wrap gap-1">
+                        @foreach($vendor->categories as $category)
+                            <span class="category-badge">{{ $category->name }}</span>
+                        @endforeach
+                    </div>
+                @else
+                    <p class="text-gray-400 text-sm">No categories assigned yet</p>
+                @endif
+            </div>
+        </div>
+    </div>
+
+    {{-- Additional Information --}}
+    <div class="bg-white rounded-xl border border-gray-200 overflow-hidden info-card">
+        <div class="px-5 py-3 bg-gradient-to-r from-gray-50 to-white border-b border-gray-200">
+            <h4 class="info-section-title mb-0">
+                <i class="fas fa-info-circle"></i> Additional Information
+            </h4>
+        </div>
+        <div class="p-5">
+            <div class="detail-row">
+                <span class="detail-label"><i class="fas fa-sticky-note mr-2 text-gray-400"></i> Notes</span>
+                <span class="detail-value">{{ $vendor->notes ?? '—' }}</span>
             </div>
         </div>
     </div>
