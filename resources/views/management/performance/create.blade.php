@@ -1,5 +1,3 @@
-{{-- resources/views/management/performance/create.blade.php --}}
-
 @extends('layouts.management')
 
 @section('title', 'Performance Stock Take')
@@ -7,87 +5,90 @@
 
 @section('content')
 <style>
-    input[type="number"] {
-        -moz-appearance: textfield;
-        appearance: textfield;
+    .stock-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 13px;
     }
-    input[type="number"]::-webkit-inner-spin-button,
-    input[number]::-webkit-outer-spin-button {
-        -webkit-appearance: none;
-        margin: 0;
+    .stock-table th, .stock-table td {
+        border: 1px solid #e5e7eb;
+        padding: 8px 6px;
+        vertical-align: middle;
     }
-    .used-qty {
-        background-color: #eff6ff;
+    .stock-table th {
+        background-color: #f9fafb;
+        font-weight: 600;
+        text-align: center;
     }
-    .used-qty:focus {
+    .stock-input {
+        width: 100%;
+        padding: 6px 8px;
+        border: 1px solid #d1d5db;
+        border-radius: 6px;
+        text-align: center;
+        font-size: 13px;
+    }
+    .stock-input:focus {
         outline: none;
         border-color: #3b82f6;
         ring: 2px solid #3b82f6;
     }
+    .readonly-input {
+        background-color: #f3f4f6;
+    }
+    .ingredient-row {
+        background-color: #fefce8;
+    }
+    .beverage-row {
+        background-color: #e0f2fe;
+    }
 </style>
 
 <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
-    <div class="px-4 sm:px-6 py-4 border-b border-gray-200 bg-gray-50">
-        <h3 class="text-lg font-semibold text-gray-800 flex items-center gap-2">
-            <i class="fas fa-clipboard-list text-blue-600"></i>
+    <div class="px-4 py-4 border-b border-gray-200 bg-gray-50">
+        <h3 class="text-lg font-semibold text-gray-800">
+            <i class="fas fa-clipboard-list text-blue-600 mr-2"></i>
             Performance Stock Take
         </h3>
-        <p class="text-xs text-gray-500 mt-1">
-            Opening stock loads from current department stock. Enter Used quantity. Closing and COGS calculate automatically.
-        </p>
+        <p class="text-xs text-gray-500 mt-1">Enter quantity sold for each menu item. System calculates ingredient usage and stock automatically.</p>
     </div>
 
-    <div class="p-4 sm:p-6">
-        <form method="POST" action="{{ route('management.performance.store') }}" id="stockForm">
+    <div class="p-4">
+        <form method="POST" action="{{ route('management.performance.store') }}" id="performanceForm">
             @csrf
 
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6 mb-6">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
                 <div>
-                    <label class="block text-xs font-semibold text-gray-700 mb-1">
-                        Department <span class="text-red-500">*</span>
-                    </label>
-                    <select name="department_id" id="department_id" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500" required>
+                    <label class="block text-xs font-semibold text-gray-700 mb-1">Department *</label>
+                    <select name="department_id" id="department_id" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" required>
                         <option value="">Select Department</option>
                         @foreach($departments as $department)
-                            <option value="{{ $department->id }}" {{ request('department_id') == $department->id ? 'selected' : '' }}>
-                                {{ $department->name }}
-                            </option>
+                            <option value="{{ $department->id }}">{{ $department->name }}</option>
                         @endforeach
                     </select>
                 </div>
-
                 <div>
-                    <label class="block text-xs font-semibold text-gray-700 mb-1">
-                        Stock Take Date
-                    </label>
-                    <input type="text" id="stock_date_display" value="{{ date('d M Y') }}"
-                           class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-gray-100 text-gray-600" readonly>
-                    <input type="hidden" name="stock_date" id="stock_date" value="{{ date('Y-m-d') }}">
+                    <label class="block text-xs font-semibold text-gray-700 mb-1">Report Date</label>
+                    <input type="date" name="report_date" id="report_date" value="{{ date('Y-m-d') }}" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                </div>
+                <div class="flex items-end">
+                    <button type="button" id="loadBtn" class="w-full px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg">
+                        <i class="fas fa-refresh"></i> Load Menu Items
+                    </button>
                 </div>
             </div>
 
-            <div class="mt-6 mb-3">
-                <h4 class="font-semibold text-gray-700">Department Inventory Items</h4>
-                <p class="text-xs text-gray-400 mt-1">
-                    <i class="fas fa-info-circle text-blue-500 mr-1"></i>
-                    <strong>Only enter Used quantity.</strong> Opening is auto-loaded from current department stock.
-                </p>
-            </div>
-
-            {{-- Container for items --}}
-            <div id="itemsContainer">
-                <div class="text-center py-8 text-gray-400">
-                    <i class="fas fa-spinner fa-spin text-2xl mb-2"></i>
-                    <p>Select a department to load items...</p>
+            <div id="itemsContainer" class="overflow-x-auto">
+                <div class="text-center py-8 text-gray-400 border-2 border-dashed rounded-lg">
+                    <i class="fas fa-utensils text-3xl mb-2 block"></i>
+                    <p>Select a department and click "Load Menu Items"</p>
                 </div>
             </div>
 
-            <div class="flex justify-end gap-3 mt-6 pt-4 border-t border-gray-200">
-                <a href="{{ route('management.performance.index') }}" class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 sm:px-5 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2">
-                    <i class="fas fa-times"></i> Cancel
-                </a>
-                <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white px-4 sm:px-5 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2">
-                    <i class="fas fa-save"></i> Save Stock Take
+            <div class="flex justify-end gap-3 mt-6 pt-4 border-t">
+                <a href="{{ route('management.performance.index') }}" class="px-5 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm font-medium rounded-lg">Cancel</a>
+                <button type="submit" class="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg">
+                    <i class="fas fa-save"></i> Save Report
                 </button>
             </div>
         </form>
@@ -95,294 +96,393 @@
 </div>
 
 <script>
-    let allItems = [];
-    let currentView = 'desktop';
+let menuItemsData = [];
 
-    document.getElementById('department_id').addEventListener('change', function() {
-        const departmentId = this.value;
-        if (departmentId) {
-            loadDepartmentData(departmentId);
-        } else {
-            showLoadingMessage('Select a department to load items...');
+document.getElementById('loadBtn').addEventListener('click', function() {
+    const departmentId = document.getElementById('department_id').value;
+    if (!departmentId) {
+        alert('Please select a department first.');
+        return;
+    }
+    loadDepartmentData(departmentId);
+});
+
+function loadDepartmentData(departmentId) {
+    showLoading();
+
+    fetch(`/management/performance/department-stock-data/${departmentId}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success && data.items && data.items.length > 0) {
+                menuItemsData = data.items;
+                renderTable();
+            } else {
+                showEmpty(data.message || 'No menu items found for this department.');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showEmpty('Failed to load data. Please try again.');
+        });
+}
+
+function renderTable() {
+    const container = document.getElementById('itemsContainer');
+
+    let html = `
+        <table class="stock-table">
+            <thead>
+                <tr>
+                    <th rowspan="2">MENU ITEM</th>
+                    <th rowspan="2">QUANTITY<br>SOLD</th>
+                    <th rowspan="2">SELLING<br>PRICE</th>
+                    <th colspan="4">INGREDIENTS</th>
+                    <th colspan="5">GENERAL STOCK</th>
+                    <th rowspan="2">COGS</th>
+                    <th rowspan="2">PROFIT<br>MARGIN</th>
+                    <th rowspan="2">PROFIT/<br>MARK UP</th>
+                </tr>
+                <tr>
+                    <th>NAME</th>
+                    <th>QUANTITY</th>
+                    <th>UOM</th>
+                    <th>COST</th>
+                    <th>ITEM NAME</th>
+                    <th>UOM</th>
+                    <th>OPENING</th>
+                    <th>USED</th>
+                    <th>CLOSING</th>
+                </tr>
+            </thead>
+            <tbody>
+    `;
+
+    for (let mi = 0; mi < menuItemsData.length; mi++) {
+        const item = menuItemsData[mi];
+        const ingredients = item.ingredients;
+        const numIngredients = ingredients.length;
+
+        for (let ig = 0; ig < numIngredients; ig++) {
+            const ing = ingredients[ig];
+            const isFirstRow = (ig === 0);
+            const rowspan = isFirstRow ? numIngredients : 1;
+
+            html += `<tr class="${item.is_beverage ? 'beverage-row' : 'ingredient-row'}">`;
+
+            // MENU ITEM, QUANTITY SOLD, SELLING PRICE (span multiple rows)
+            if (isFirstRow) {
+                html += `<td rowspan="${rowspan}" class="font-semibold">${escapeHtml(item.menu_item_name)}</td>`;
+                html += `<td rowspan="${rowspan}"><input type="number" class="stock-input qty-sold" data-menu-index="${mi}" value="0" step="1" min="0"></td>`;
+                html += `<td rowspan="${rowspan}"><input type="number" class="stock-input selling-price" data-menu-index="${mi}" value="${item.selling_price}" step="100" min="0"></td>`;
+            }
+
+            // INGREDIENTS columns
+            html += `<td>${escapeHtml(ing.inventory_item_name)}</td>`;
+            html += `<td><input type="text" class="stock-input readonly-input" value="${ing.quantity_required}" readonly></td>`;
+            html += `<td>${escapeHtml(ing.uom)}</td>`;
+            html += `<td class="font-mono">${formatMoney(ing.unit_cost)}</td>`;
+
+            // GENERAL STOCK columns (5 columns: ITEM NAME, UOM, OPENING, USED, CLOSING)
+            html += `<td>${escapeHtml(ing.inventory_item_name)}</td>`;
+            html += `<td>${escapeHtml(ing.uom)}</td>`;
+            html += `<td><input type="number" class="stock-input opening-stock" data-menu-index="${mi}" data-ing-index="${ig}" value="${ing.opening_stock}" step="1" min="0"></td>`;
+            html += `<td class="used-display-${mi}-${ig}">0</td>`;
+            html += `<td class="closing-display-${mi}-${ig}">${ing.opening_stock}</td>`;
+
+            // COGS, PROFIT MARGIN, PROFIT MARK UP (only on first row)
+            if (isFirstRow) {
+                html += `<td rowspan="${rowspan}"><span class="cogs-display-${mi}">0 UGX</span></td>`;
+                html += `<td rowspan="${rowspan}"><span class="margin-display-${mi}">0%</span></td>`;
+                html += `<td rowspan="${rowspan}"><span class="profit-display-${mi}">0 UGX</span></td>`;
+            }
+
+            // Hidden fields for database storage
+            html += `<input type="hidden" class="inventory-id-${mi}-${ig}" value="${ing.inventory_item_id}">`;
+            html += `<input type="hidden" class="quantity-required-${mi}-${ig}" value="${ing.quantity_required}">`;
+            html += `<input type="hidden" class="unit-cost-hidden-${mi}-${ig}" value="${ing.unit_cost}">`;
+            html += `<input type="hidden" class="used-hidden-${mi}-${ig}" value="0">`;
+            html += `<input type="hidden" class="opening-hidden-${mi}-${ig}" value="${ing.opening_stock}">`;
+            html += `<input type="hidden" class="closing-hidden-${mi}-${ig}" value="${ing.opening_stock}">`;
+
+            html += `</tr>`;
         }
+    }
+
+    html += `
+            </tbody>
+            <tfoot class="bg-gray-100 font-semibold">
+                <tr>
+                    <td colspan="8" class="text-right">TOTALS:</td>
+                    <td id="totalOpening">0</td>
+                    <td id="totalUsed">0</td>
+                    <td id="totalClosing">0</td>
+                    <td id="totalCogs">0 UGX</td>
+                    <td id="totalMargin">0%</td>
+                    <td id="totalProfit">0 UGX</td>
+                </tr>
+            </tfoot>
+        </table>
+    `;
+
+    container.innerHTML = html;
+    attachEventListeners();
+}
+
+function attachEventListeners() {
+    // Quantity sold inputs
+    document.querySelectorAll('.qty-sold').forEach(input => {
+        input.addEventListener('input', function() {
+            const menuIndex = parseInt(this.dataset.menuIndex);
+            calculateMenuRow(menuIndex);
+            calculateTotals();
+        });
     });
 
-    function loadDepartmentData(departmentId) {
-        showLoadingMessage('Loading items...');
-
-        fetch(`/management/performance/department-stock-data/${departmentId}`)
-            .then(response => response.json())
-            .then(data => {
-                if (data.success && data.items && data.items.length > 0) {
-                    allItems = data.items;
-                    renderResponsiveView();
-                } else {
-                    showLoadingMessage(data.message || 'No items found for this department.');
-                }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                showLoadingMessage('Failed to load department data. Please try again.');
-            });
-    }
-
-    function renderResponsiveView() {
-        const container = document.getElementById('itemsContainer');
-        const isMobile = window.innerWidth < 1024;
-
-        if (isMobile) {
-            renderMobileView(container);
-            currentView = 'mobile';
-        } else {
-            renderDesktopView(container);
-            currentView = 'desktop';
-        }
-
-        attachEventListeners();
-        calculateAllTotals();
-    }
-
-    function renderDesktopView(container) {
-        let html = `
-            <div class="overflow-x-auto border border-gray-200 rounded-lg">
-                <table class="w-full text-sm min-w-[800px]">
-                    <thead class="bg-gray-50 border-b-2 border-gray-200">
-                        <tr>
-                            <th class="px-3 py-3 text-left text-xs font-semibold text-gray-600">Item</th>
-                            <th class="px-3 py-3 text-center text-xs font-semibold text-gray-600">Unit</th>
-                            <th class="px-3 py-3 text-center text-xs font-semibold text-gray-600">Opening</th>
-                            <th class="px-3 py-3 text-center text-xs font-semibold text-gray-600">Added</th>
-                            <th class="px-3 py-3 text-center text-xs font-semibold text-blue-600 bg-blue-50">Used</th>
-                            <th class="px-3 py-3 text-center text-xs font-semibold text-gray-600">Closing</th>
-                            <th class="px-3 py-3 text-right text-xs font-semibold text-gray-600">Unit Cost</th>
-                            <th class="px-3 py-3 text-right text-xs font-semibold text-gray-600">COGS</th>
-                        </tr>
-                    </thead>
-                    <tbody id="tableBody">
-        `;
-
-        allItems.forEach((item, index) => {
-            const opening = Math.floor(item.opening_stock || 0);
-            const added = Math.floor(item.added_today || 0);
-            const closingInitial = opening + added;
-
-            html += `
-                <tr class="item-row border-b border-gray-100 hover:bg-gray-50" data-index="${index}">
-                    <td class="px-3 py-2">
-                        <input type="hidden" name="items[${index}][inventory_item_id]" value="${item.inventory_item_id}">
-                        <input type="hidden" name="items[${index}][unit_cost]" value="${Math.floor(item.unit_cost)}">
-                        <input type="hidden" name="items[${index}][opening_quantity]" class="opening-qty-${index}" value="${opening}">
-                        <input type="hidden" name="items[${index}][added_quantity]" class="added-qty-${index}" value="${added}">
-                        <p class="font-medium text-gray-800">${escapeHtml(item.item_name)}</p>
-                        <p class="text-xs text-gray-400">${escapeHtml(item.item_code || '')}</p>
-                    </td>
-                    <td class="px-3 py-2 text-center text-gray-500">${escapeHtml(item.unit_of_measurement || 'piece')}</td>
-                    <td class="px-3 py-2 text-center"><span class="opening-display-${index} font-semibold">${opening}</span></td>
-                    <td class="px-3 py-2 text-center"><span class="added-display-${index} font-semibold">${added}</span></td>
-                    <td class="px-3 py-2 text-center">
-                        <input type="number" name="items[${index}][used_quantity]" step="1"
-                               class="used-qty w-20 sm:w-24 px-2 py-1 border border-gray-300 rounded-lg text-center text-sm"
-                               value="0" data-index="${index}">
-                    </td>
-                    <td class="px-3 py-2 text-center">
-                        <span class="closing-display-${index} font-semibold">${closingInitial}</span>
-                        <input type="hidden" name="items[${index}][closing_quantity]" class="closing-qty-${index}" value="${closingInitial}">
-                    </td>
-                    <td class="px-3 py-2 text-right">${Math.floor(item.unit_cost)}</td>
-                    <td class="px-3 py-2 text-right">
-                        <span class="cogs-display-${index} text-red-600 font-semibold">0</span>
-                        <input type="hidden" name="items[${index}][cogs]" class="cogs-qty-${index}" value="0">
-                    </td>
-                </tr>
-            `;
+    // Selling price inputs
+    document.querySelectorAll('.selling-price').forEach(input => {
+        input.addEventListener('input', function() {
+            const menuIndex = parseInt(this.dataset.menuIndex);
+            calculateMenuRow(menuIndex);
+            calculateTotals();
         });
+    });
 
-        html += `
-                    </tbody>
-                    <tfoot class="bg-gray-50 border-t-2 border-gray-200 font-semibold">
-                        <tr>
-                            <td colspan="5" class="px-3 py-3 text-right">TOTALS:</td>
-                            <td class="px-3 py-3 text-center" id="totalClosingDisplay">0</td>
-                            <td class="px-3 py-3 text-right">-</td>
-                            <td class="px-3 py-3 text-right text-red-600" id="totalCogsDisplay">0</td>
-                        </tr>
-                    </tfoot>
-                </table>
-            </div>
-        `;
+    // Opening stock inputs
+    document.querySelectorAll('.opening-stock').forEach(input => {
+        input.addEventListener('input', function() {
+            const menuIndex = parseInt(this.dataset.menuIndex);
+            const ingIndex = parseInt(this.dataset.ingIndex);
+            const value = parseFloat(this.value) || 0;
 
-        container.innerHTML = html;
-    }
+            const used = parseFloat(document.querySelector(`.used-hidden-${menuIndex}-${ingIndex}`)?.value) || 0;
+            let closing = value - used;
+            if (closing < 0) closing = 0;
 
-    function renderMobileView(container) {
-        let html = `<div class="space-y-3" id="mobileCardsContainer">`;
+            const closingDisplay = document.querySelector(`.closing-display-${menuIndex}-${ingIndex}`);
+            const closingHidden = document.querySelector(`.closing-hidden-${menuIndex}-${ingIndex}`);
 
-        allItems.forEach((item, index) => {
-            const opening = Math.floor(item.opening_stock || 0);
-            const added = Math.floor(item.added_today || 0);
-            const closingInitial = opening + added;
+            if (closingDisplay) closingDisplay.innerText = closing;
+            if (closingHidden) closingHidden.value = closing;
 
-            html += `
-                <div class="border border-gray-200 rounded-lg p-3 bg-white item-row" data-index="${index}">
-                    <div class="flex justify-between items-start mb-2">
-                        <div>
-                            <p class="font-semibold text-gray-800">${escapeHtml(item.item_name)}</p>
-                            <p class="text-xs text-gray-400">${escapeHtml(item.item_code || '')}</p>
-                        </div>
-                        <span class="text-xs text-gray-500">${escapeHtml(item.unit_of_measurement || 'piece')}</span>
-                    </div>
-                    <input type="hidden" name="items[${index}][inventory_item_id]" value="${item.inventory_item_id}">
-                    <input type="hidden" name="items[${index}][unit_cost]" value="${Math.floor(item.unit_cost)}">
-                    <input type="hidden" name="items[${index}][opening_quantity]" class="opening-qty-${index}" value="${opening}">
-                    <input type="hidden" name="items[${index}][added_quantity]" class="added-qty-${index}" value="${added}">
-
-                    <div class="grid grid-cols-2 gap-2 text-xs mb-2">
-                        <div>
-                            <label class="text-gray-500 block">Opening</label>
-                            <span class="opening-display-${index} font-semibold block text-center py-1 bg-gray-50 rounded">${opening}</span>
-                        </div>
-                        <div>
-                            <label class="text-gray-500 block">Added</label>
-                            <span class="added-display-${index} font-semibold block text-center py-1 bg-gray-50 rounded">${added}</span>
-                        </div>
-                        <div>
-                            <label class="text-gray-500 block">Used</label>
-                            <input type="number" name="items[${index}][used_quantity]" step="1"
-                                   class="used-qty w-full px-2 py-1 border border-gray-300 rounded-lg text-center text-sm"
-                                   value="0" data-index="${index}">
-                        </div>
-                        <div>
-                            <label class="text-gray-500 block">Closing</label>
-                            <span class="closing-display-${index} font-semibold block text-center py-1 bg-gray-50 rounded">${closingInitial}</span>
-                            <input type="hidden" name="items[${index}][closing_quantity]" class="closing-qty-${index}" value="${closingInitial}">
-                        </div>
-                    </div>
-                    <div class="flex justify-between text-xs pt-2 border-t border-gray-100">
-                        <span class="text-gray-500">Unit Cost: ${Math.floor(item.unit_cost)}</span>
-                        <span class="cogs-display-${index} text-red-600 font-semibold">COGS: 0</span>
-                        <input type="hidden" name="items[${index}][cogs]" class="cogs-qty-${index}" value="0">
-                    </div>
-                </div>
-            `;
+            calculateTotals();
         });
+    });
+}
 
-        html += `
-                    <div class="bg-gray-50 border border-gray-200 rounded-lg p-3 font-semibold">
-                        <div class="flex justify-between">
-                            <span>TOTAL CLOSING:</span>
-                            <span id="totalClosingDisplay" class="text-blue-600">0</span>
-                        </div>
-                        <div class="flex justify-between mt-1">
-                            <span>TOTAL COGS:</span>
-                            <span id="totalCogsDisplay" class="text-red-600">0</span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        `;
+function calculateMenuRow(menuIndex) {
+    const item = menuItemsData[menuIndex];
+    const ingredients = item.ingredients;
+    const numIngredients = ingredients.length;
 
-        container.innerHTML = html;
-    }
+    const qtySold = parseFloat(document.querySelector(`.qty-sold[data-menu-index="${menuIndex}"]`)?.value) || 0;
+    const sellingPrice = parseFloat(document.querySelector(`.selling-price[data-menu-index="${menuIndex}"]`)?.value) || 0;
 
-    function attachEventListeners() {
-        document.querySelectorAll('.used-qty').forEach(input => {
-            input.removeEventListener('input', handleUsedInput);
-            input.addEventListener('input', handleUsedInput);
-        });
-    }
+    let totalCogs = 0;
 
-    function handleUsedInput(event) {
-        const index = parseInt(event.target.getAttribute('data-index'));
-        if (!isNaN(index)) {
-            calculateRow(index);
-            calculateAllTotals();
-        }
-    }
+    for (let ig = 0; ig < numIngredients; ig++) {
+        const ing = ingredients[ig];
+        const quantityRequired = ing.quantity_required;
+        const unitCost = ing.unit_cost;
+        const openingStock = parseFloat(document.querySelector(`.opening-stock[data-menu-index="${menuIndex}"][data-ing-index="${ig}"]`)?.value) || 0;
 
-    function calculateRow(index) {
-        const opening = parseInt(document.querySelector(`.opening-qty-${index}`)?.value) || 0;
-        const added = parseInt(document.querySelector(`.added-qty-${index}`)?.value) || 0;
-        const used = parseInt(document.querySelector(`.used-qty[data-index="${index}"]`)?.value) || 0;
-        const unitCost = parseInt(document.querySelector(`input[name*="items[${index}]"][name*="unit_cost"]`)?.value) || 0;
-
-        let closing = opening + added - used;
+        // USED = Quantity Sold × Quantity Required
+        const used = qtySold * quantityRequired;
+        let closing = openingStock - used;
         if (closing < 0) closing = 0;
 
-        const cogs = used * unitCost;
+        // Update displays
+        const usedDisplay = document.querySelector(`.used-display-${menuIndex}-${ig}`);
+        const closingDisplay = document.querySelector(`.closing-display-${menuIndex}-${ig}`);
+        const usedHidden = document.querySelector(`.used-hidden-${menuIndex}-${ig}`);
+        const closingHidden = document.querySelector(`.closing-hidden-${menuIndex}-${ig}`);
 
-        const closingDisplay = document.querySelector(`.closing-display-${index}`);
-        const closingHidden = document.querySelector(`.closing-qty-${index}`);
-        const cogsDisplay = document.querySelector(`.cogs-display-${index}`);
-        const cogsHidden = document.querySelector(`.cogs-qty-${index}`);
-
-        if (closingDisplay) closingDisplay.innerText = closing;
+        if (usedDisplay) usedDisplay.innerText = used.toFixed(2);
+        if (closingDisplay) closingDisplay.innerText = closing.toFixed(2);
+        if (usedHidden) usedHidden.value = used;
         if (closingHidden) closingHidden.value = closing;
-        if (cogsDisplay) cogsDisplay.innerText = cogs;
-        if (cogsHidden) cogsHidden.value = cogs;
 
-        return { closing, cogs };
+        // Calculate COGS
+        const cogs = used * unitCost;
+        totalCogs += cogs;
     }
 
-    function calculateAllTotals() {
-        let totalClosing = 0;
-        let totalCogs = 0;
+    const totalRevenue = qtySold * sellingPrice;
+    const profit = totalRevenue - totalCogs;
+    const profitMargin = totalRevenue > 0 ? (profit / totalRevenue) * 100 : 0;
 
-        for (let i = 0; i < allItems.length; i++) {
-            const { closing, cogs } = calculateRow(i);
+    // Update menu row totals
+    const cogsDisplay = document.querySelector(`.cogs-display-${menuIndex}`);
+    const marginDisplay = document.querySelector(`.margin-display-${menuIndex}`);
+    const profitDisplay = document.querySelector(`.profit-display-${menuIndex}`);
+
+    if (cogsDisplay) cogsDisplay.innerText = formatMoney(totalCogs);
+    if (marginDisplay) marginDisplay.innerText = profitMargin.toFixed(1) + '%';
+    if (profitDisplay) profitDisplay.innerText = formatMoney(profit);
+}
+
+function calculateTotals() {
+    let totalOpening = 0;
+    let totalUsed = 0;
+    let totalClosing = 0;
+    let totalCogs = 0;
+    let totalRevenue = 0;
+    let totalProfit = 0;
+
+    for (let mi = 0; mi < menuItemsData.length; mi++) {
+        const item = menuItemsData[mi];
+        const numIngredients = item.ingredients.length;
+        const qtySold = parseFloat(document.querySelector(`.qty-sold[data-menu-index="${mi}"]`)?.value) || 0;
+        const sellingPrice = parseFloat(document.querySelector(`.selling-price[data-menu-index="${mi}"]`)?.value) || 0;
+
+        let menuCogs = 0;
+
+        for (let ig = 0; ig < numIngredients; ig++) {
+            const opening = parseFloat(document.querySelector(`.opening-stock[data-menu-index="${mi}"][data-ing-index="${ig}"]`)?.value) || 0;
+            const used = parseFloat(document.querySelector(`.used-hidden-${mi}-${ig}`)?.value) || 0;
+            const closing = parseFloat(document.querySelector(`.closing-hidden-${mi}-${ig}`)?.value) || 0;
+            const unitCost = parseFloat(document.querySelector(`.unit-cost-hidden-${mi}-${ig}`)?.value) || 0;
+
+            totalOpening += opening;
+            totalUsed += used;
             totalClosing += closing;
-            totalCogs += cogs;
+            menuCogs += used * unitCost;
         }
 
-        const totalClosingDisplay = document.getElementById('totalClosingDisplay');
-        const totalCogsDisplay = document.getElementById('totalCogsDisplay');
-
-        if (totalClosingDisplay) totalClosingDisplay.innerText = totalClosing;
-        if (totalCogsDisplay) totalCogsDisplay.innerText = totalCogs;
+        totalCogs += menuCogs;
+        totalRevenue += qtySold * sellingPrice;
+        totalProfit += (qtySold * sellingPrice) - menuCogs;
     }
 
-    function showLoadingMessage(message) {
-        const container = document.getElementById('itemsContainer');
-        if (container) {
-            container.innerHTML = `
-                <div class="text-center py-8 text-gray-400">
-                    <i class="fas fa-spinner fa-spin text-2xl mb-2"></i>
-                    <p>${message}</p>
-                </div>
-            `;
+    const totalMargin = totalRevenue > 0 ? (totalProfit / totalRevenue) * 100 : 0;
+
+    document.getElementById('totalOpening').innerText = totalOpening.toFixed(2);
+    document.getElementById('totalUsed').innerText = totalUsed.toFixed(2);
+    document.getElementById('totalClosing').innerText = totalClosing.toFixed(2);
+    document.getElementById('totalCogs').innerText = formatMoney(totalCogs);
+    document.getElementById('totalMargin').innerText = totalMargin.toFixed(1) + '%';
+    document.getElementById('totalProfit').innerText = formatMoney(totalProfit);
+}
+
+function formatMoney(amount) {
+    return Math.round(parseFloat(amount) || 0).toLocaleString('en-UG') + ' UGX';
+}
+
+function showLoading() {
+    const container = document.getElementById('itemsContainer');
+    if (container) {
+        container.innerHTML = `
+            <div class="text-center py-8 text-gray-400">
+                <i class="fas fa-spinner fa-spin text-2xl mb-2"></i>
+                <p>Loading menu items...</p>
+            </div>
+        `;
+    }
+}
+
+function showEmpty(message) {
+    const container = document.getElementById('itemsContainer');
+    if (container) {
+        container.innerHTML = `
+            <div class="text-center py-8 text-gray-400 border-2 border-dashed rounded-lg">
+                <i class="fas fa-utensils text-3xl mb-2 block"></i>
+                <p>${message}</p>
+            </div>
+        `;
+    }
+}
+
+function escapeHtml(str) {
+    if (!str) return '';
+    return String(str).replace(/[&<>]/g, function(m) {
+        if (m === '&') return '&amp;';
+        if (m === '<') return '&lt;';
+        if (m === '>') return '&gt;';
+        return m;
+    });
+}
+
+// Form submission - stores ALL data to database
+document.getElementById('performanceForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+
+    const departmentId = document.getElementById('department_id').value;
+    const reportDate = document.getElementById('report_date').value;
+
+    if (!departmentId) {
+        alert('Please select a department.');
+        return;
+    }
+
+    const salesData = [];
+
+    for (let mi = 0; mi < menuItemsData.length; mi++) {
+        const item = menuItemsData[mi];
+        const qtySold = parseFloat(document.querySelector(`.qty-sold[data-menu-index="${mi}"]`)?.value) || 0;
+        const sellingPrice = parseFloat(document.querySelector(`.selling-price[data-menu-index="${mi}"]`)?.value) || 0;
+
+        if (qtySold === 0) continue;
+
+        const ingredients = [];
+        const numIngredients = item.ingredients.length;
+
+        for (let ig = 0; ig < numIngredients; ig++) {
+            const inventoryItemId = document.querySelector(`.inventory-id-${mi}-${ig}`)?.value;
+            const quantityRequired = parseFloat(document.querySelector(`.quantity-required-${mi}-${ig}`)?.value) || 0;
+            const usedQuantity = parseFloat(document.querySelector(`.used-hidden-${mi}-${ig}`)?.value) || 0;
+            const openingStock = parseFloat(document.querySelector(`.opening-stock[data-menu-index="${mi}"][data-ing-index="${ig}"]`)?.value) || 0;
+            const closingStock = parseFloat(document.querySelector(`.closing-hidden-${mi}-${ig}`)?.value) || 0;
+            const unitCost = parseFloat(document.querySelector(`.unit-cost-hidden-${mi}-${ig}`)?.value) || 0;
+
+            ingredients.push({
+                inventory_item_id: inventoryItemId,
+                quantity_required: quantityRequired,
+                used_quantity: usedQuantity,
+                opening_stock: openingStock,
+                closing_stock: closingStock,
+                unit_cost: unitCost,
+            });
         }
-    }
 
-    function escapeHtml(str) {
-        if (!str) return '';
-        return String(str).replace(/[&<>]/g, function(m) {
-            if (m === '&') return '&amp;';
-            if (m === '<') return '&lt;';
-            if (m === '>') return '&gt;';
-            return m;
+        salesData.push({
+            menu_item_id: item.menu_item_id,
+            quantity_sold: qtySold,
+            selling_price: sellingPrice,
+            ingredients: ingredients,
         });
     }
 
-    // Handle window resize
-    let resizeTimeout;
-    window.addEventListener('resize', function() {
-        clearTimeout(resizeTimeout);
-        resizeTimeout = setTimeout(function() {
-            const isMobile = window.innerWidth < 1024;
-            if ((isMobile && currentView !== 'mobile') || (!isMobile && currentView !== 'desktop')) {
-                if (allItems.length > 0) {
-                    renderResponsiveView();
-                }
-            }
-        }, 250);
-    });
+    if (salesData.length === 0) {
+        alert('Please enter quantity sold for at least one menu item.');
+        return;
+    }
 
-    // Load on page load if department preselected
-    document.addEventListener('DOMContentLoaded', function() {
-        const preselectedDept = document.getElementById('department_id').value;
-        if (preselectedDept) {
-            loadDepartmentData(preselectedDept);
+    fetch('{{ route("management.performance.store") }}', {
+        method: 'POST',
+        headers: {
+            'X-CSRF-TOKEN': '{{ csrf_token() }}',
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+        },
+        body: JSON.stringify({
+            department_id: departmentId,
+            report_date: reportDate,
+            sales_data: salesData,
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.redirect) {
+            window.location.href = data.redirect;
+        } else if (data.success) {
+            window.location.href = data.redirect;
+        } else {
+            alert(data.message || 'Failed to save report.');
         }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('An error occurred. Please try again.');
     });
+});
 </script>
 @endsection
- 

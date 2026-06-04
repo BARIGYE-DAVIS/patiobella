@@ -919,29 +919,17 @@ Route::prefix('management')->name('management.')->middleware(['auth'])->group(fu
 
     Route::prefix('performance')->name('performance.')->group(function () {
 
-        // Stock Take Routes (Performance Tracking)
+        // Performance Stock Take Routes
         Route::get('/', [App\Http\Controllers\Management\PerformanceController::class, 'index'])->name('index');
         Route::get('/create', [App\Http\Controllers\Management\PerformanceController::class, 'create'])->name('create');
-        Route::post('/', [App\Http\Controllers\Management\PerformanceController::class, 'store'])->name('store');
-        Route::get('/{id}/edit', [App\Http\Controllers\Management\PerformanceController::class, 'edit'])->name('edit');
-        Route::put('/{id}', [App\Http\Controllers\Management\PerformanceController::class, 'update'])->name('update');
+        Route::post('/store', [App\Http\Controllers\Management\PerformanceController::class, 'store'])->name('store');
+        Route::get('/{id}', [App\Http\Controllers\Management\PerformanceController::class, 'show'])->name('show');
         Route::delete('/{id}', [App\Http\Controllers\Management\PerformanceController::class, 'destroy'])->name('destroy');
 
         // AJAX endpoint for department stock data
         Route::get('/department-stock-data/{departmentId}', [App\Http\Controllers\Management\PerformanceController::class, 'getDepartmentStockData'])->name('department-stock-data');
 
-        // Performance Summary Routes
-        Route::prefix('summaries')->name('summaries.')->group(function () {
-            Route::get('/', [App\Http\Controllers\Management\PerformanceSummaryController::class, 'index'])->name('index');
-            Route::get('/create', [App\Http\Controllers\Management\PerformanceSummaryController::class, 'create'])->name('create');
-            Route::post('/generate', [App\Http\Controllers\Management\PerformanceSummaryController::class, 'generate'])->name('generate');
-            Route::get('/{id}', [App\Http\Controllers\Management\PerformanceSummaryController::class, 'show'])->name('show');
-            Route::get('/{id}/print', [App\Http\Controllers\Management\PerformanceSummaryController::class, 'print'])->name('print');
-            Route::get('/{id}/pdf', [App\Http\Controllers\Management\PerformanceSummaryController::class, 'downloadPdf'])->name('pdf');
-            Route::post('/{id}/finalize', [App\Http\Controllers\Management\PerformanceSummaryController::class, 'finalize'])->name('finalize');
-            Route::post('/{id}/regenerate', [App\Http\Controllers\Management\PerformanceSummaryController::class, 'regenerate'])->name('regenerate');
-            Route::delete('/{id}', [App\Http\Controllers\Management\PerformanceSummaryController::class, 'destroy'])->name('destroy');
-        });
+        // Chart data endpoint
+        Route::get('/chart-data', [App\Http\Controllers\Management\PerformanceController::class, 'chartData'])->name('chart-data');
     });
 });
-
