@@ -131,29 +131,22 @@
             </div>
         </div>
 
-        <!-- MENU ITEMS & INGREDIENTS SECTION with Totals -->
+        <!-- MENU ITEMS SECTION -->
         @php
             $groupedItems = $report->items->groupBy('menu_item_id');
         @endphp
 
-        <div class="section-title">MENU ITEMS & INGREDIENTS</div>
+        <div class="section-title">MENU ITEMS</div>
         <div class="overflow-x-auto">
             <table class="report-table">
                 <thead>
                     <tr>
-                        <th rowspan="2">MENU ITEM</th>
-                        <th rowspan="2">QTY<br>SOLD</th>
-                        <th rowspan="2">SELLING<br>PRICE</th>
-                        <th colspan="4">INGREDIENTS</th>
-                        <th rowspan="2">COGS</th>
-                        <th rowspan="2">PROFIT<br>MARGIN</th>
-                        <th rowspan="2">PROFIT/<br>MARK UP</th>
-                    </tr>
-                    <tr>
-                        <th>NAME</th>
-                        <th>QTY</th>
-                        <th>UOM</th>
-                        <th>COST</th>
+                        <th>MENU ITEM</th>
+                        <th>QTY SOLD</th>
+                        <th>SELLING PRICE</th>
+                        <th>COGS</th>
+                        <th>PROFIT MARGIN</th>
+                        <th>PROFIT</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -161,36 +154,24 @@
                         @php
                             $firstItem = $items->first();
                             $menuItem = $firstItem->menuItem;
-                            $numIngredients = $items->count();
                             $totalCogs = $items->sum('cogs');
                             $totalRevenue = $firstItem->quantity_sold * $firstItem->selling_price;
                             $profit = $totalRevenue - $totalCogs;
                             $profitMargin = $totalRevenue > 0 ? ($profit / $totalRevenue) * 100 : 0;
                         @endphp
-
-                        @foreach($items as $index => $item)
-                            <tr>
-                                @if($index == 0)
-                                    <td rowspan="{{ $numIngredients }}" class="font-semibold">{{ $menuItem->name ?? 'N/A' }}</td>
-                                    <td rowspan="{{ $numIngredients }}" class="text-center">{{ number_format($item->quantity_sold, 0) }}</td>
-                                    <td rowspan="{{ $numIngredients }}" class="text-right">{{ number_format($item->selling_price, 0) }} UGX</td>
-                                @endif
-                                <td>{{ $item->inventoryItem->name ?? 'N/A' }}</td>
-                                <td class="text-center">{{ number_format($item->quantity_required, 3) }}</td>
-                                <td class="text-center">{{ $item->inventoryItem->unit_of_measurement ?? 'piece' }}</td>
-                                <td class="text-right">{{ number_format($item->unit_cost, 0) }} UGX</td>
-                                @if($index == 0)
-                                    <td rowspan="{{ $numIngredients }}" class="text-right text-red-600">{{ number_format($totalCogs, 0) }} UGX</td>
-                                    <td rowspan="{{ $numIngredients }}" class="text-center">{{ number_format($profitMargin, 1) }}%</td>
-                                    <td rowspan="{{ $numIngredients }}" class="text-right text-blue-600">{{ number_format($profit, 0) }} UGX</td>
-                                @endif
-                            </tr>
-                        @endforeach
+                        <tr>
+                            <td class="font-semibold">{{ $menuItem->name ?? 'N/A' }}</td>
+                            <td class="text-center">{{ number_format($firstItem->quantity_sold, 0) }}</td>
+                            <td class="text-right">{{ number_format($firstItem->selling_price, 0) }} UGX</td>
+                            <td class="text-right text-red-600">{{ number_format($totalCogs, 0) }} UGX</td>
+                            <td class="text-center">{{ number_format($profitMargin, 1) }}%</td>
+                            <td class="text-right text-blue-600">{{ number_format($profit, 0) }} UGX</td>
+                        </tr>
                     @endforeach
                 </tbody>
                 <tfoot class="bg-gray-100 font-semibold">
                     <tr>
-                        <td colspan="6" class="text-right">TOTALS:</td>
+                        <td colspan="3" class="text-right">TOTALS:</td>
                         <td class="text-right text-red-600">{{ number_format($report->total_cogs, 0) }} UGX</td>
                         <td class="text-center">{{ number_format($report->profit_margin, 1) }}%</td>
                         <td class="text-right text-blue-600">{{ number_format($report->total_profit, 0) }} UGX</td>
@@ -199,7 +180,7 @@
             </table>
         </div>
 
-        <!-- GENERAL STOCK SECTION -->
+        <!-- GENERAL STOCK SECTION - DIRECT FROM DATABASE -->
         <div class="section-title">GENERAL STOCK</div>
         <div class="overflow-x-auto">
             <table class="report-table">
@@ -208,12 +189,14 @@
                         <th>ITEM NAME</th>
                         <th>UOM</th>
                         <th>OPENING</th>
+                        <th>ADDED</th>
                         <th>USED</th>
                         <th>CLOSING</th>
                     </tr>
                 </thead>
                 <tbody>
                     @php
+                        // Group by inventory item and use database values directly
                         $stockSummary = [];
                         foreach($report->items as $item) {
                             $inventoryId = $item->inventory_item_id;
@@ -222,20 +205,21 @@
                                     'name' => $item->inventoryItem->name ?? 'N/A',
                                     'uom' => $item->inventoryItem->unit_of_measurement ?? 'piece',
                                     'opening' => $item->opening_stock,
+                                    'added' => $item->added_stock ?? 0,
                                     'used' => 0,
-                                    'closing' => 0,
+                                    'closing' => $item->closing_stock,
                                 ];
                             }
                             $stockSummary[$inventoryId]['used'] += $item->used_quantity;
-                            $stockSummary[$inventoryId]['closing'] = $stockSummary[$inventoryId]['opening'] - $stockSummary[$inventoryId]['used'];
                         }
                     @endphp
 
                     @foreach($stockSummary as $stock)
                         <tr>
-                            <td>{{ $stock['name'] }}</td>
+                            <td class="font-medium">{{ $stock['name'] }}</td>
                             <td class="text-center">{{ $stock['uom'] }}</td>
                             <td class="text-center">{{ number_format($stock['opening'], 2) }}</td>
+                            <td class="text-center">{{ number_format($stock['added'], 2) }}</td>
                             <td class="text-center">{{ number_format($stock['used'], 2) }}</td>
                             <td class="text-center">{{ number_format($stock['closing'], 2) }}</td>
                         </tr>
@@ -243,7 +227,7 @@
 
                     @if(count($stockSummary) == 0)
                         <tr>
-                            <td colspan="5" class="text-center text-gray-400 py-4">No stock items found</td>
+                            <td colspan="6" class="text-center text-gray-400 py-4">No stock items found</td>
                         </tr>
                     @endif
                 </tbody>
@@ -251,6 +235,7 @@
                     <tr>
                         <td colspan="2" class="text-right">TOTALS:</td>
                         <td class="text-center">{{ number_format(collect($stockSummary)->sum('opening'), 2) }}</td>
+                        <td class="text-center">{{ number_format(collect($stockSummary)->sum('added'), 2) }}</td>
                         <td class="text-center">{{ number_format(collect($stockSummary)->sum('used'), 2) }}</td>
                         <td class="text-center">{{ number_format(collect($stockSummary)->sum('closing'), 2) }}</td>
                     </tr>
@@ -258,7 +243,7 @@
             </table>
         </div>
 
-        <!-- CHARTS SECTION -->
+        <!-- CHARTS & TRENDS SECTION -->
         <div class="section-title">CHARTS & TRENDS</div>
         <div class="chart-container">
             <div class="chart-card">
@@ -274,6 +259,13 @@
                 <canvas id="topSellingChart" width="300" height="200"></canvas>
             </div>
         </div>
+
+        <div class="chart-container" style="margin-top: 10px;">
+            <div class="chart-card">
+                <h4>Ingredient Usage Trend</h4>
+                <canvas id="ingredientTrendChart" width="300" height="200"></canvas>
+            </div>
+        </div>
     </div>
 </div>
 
@@ -287,27 +279,9 @@ document.addEventListener('DOMContentLoaded', function() {
         data: {
             labels: ['Financials'],
             datasets: [
-                {
-                    label: 'Total Sales',
-                    data: [{{ $report->total_sales }}],
-                    backgroundColor: '#10b981',
-                    borderColor: '#059669',
-                    borderWidth: 1
-                },
-                {
-                    label: 'Total COGS',
-                    data: [{{ $report->total_cogs }}],
-                    backgroundColor: '#ef4444',
-                    borderColor: '#dc2626',
-                    borderWidth: 1
-                },
-                {
-                    label: 'Total Profit',
-                    data: [{{ $report->total_profit }}],
-                    backgroundColor: '#3b82f6',
-                    borderColor: '#2563eb',
-                    borderWidth: 1
-                }
+                { label: 'Total Sales', data: [{{ $report->total_sales }}], backgroundColor: '#10b981', borderColor: '#059669', borderWidth: 1 },
+                { label: 'Total COGS', data: [{{ $report->total_cogs }}], backgroundColor: '#ef4444', borderColor: '#dc2626', borderWidth: 1 },
+                { label: 'Total Profit', data: [{{ $report->total_profit }}], backgroundColor: '#3b82f6', borderColor: '#2563eb', borderWidth: 1 }
             ]
         },
         options: {
@@ -315,23 +289,9 @@ document.addEventListener('DOMContentLoaded', function() {
             maintainAspectRatio: true,
             plugins: {
                 legend: { position: 'top' },
-                tooltip: {
-                    callbacks: {
-                        label: function(context) {
-                            return context.dataset.label + ': ' + context.raw.toLocaleString() + ' UGX';
-                        }
-                    }
-                }
+                tooltip: { callbacks: { label: function(context) { return context.dataset.label + ': ' + context.raw.toLocaleString() + ' UGX'; } } }
             },
-            scales: {
-                y: {
-                    ticks: {
-                        callback: function(value) {
-                            return value.toLocaleString() + ' UGX';
-                        }
-                    }
-                }
-            }
+            scales: { y: { ticks: { callback: function(value) { return value.toLocaleString() + ' UGX'; } } } }
         }
     });
 
@@ -352,31 +312,11 @@ document.addEventListener('DOMContentLoaded', function() {
     const marginCtx = document.getElementById('marginByItemChart').getContext('2d');
     new Chart(marginCtx, {
         type: 'pie',
-        data: {
-            labels: {!! json_encode($marginLabels) !!},
-            datasets: [{
-                data: {!! json_encode($marginData) !!},
-                backgroundColor: ['#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#ec489a', '#06b6d4', '#84cc16', '#f97316', '#6366f1'],
-                borderWidth: 1
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: true,
-            plugins: {
-                legend: { position: 'right', labels: { font: { size: 10 } } },
-                tooltip: {
-                    callbacks: {
-                        label: function(context) {
-                            return context.label + ': ' + context.raw + '%';
-                        }
-                    }
-                }
-            }
-        }
+        data: { labels: {!! json_encode($marginLabels) !!}, datasets: [{ data: {!! json_encode($marginData) !!}, backgroundColor: ['#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#ec489a', '#06b6d4', '#84cc16', '#f97316', '#6366f1'], borderWidth: 1 }] },
+        options: { responsive: true, maintainAspectRatio: true, plugins: { legend: { position: 'right', labels: { font: { size: 10 } } }, tooltip: { callbacks: { label: function(context) { return context.label + ': ' + context.raw + '%'; } } } } }
     });
 
-    // Chart 3: Top Selling Items (Quantity Sold)
+    // Chart 3: Top Selling Items
     @php
         $qtyLabels = [];
         $qtyData = [];
@@ -385,8 +325,6 @@ document.addEventListener('DOMContentLoaded', function() {
             $qtyLabels[] = addslashes($firstItem->menuItem->name ?? 'N/A');
             $qtyData[] = $firstItem->quantity_sold;
         }
-
-        // Sort by quantity sold descending and take top 5
         array_multisort($qtyData, SORT_DESC, $qtyLabels);
         $qtyLabels = array_slice($qtyLabels, 0, 5);
         $qtyData = array_slice($qtyData, 0, 5);
@@ -395,35 +333,93 @@ document.addEventListener('DOMContentLoaded', function() {
     const topSellingCtx = document.getElementById('topSellingChart').getContext('2d');
     new Chart(topSellingCtx, {
         type: 'bar',
+        data: { labels: {!! json_encode($qtyLabels) !!}, datasets: [{ label: 'Quantity Sold', data: {!! json_encode($qtyData) !!}, backgroundColor: '#f59e0b', borderColor: '#d97706', borderWidth: 1 }] },
+        options: { responsive: true, maintainAspectRatio: true, plugins: { legend: { position: 'top' }, tooltip: { callbacks: { label: function(context) { return context.dataset.label + ': ' + context.raw + ' units'; } } } }, scales: { y: { ticks: { stepSize: 1 } } } }
+    });
+
+    // Chart 4: Ingredient Usage Trend
+    @php
+        $ingredientUsage = [];
+        $ingredientIds = [];
+        foreach($report->items as $item) {
+            $ingredientId = $item->inventory_item_id;
+            $ingredientName = $item->inventoryItem->name ?? 'N/A';
+            $ingredientIds[$ingredientId] = $ingredientName;
+            if (!isset($ingredientUsage[$ingredientId])) {
+                $ingredientUsage[$ingredientId] = 0;
+            }
+            $ingredientUsage[$ingredientId] += $item->used_quantity;
+        }
+        arsort($ingredientUsage);
+        $topIngredients = array_slice($ingredientUsage, 0, 6, true);
+
+        $previousReports = \App\Models\PerformanceReport::where('department_id', $report->department_id)
+            ->where('id', '<', $report->id)
+            ->orderBy('report_date', 'desc')
+            ->limit(5)
+            ->get()
+            ->reverse();
+
+        $trendDates = [];
+        $trendData = [];
+        foreach($topIngredients as $ingredientId => $usage) {
+            $trendData[$ingredientId] = [];
+        }
+
+        $allReports = clone $previousReports;
+        $allReports->push($report);
+
+        foreach($allReports as $rep) {
+            $trendDates[] = date('d M', strtotime($rep->report_date));
+            foreach($topIngredients as $ingredientId => $usage) {
+                $totalUsage = 0;
+                foreach($rep->items as $item) {
+                    if($item->inventory_item_id == $ingredientId) {
+                        $totalUsage += $item->used_quantity;
+                    }
+                }
+                $trendData[$ingredientId][] = round($totalUsage, 2);
+            }
+        }
+
+        $colors = ['#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#ec489a'];
+        $ingredientNames = [];
+        foreach($topIngredients as $ingredientId => $usage) {
+            $ingredientNames[$ingredientId] = $ingredientIds[$ingredientId];
+        }
+    @endphp
+
+    const ingredientTrendCtx = document.getElementById('ingredientTrendChart').getContext('2d');
+    new Chart(ingredientTrendCtx, {
+        type: 'line',
         data: {
-            labels: {!! json_encode($qtyLabels) !!},
-            datasets: [{
-                label: 'Quantity Sold',
-                data: {!! json_encode($qtyData) !!},
-                backgroundColor: '#f59e0b',
-                borderColor: '#d97706',
-                borderWidth: 1
-            }]
+            labels: {!! json_encode($trendDates) !!},
+            datasets: [
+                @foreach($topIngredients as $ingredientId => $usage)
+                {
+                    label: '{{ addslashes($ingredientNames[$ingredientId]) }}',
+                    data: {!! json_encode($trendData[$ingredientId]) !!},
+                    borderColor: '{{ $colors[$loop->index % count($colors)] }}',
+                    backgroundColor: 'transparent',
+                    borderWidth: 2,
+                    tension: 0.3,
+                    fill: false,
+                    pointRadius: 3,
+                    pointHoverRadius: 5
+                },
+                @endforeach
+            ]
         },
         options: {
             responsive: true,
             maintainAspectRatio: true,
             plugins: {
-                legend: { position: 'top' },
-                tooltip: {
-                    callbacks: {
-                        label: function(context) {
-                            return context.dataset.label + ': ' + context.raw + ' units';
-                        }
-                    }
-                }
+                legend: { position: 'bottom', labels: { font: { size: 10 }, boxWidth: 10 } },
+                tooltip: { callbacks: { label: function(context) { return context.dataset.label + ': ' + context.raw.toFixed(2) + ' units'; } } }
             },
             scales: {
-                y: {
-                    ticks: {
-                        stepSize: 1
-                    }
-                }
+                y: { title: { display: true, text: 'Quantity Used', font: { size: 10 } }, ticks: { font: { size: 10 } } },
+                x: { title: { display: true, text: 'Report Date', font: { size: 10 } }, ticks: { font: { size: 10 } } }
             }
         }
     });
@@ -434,21 +430,10 @@ document.addEventListener('DOMContentLoaded', function() {
     .no-print, .bg-gray-50, .flex.gap-2, button, .badge-completed, .chart-container {
         display: none !important;
     }
-    body {
-        padding: 0;
-        margin: 0;
-    }
-    .bg-white {
-        border: none;
-        box-shadow: none;
-    }
-    .summary-card {
-        border: 1px solid #ddd;
-        page-break-inside: avoid;
-    }
-    .report-table {
-        page-break-inside: avoid;
-    }
+    body { padding: 0; margin: 0; }
+    .bg-white { border: none; box-shadow: none; }
+    .summary-card { border: 1px solid #ddd; page-break-inside: avoid; }
+    .report-table { page-break-inside: avoid; }
 }
 </style>
 @endsection

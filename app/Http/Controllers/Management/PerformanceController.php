@@ -48,26 +48,44 @@ class PerformanceController extends Controller
     }
 
     /**
-     * Get current department stock for an inventory item
-     * Formula: SUM(issued_total_pieces) - SUM(quantity_sold + quantity_consumed + quantity_returned)
+     * Get OPENING stock for an inventory item (stock BEFORE the selected date)
+     * OPENING = (Total issued BEFORE date) - (Total sold + consumed + returned BEFORE date)
      */
-    private function getDepartmentStock($departmentId, $inventoryItemId)
+    private function getOpeningStock($departmentId, $inventoryItemId, $date)
     {
-        $stock = DepartmentRequisitionItem::whereHas('requisition', function($query) use ($departmentId) {
+        $opening = DepartmentRequisitionItem::whereHas('requisition', function($query) use ($departmentId, $date) {
                 $query->where('department_id', $departmentId)
                       ->where('status', '!=', 'cancelled')
-                      ->where('status', '!=', 'rejected');
+                      ->where('status', '!=', 'rejected')
+                      ->whereDate('created_at', '<', $date);
             })
             ->where('inventory_item_id', $inventoryItemId)
             ->select(DB::raw('
                 COALESCE(SUM(issued_total_pieces), 0) -
                 (COALESCE(SUM(quantity_sold), 0) +
                  COALESCE(SUM(quantity_consumed), 0) +
-                 COALESCE(SUM(quantity_returned), 0)) as current_stock
+                 COALESCE(SUM(quantity_returned), 0)) as opening
             '))
-            ->value('current_stock');
+            ->value('opening');
 
-        return max(0, (float)$stock);
+        return max(0, (float)$opening);
+    }
+
+    /**
+     * Get ADDED stock for an inventory item (stock issued ON the selected date)
+     */
+    private function getAddedStock($departmentId, $inventoryItemId, $date)
+    {
+        $added = DepartmentRequisitionItem::whereHas('requisition', function($query) use ($departmentId, $date) {
+                $query->where('department_id', $departmentId)
+                      ->where('status', '!=', 'cancelled')
+                      ->where('status', '!=', 'rejected')
+                      ->whereDate('created_at', $date);
+            })
+            ->where('inventory_item_id', $inventoryItemId)
+            ->sum('issued_total_pieces');
+
+        return max(0, (float)$added);
     }
 
     /**
@@ -113,13 +131,14 @@ class PerformanceController extends Controller
 
     /**
      * Get department data with menu items, recipes, and current stock
-     * Returns:
-     * - items: menu items with their ingredients (for INGREDIENTS section)
-     * - stock_items: unique inventory items with current stock (for GENERAL STOCK section)
+     * OPENING = Stock BEFORE selected date
+     * ADDED = Stock issued ON selected date
      */
     public function getDepartmentStockData($departmentId, Request $request)
     {
         try {
+            $date = $request->get('date', date('Y-m-d'));
+
             $department = Department::find($departmentId);
             if (!$department) {
                 return response()->json(['success' => false, 'message' => 'Department not found'], 404);
@@ -133,7 +152,7 @@ class PerformanceController extends Controller
                 ->get();
 
             $menuItemsData = [];
-            $stockItemsMap = []; // For unique inventory items
+            $stockItemsMap = [];
 
             foreach ($menuItems as $menuItem) {
                 $recipeItems = RecipeItem::where('menu_item_id', $menuItem->id)
@@ -141,12 +160,13 @@ class PerformanceController extends Controller
                     ->get();
 
                 if ($recipeItems->isEmpty()) {
-                    // Beverage item - has direct inventory_item_id
+                    // Beverage item
                     $inventoryItemId = $menuItem->inventory_item_id;
 
                     if ($inventoryItemId) {
                         $inventoryItem = InventoryItem::find($inventoryItemId);
-                        $openingStock = $this->getDepartmentStock($departmentId, $inventoryItemId);
+                        $openingStock = $this->getOpeningStock($departmentId, $inventoryItemId, $date);
+                        $addedToday = $this->getAddedStock($departmentId, $inventoryItemId, $date);
 
                         $menuItemsData[] = [
                             'menu_item_id' => $menuItem->id,
@@ -164,26 +184,30 @@ class PerformanceController extends Controller
                             ]
                         ];
 
-                        // Track for GENERAL STOCK
                         if (!isset($stockItemsMap[$inventoryItemId])) {
                             $stockItemsMap[$inventoryItemId] = [
                                 'inventory_item_id' => $inventoryItemId,
                                 'inventory_item_name' => $inventoryItem ? $inventoryItem->name : 'Unknown',
                                 'uom' => $inventoryItem ? ($inventoryItem->unit_of_measurement ?? 'piece') : 'piece',
                                 'opening_stock' => $openingStock,
+                                'added_today' => $addedToday,
                                 'unit_cost' => (float)($menuItem->m_cost ?? 0),
                             ];
+                        } else {
+                            $stockItemsMap[$inventoryItemId]['opening_stock'] = $openingStock;
+                            $stockItemsMap[$inventoryItemId]['added_today'] = $addedToday;
                         }
                     }
                 } else {
-                    // Recipe item - has multiple ingredients
+                    // Recipe item
                     $ingredients = [];
 
                     foreach ($recipeItems as $recipe) {
                         if ($recipe->inventoryItem) {
                             $inventoryItemId = $recipe->inventory_item_id;
-                            $openingStock = $this->getDepartmentStock($departmentId, $inventoryItemId);
                             $quantityRequired = (float)$recipe->quantity_required;
+                            $openingStock = $this->getOpeningStock($departmentId, $inventoryItemId, $date);
+                            $addedToday = $this->getAddedStock($departmentId, $inventoryItemId, $date);
 
                             $ingredients[] = [
                                 'inventory_item_id' => $inventoryItemId,
@@ -193,15 +217,18 @@ class PerformanceController extends Controller
                                 'unit_cost' => (float)($menuItem->m_cost ?? 0),
                             ];
 
-                            // Track for GENERAL STOCK
                             if (!isset($stockItemsMap[$inventoryItemId])) {
                                 $stockItemsMap[$inventoryItemId] = [
                                     'inventory_item_id' => $inventoryItemId,
                                     'inventory_item_name' => $recipe->inventoryItem->name,
                                     'uom' => $recipe->inventoryItem->unit_of_measurement ?? 'piece',
                                     'opening_stock' => $openingStock,
+                                    'added_today' => $addedToday,
                                     'unit_cost' => (float)($menuItem->m_cost ?? 0),
                                 ];
+                            } else {
+                                $stockItemsMap[$inventoryItemId]['opening_stock'] = $openingStock;
+                                $stockItemsMap[$inventoryItemId]['added_today'] = $addedToday;
                             }
                         }
                     }
@@ -238,6 +265,7 @@ class PerformanceController extends Controller
 
     /**
      * Store performance stock take data
+     * Updates department_requisition_items with consumed/sold quantities
      */
     public function store(Request $request)
     {
@@ -257,6 +285,7 @@ class PerformanceController extends Controller
             'sales_data.*.ingredients.*.quantity_required' => 'required|numeric|min:0',
             'sales_data.*.ingredients.*.used_quantity' => 'required|numeric|min:0',
             'sales_data.*.ingredients.*.opening_stock' => 'required|numeric|min:0',
+            'sales_data.*.ingredients.*.added_stock' => 'required|numeric|min:0',
             'sales_data.*.ingredients.*.closing_stock' => 'required|numeric|min:0',
             'sales_data.*.ingredients.*.unit_cost' => 'required|numeric|min:0',
         ]);
@@ -264,6 +293,9 @@ class PerformanceController extends Controller
         DB::beginTransaction();
 
         try {
+            $department = Department::find($validated['department_id']);
+            $isKitchen = ($department && $department->name === 'KITCHEN');
+
             $totalSales = 0;
             $totalCogs = 0;
             $totalProfit = 0;
@@ -286,29 +318,48 @@ class PerformanceController extends Controller
                 $sellingPrice = (float)$saleData['selling_price'];
                 $salesAmount = $quantitySold * $sellingPrice;
 
+                // Check if has recipe (more than 1 ingredient or single ingredient with qty != 1)
+                $hasRecipe = (count($saleData['ingredients']) > 1 ||
+                             (count($saleData['ingredients']) == 1 && $saleData['ingredients'][0]['quantity_required'] != 1));
+
                 $totalSales += $salesAmount;
                 $menuItemCogs = 0;
 
                 foreach ($saleData['ingredients'] as $ingredient) {
+                    $inventoryItemId = $ingredient['inventory_item_id'];
                     $usedQuantity = (float)$ingredient['used_quantity'];
                     $unitCost = (float)$ingredient['unit_cost'];
                     $ingredientCogs = $usedQuantity * $unitCost;
                     $menuItemCogs += $ingredientCogs;
 
+                    // Determine which column to update in department_requisition_items
+                    if ($isKitchen) {
+                        // Kitchen always uses quantity_consumed
+                        $this->updateDepartmentStock($validated['department_id'], $inventoryItemId, $usedQuantity, 'consumed');
+                    } else {
+                        // Other departments: if has recipe use consumed, else use sold
+                        if ($hasRecipe) {
+                            $this->updateDepartmentStock($validated['department_id'], $inventoryItemId, $usedQuantity, 'consumed');
+                        } else {
+                            $this->updateDepartmentStock($validated['department_id'], $inventoryItemId, $usedQuantity, 'sold');
+                        }
+                    }
+
                     PerformanceItem::create([
                         'performance_report_id' => $report->id,
                         'menu_item_id' => $saleData['menu_item_id'],
-                        'inventory_item_id' => $ingredient['inventory_item_id'],
+                        'inventory_item_id' => $inventoryItemId,
                         'quantity_required' => $ingredient['quantity_required'],
                         'quantity_sold' => $quantitySold,
                         'used_quantity' => $usedQuantity,
                         'opening_stock' => $ingredient['opening_stock'],
+                        'added_stock' => $ingredient['added_stock'],
                         'closing_stock' => $ingredient['closing_stock'],
                         'unit_cost' => $unitCost,
                         'selling_price' => $sellingPrice,
                         'cogs' => $ingredientCogs,
                         'sales_amount' => $salesAmount,
-                        'profit' => 0, // Will be updated later
+                        'profit' => 0,
                         'profit_margin' => 0,
                     ]);
                 }
@@ -375,6 +426,63 @@ class PerformanceController extends Controller
                 'success' => false,
                 'message' => 'Failed to save performance stock take: ' . $e->getMessage(),
             ], 500);
+        }
+    }
+
+    /**
+     * Update department requisition items with used quantity
+     */
+    private function updateDepartmentStock($departmentId, $inventoryItemId, $usedQuantity, $type)
+    {
+        // Find open requisition items for this department and inventory item
+        $requisitionItems = DepartmentRequisitionItem::whereHas('requisition', function($query) use ($departmentId) {
+                $query->where('department_id', $departmentId)
+                      ->where('status', '!=', 'cancelled')
+                      ->where('status', '!=', 'rejected')
+                      ->where('status', '!=', 'completed');
+            })
+            ->where('inventory_item_id', $inventoryItemId)
+            ->whereRaw('issued_total_pieces - (COALESCE(quantity_sold, 0) + COALESCE(quantity_consumed, 0) + COALESCE(quantity_returned, 0)) > 0')
+            ->orderBy('created_at', 'asc')
+            ->get();
+
+        $remainingToDeduct = $usedQuantity;
+
+        foreach ($requisitionItems as $reqItem) {
+            if ($remainingToDeduct <= 0) break;
+
+            $currentRemaining = $reqItem->issued_total_pieces -
+                               ($reqItem->quantity_sold + $reqItem->quantity_consumed + $reqItem->quantity_returned);
+
+            $deductFromThis = min($remainingToDeduct, $currentRemaining);
+
+            if ($type === 'sold') {
+                $reqItem->quantity_sold += $deductFromThis;
+                $reqItem->last_sold_at = now();
+            } else {
+                $reqItem->quantity_consumed += $deductFromThis;
+                $reqItem->last_consumed_at = now();
+            }
+
+            $reqItem->save();
+
+            $remainingToDeduct -= $deductFromThis;
+
+            Log::info("Updated department stock", [
+                'requisition_item_id' => $reqItem->id,
+                'type' => $type,
+                'deducted' => $deductFromThis,
+                'remaining_to_deduct' => $remainingToDeduct
+            ]);
+        }
+
+        if ($remainingToDeduct > 0) {
+            Log::warning("Could not fully deduct used quantity", [
+                'department_id' => $departmentId,
+                'inventory_item_id' => $inventoryItemId,
+                'used_quantity' => $usedQuantity,
+                'remaining_not_deducted' => $remainingToDeduct
+            ]);
         }
     }
 
