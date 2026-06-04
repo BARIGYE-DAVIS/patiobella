@@ -47,7 +47,7 @@
                 <h4 class="font-semibold text-gray-700">Items Requested</h4>
             </div>
 
-            <div class="overflow-x-auto mb-4">
+            <div class=" mb-4">
                 <table class="w-full text-sm">
                     <thead>
                         <tr class="bg-gray-50 border-b-2 border-gray-200">

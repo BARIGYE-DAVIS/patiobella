@@ -224,11 +224,11 @@
                         <option value="">Select inventory item...</option>
                         @foreach($inventoryItems as $item)
                             <option value="{{ $item->id }}"
-                                    data-unit-cost="{{ $item->unit_cost }}"
+                                    data-unit-cost="{{ $item->current_unit_cost }}"
                                     data-base-unit="{{ $item->base_unit }}"
                                     data-selling-price="{{ $item->selling_price }}"
                                     {{ old('inventory_item_id') == $item->id ? 'selected' : '' }}>
-                                {{ $item->name }} ({{ $item->base_unit }} — {{ number_format($item->unit_cost, 2) }} UGX)
+                                {{ $item->name }} ({{ $item->base_unit }} — {{ number_format($item->current_unit_cost, 2) }} UGX)
                             </option>
                         @endforeach
                     </select>
@@ -392,7 +392,7 @@
         <input type="hidden" name="material_cost" id="material_cost_hidden" value="0">
         <input type="hidden" name="vat_amount" id="vat_amount_hidden" value="0">
         <input type="hidden" name="net_price" id="net_price_hidden" value="0">
-        <input type="hidden" name="unit_cost" id="unit_cost_hidden" value="0">
+        <input type="hidden" name="current_unit_cost" id="unit_cost_hidden" value="0">
 
         {{-- Form Actions --}}
         <div class="flex items-center justify-between">
@@ -436,9 +436,9 @@
                         @foreach($inventoryItems as $item)
                             <option value="{{ $item->id }}"
                                     data-name="{{ $item->name }}"
-                                    data-base-unit="{{ $item->base_unit }}"
-                                    data-unit-cost="{{ $item->unit_cost }}">
-                                {{ $item->name }} ({{ $item->base_unit }} — {{ number_format($item->unit_cost, 2) }} UGX)
+                                    data-base-unit="{{ $item->unit_of_measurement }}"
+                                    data-unit-cost="{{ $item->current_unit_cost }}">
+                                {{ $item->name }} ({{ $item->base_unit }} — {{ number_format($item->current_unit_cost, 2) }} UGX)
                             </option>
                         @endforeach
                     </select>
@@ -557,44 +557,27 @@ $(document).ready(function () {
         $('#item_type_hidden').val(type);
 
         if (type === 'beverage') {
-            // Beverage mode: hide recipe section, hide Glovo section, show inventory field
             $('#recipeSection').addClass('hidden');
             $('#glovoSection').addClass('hidden');
             $('#inventoryItemField').removeClass('hidden');
             $('#inventoryRequired').removeClass('hidden');
-
-            // Make inventory item required for beverages
             $('#inventory_item_id').attr('required', 'required');
-
-            // Clear any existing ingredients
             $('#ingredientsContainer').empty();
             $('#ingredientsEmptyState').removeClass('hidden');
-
-            // Update cost source text
             $('#costSource').text('From inventory unit cost');
-
-            // Recalculate pricing with inventory cost if available
             if (selectedInventoryCost > 0) {
                 updateBeveragePricing();
             }
         } else {
-            // Recipe mode: show recipe section, show Glovo section, hide inventory field
             $('#recipeSection').removeClass('hidden');
             $('#glovoSection').removeClass('hidden');
             $('#inventoryItemField').addClass('hidden');
             $('#inventoryRequired').addClass('hidden');
-
-            // Remove required from inventory
             $('#inventory_item_id').removeAttr('required');
-
-            // Update cost source text
             $('#costSource').text('From ingredients');
-
-            // Recalculate pricing with material cost
             updateRecipePricing();
         }
 
-        // Update visual active state
         if (type === 'beverage') {
             $('#beverageTypeOption').addClass('active border-orange-500 bg-orange-50');
             $('#recipeTypeOption').removeClass('active border-orange-500 bg-orange-50').addClass('border-gray-200');
@@ -626,8 +609,6 @@ $(document).ready(function () {
 
         if (unitCost > 0) {
             $('#inventoryUnitCostDisplay').text(`Unit cost: ${formatMoney(unitCost)} UGX per ${baseUnit}`).removeClass('hidden');
-
-            // Auto-fill selling price if not already set and inventory has selling price
             let currentSellingPrice = parseFloat($('#selling_price').val()) || 0;
             if (currentSellingPrice === 0 && sellingPriceFromInventory > 0) {
                 $('#selling_price').val(sellingPriceFromInventory);
@@ -643,45 +624,40 @@ $(document).ready(function () {
     });
 
     // =====================================================
-    // BEVERAGE PRICING (uses inventory unit cost)
+    // BEVERAGE PRICING
     // =====================================================
     function updateBeveragePricing() {
         let sellingPrice = parseFloat($('#selling_price').val()) || 0;
         let pricingMode = $('.pricing-mode-toggle.active').data('mode');
         let desiredMargin = parseFloat($('#desired_margin').val()) || 0;
-
         let unitCost = selectedInventoryCost;
 
         if (pricingMode === 'margin' && desiredMargin > 0 && desiredMargin < 100) {
-            // Calculate selling price from desired margin (using net price after VAT)
             let targetNetPrice = unitCost / (1 - desiredMargin / 100);
             sellingPrice = targetNetPrice / (1 - (18 / 118));
             $('#selling_price').val(sellingPrice.toFixed(2));
         }
 
-        // Calculate VAT (18% inclusive)
         let vatAmount = calculateVat(sellingPrice);
         let netPrice = sellingPrice - vatAmount;
         let markup = netPrice - unitCost;
         let marginPercent = netPrice > 0 ? (markup / netPrice) * 100 : 0;
 
-        // Update displays
         $('#summaryCost').text(formatMoney(unitCost));
         $('#summaryActualMarkup').text(formatMoney(markup));
         $('#summaryMarginPercent').text(marginPercent.toFixed(2) + '%');
         $('#summaryVatAmount').text(formatMoney(vatAmount));
 
-        // Store hidden values
         $('#material_cost_hidden').val(unitCost.toFixed(2));
         $('#mark_up_hidden').val(markup.toFixed(2));
         $('#age_margins_hidden').val(marginPercent.toFixed(2));
-        $('#age_cost_hidden').val(((unitCost / netPrice) * 100).toFixed(2));
+        $('#age_cost_hidden').val(netPrice > 0 ? ((unitCost / netPrice) * 100).toFixed(2) : '0');
         $('#vat_amount_hidden').val(vatAmount.toFixed(2));
         $('#net_price_hidden').val(netPrice.toFixed(2));
     }
 
     // =====================================================
-    // RECIPE PRICING (uses material cost from ingredients)
+    // RECIPE PRICING
     // =====================================================
     function updateRecipePricing() {
         let sellingPrice = parseFloat($('#selling_price').val()) || 0;
@@ -690,12 +666,10 @@ $(document).ready(function () {
 
         if (currentMaterialCost > 0) {
             if (pricingMode === 'margin' && desiredMargin > 0 && desiredMargin < 100) {
-                // Calculate selling price from desired margin (using net price after VAT)
                 let targetNetPrice = currentMaterialCost / (1 - desiredMargin / 100);
                 sellingPrice = targetNetPrice / (1 - (18 / 118));
                 $('#selling_price').val(sellingPrice.toFixed(2));
             } else if (pricingMode === 'price' && sellingPrice > 0) {
-                // Calculate margin from selling price
                 let vatAmount = calculateVat(sellingPrice);
                 let netPrice = sellingPrice - vatAmount;
                 let actualMarkup = netPrice - currentMaterialCost;
@@ -704,27 +678,23 @@ $(document).ready(function () {
             }
         }
 
-        // Calculate VAT and display
         let vatAmount = calculateVat(sellingPrice);
         let netPrice = sellingPrice - vatAmount;
         let actualMarkup = netPrice - currentMaterialCost;
         let marginPercent = netPrice > 0 ? (actualMarkup / netPrice) * 100 : 0;
 
-        // Update summary display
         $('#summaryCost').text(formatMoney(currentMaterialCost));
         $('#summaryActualMarkup').text(formatMoney(actualMarkup));
         $('#summaryMarginPercent').text(marginPercent.toFixed(2) + '%');
         $('#summaryVatAmount').text(formatMoney(vatAmount));
 
-        // Store hidden fields
         $('#material_cost_hidden').val(currentMaterialCost.toFixed(2));
         $('#mark_up_hidden').val(actualMarkup.toFixed(2));
         $('#age_margins_hidden').val(marginPercent.toFixed(2));
-        $('#age_cost_hidden').val(((currentMaterialCost / netPrice) * 100).toFixed(2));
+        $('#age_cost_hidden').val(netPrice > 0 ? ((currentMaterialCost / netPrice) * 100).toFixed(2) : '0');
         $('#vat_amount_hidden').val(vatAmount.toFixed(2));
         $('#net_price_hidden').val(netPrice.toFixed(2));
 
-        // Glovo calculations (only for recipe items)
         let commissionPct = 20;
         let glovoPrice = sellingPrice * (1 + commissionPct / 100);
         let commission = glovoPrice * (commissionPct / 100);
@@ -747,7 +717,7 @@ $(document).ready(function () {
     }
 
     // =====================================================
-    // DRAFT - localStorage persistence
+    // DRAFT
     // =====================================================
     function saveDraft() {
         try {
@@ -767,7 +737,7 @@ $(document).ready(function () {
             };
 
             if (currentItemType === 'recipe') {
-                $('.ingredient-row').each(function(idx) {
+                $('.ingredient-row').each(function() {
                     draft.ingredients.push({
                         inventory_item_id: $(this).find('.ingredient-inventory-id').val(),
                         name: $(this).find('.ingredient-name-display').text(),
@@ -799,7 +769,6 @@ $(document).ready(function () {
             if (data.selling_price) $('#selling_price').val(data.selling_price);
             if (data.desired_margin) $('#desired_margin').val(data.desired_margin);
 
-            // Set pricing mode
             if (data.pricing_mode === 'margin') {
                 $('.pricing-mode-toggle').removeClass('active');
                 $('.pricing-mode-toggle[data-mode="margin"]').addClass('active');
@@ -818,7 +787,6 @@ $(document).ready(function () {
                 $('#selling_price').attr('required', 'required');
             }
 
-            // Set item type
             if (data.item_type === 'beverage') {
                 setItemType('beverage');
                 if (data.inventory_item_id) {
@@ -828,7 +796,6 @@ $(document).ready(function () {
                 setItemType('recipe');
             }
 
-            // Restore ingredients
             if (data.ingredients && data.ingredients.length && currentItemType === 'recipe') {
                 $.each(data.ingredients, function(idx, ing) {
                     let totalCost = convertToBaseUnit(ing.quantity, ing.unit, ing.base_unit) * ing.unit_cost * (1 + (ing.wastage || 0) / 100);
@@ -861,7 +828,9 @@ $(document).ready(function () {
         localStorage.removeItem(DRAFT_KEY);
     }
 
-    // Helper functions
+    // =====================================================
+    // HELPERS
+    // =====================================================
     function formatMoney(n) {
         return Number(n || 0).toLocaleString('en-UG', { maximumFractionDigits: 0 }) + ' UGX';
     }
@@ -877,24 +846,19 @@ $(document).ready(function () {
 
         if (fromUnit === 'dozen') v = v * 12;
         if (fromUnit === 'half_dozen') v = v * 6;
-        if (fromUnit === 'portion' || fromUnit === 'serving') {
-            fromUnit = 'piece';
-        }
+        if (fromUnit === 'portion' || fromUnit === 'serving') fromUnit = 'piece';
 
         if (toBaseUnit === 'litre') {
             if (fromUnit === 'cup') return v * 0.236588;
             if (fromUnit === 'tablespoon') return v * 0.0147868;
             if (fromUnit === 'teaspoon') return v * 0.00492892;
             if (fromUnit === 'fluid_ounce') return v * 0.0295735;
+            if (fromUnit === 'ml') return v / 1000;
+            if (fromUnit === 'litre') return v;
         }
-
         if (toBaseUnit === 'kg') {
             if (fromUnit === 'g') return v / 1000;
             if (fromUnit === 'kg') return v;
-        }
-        if (toBaseUnit === 'litre') {
-            if (fromUnit === 'ml') return v / 1000;
-            if (fromUnit === 'litre') return v;
         }
         if (toBaseUnit === 'piece') {
             if (fromUnit === 'piece') return v;
@@ -916,7 +880,19 @@ $(document).ready(function () {
         return total;
     }
 
-    // Add ingredient modal handlers
+    function escapeHtml(text) {
+        if (!text) return '';
+        return String(text)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+    }
+
+    // =====================================================
+    // INGREDIENT MODAL
+    // =====================================================
     $('#addIngredientBtn').on('click', function() {
         $('#ingredient_select').val('').trigger('change');
         $('#ingredient_quantity').val('');
@@ -934,14 +910,15 @@ $(document).ready(function () {
     });
 
     $('#ingredient_select, #ingredient_quantity, #ingredient_unit, #ingredient_wastage').on('change keyup', function() {
-        let selOpt = $('#ingredient_select').find('option:selected');
-        let baseUnit = selOpt.data('base-unit');
+        let selectedId = $('#ingredient_select').val();
+        let selOpt = $('#ingredient_select option[value="' + selectedId + '"]');
+        let baseUnit = selOpt.data('base-unit') || '';
         let unitCost = parseFloat(selOpt.data('unit-cost')) || 0;
         let qty = parseFloat($('#ingredient_quantity').val()) || 0;
         let unit = $('#ingredient_unit').val();
         let wastage = parseFloat($('#ingredient_wastage').val()) || 0;
 
-        if ($('#ingredient_select').val() && qty > 0) {
+        if (selectedId && qty > 0) {
             let total = convertToBaseUnit(qty, unit, baseUnit) * unitCost * (1 + wastage / 100);
             $('.ingredient-cost-preview').text('Estimated cost: ' + formatMoney(total));
         } else {
@@ -949,19 +926,30 @@ $(document).ready(function () {
         }
     });
 
+    // ✅ FIXED: removed stale ingSelect reference, using selectedId throughout
     $('#confirmAddIngredient').on('click', function() {
-        let ingSelect = $('#ingredient_select');
-        let selOpt = ingSelect.find('option:selected');
-        let inventoryItemId = ingSelect.val();
-        let ingredientName = selOpt.data('name');
-        let baseUnit = selOpt.data('base-unit');
-        let unitCost = parseFloat(selOpt.data('unit-cost')) || 0;
-        let qty = parseFloat($('#ingredient_quantity').val()) || 0;
-        let unit = $('#ingredient_unit').val();
-        let wastage = parseFloat($('#ingredient_wastage').val()) || 0;
+        let selectedId      = $('#ingredient_select').val();
+        let selOpt          = $('#ingredient_select option[value="' + selectedId + '"]');
+        let inventoryItemId = selectedId;
+        let ingredientName  = selOpt.data('name');
+        let baseUnit        = selOpt.data('base-unit') || '';
+        let unitCost        = parseFloat(selOpt.data('unit-cost')) || 0;
+        let qty             = parseFloat($('#ingredient_quantity').val()) || 0;
+        let unit            = $('#ingredient_unit').val();
+        let wastage         = parseFloat($('#ingredient_wastage').val()) || 0;
 
-        if (!inventoryItemId) { alert('Please select an ingredient.'); return; }
-        if (!qty || qty <= 0) { alert('Please enter a valid quantity.'); return; }
+        if (!inventoryItemId) {
+            alert('Please select an ingredient.');
+            return;
+        }
+        if (!qty || qty <= 0) {
+            alert('Please enter a valid quantity.');
+            return;
+        }
+        if (!baseUnit) {
+            alert('This ingredient is missing a base unit. Please check the inventory item.');
+            return;
+        }
 
         let totalCost = convertToBaseUnit(qty, unit, baseUnit) * unitCost * (1 + wastage / 100);
 
@@ -985,7 +973,9 @@ $(document).ready(function () {
         $('#ingredientModal').addClass('hidden').removeClass('flex');
     });
 
-    // Remove ingredient
+    // =====================================================
+    // REMOVE INGREDIENT
+    // =====================================================
     $(document).on('click', '.remove-ingredient', function() {
         if (confirm('Remove this ingredient from the recipe?')) {
             $(this).closest('.ingredient-row').remove();
@@ -996,14 +986,15 @@ $(document).ready(function () {
         }
     });
 
-    // Pricing mode toggle
+    // =====================================================
+    // PRICING MODE TOGGLE
+    // =====================================================
     $('.pricing-mode-toggle').on('click', function() {
         let mode = $(this).data('mode');
         if ($(this).hasClass('active')) return;
 
         $('.pricing-mode-toggle').removeClass('active');
         $(this).addClass('active');
-
         $('#pricing_mode_hidden').val(mode);
 
         if (mode === 'price') {
@@ -1021,10 +1012,11 @@ $(document).ready(function () {
         saveDraft();
     });
 
-    // Input event handlers
+    // =====================================================
+    // INPUT HANDLERS
+    // =====================================================
     $('#selling_price').on('change keyup', function() {
-        let pricingMode = $('.pricing-mode-toggle.active').data('mode');
-        if (pricingMode === 'price') {
+        if ($('.pricing-mode-toggle.active').data('mode') === 'price') {
             updatePricing();
         }
         saveDraft();
@@ -1037,19 +1029,19 @@ $(document).ready(function () {
             $(this).val('');
             return;
         }
-        let pricingMode = $('.pricing-mode-toggle.active').data('mode');
-        if (pricingMode === 'margin') {
+        if ($('.pricing-mode-toggle.active').data('mode') === 'margin') {
             updatePricing();
         }
         saveDraft();
     });
 
-    // Other fields draft save
     $('#menu_id, #item_name, #description, #category_id, #allergen_info, input[name="is_active"]').on('change keyup click', function() {
         saveDraft();
     });
 
-    // Close modal
+    // =====================================================
+    // MODAL CLOSE
+    // =====================================================
     $('.closeModal').on('click', function() {
         $('#ingredientModal').addClass('hidden').removeClass('flex');
     });
@@ -1060,9 +1052,11 @@ $(document).ready(function () {
         }
     });
 
-    // Form submission validation
+    // =====================================================
+    // FORM SUBMIT VALIDATION
+    // =====================================================
     $('#mainForm').on('submit', function(e) {
-        let menuId = $('#menu_id').val();
+        let menuId   = $('#menu_id').val();
         let itemName = $('#item_name').val();
 
         if (!menuId) {
@@ -1076,18 +1070,16 @@ $(document).ready(function () {
             return false;
         }
 
-        let sellingPrice = parseFloat($('#selling_price').val()) || 0;
+        let sellingPrice  = parseFloat($('#selling_price').val()) || 0;
         let desiredMargin = parseFloat($('#desired_margin').val()) || 0;
-        let pricingMode = $('.pricing-mode-toggle.active').data('mode');
+        let pricingMode   = $('.pricing-mode-toggle.active').data('mode');
 
         if (currentItemType === 'recipe') {
-            let hasIngredients = $('.ingredient-row').length > 0;
-            if (!hasIngredients) {
+            if ($('.ingredient-row').length === 0) {
                 alert('Recipe items must have at least one ingredient. Please add ingredients or select "Beverage Item" type.');
                 e.preventDefault();
                 return false;
             }
-
             if (pricingMode === 'price' && sellingPrice <= 0) {
                 alert('Please enter a selling price.');
                 e.preventDefault();
@@ -1099,14 +1091,11 @@ $(document).ready(function () {
                 return false;
             }
         } else {
-            // Beverage validation
-            let inventoryId = $('#inventory_item_id').val();
-            if (!inventoryId) {
+            if (!$('#inventory_item_id').val()) {
                 alert('Please select an inventory item for this beverage.');
                 e.preventDefault();
                 return false;
             }
-
             if (pricingMode === 'price' && sellingPrice <= 0) {
                 alert('Please enter a selling price.');
                 e.preventDefault();
@@ -1123,16 +1112,9 @@ $(document).ready(function () {
         return true;
     });
 
-    function escapeHtml(text) {
-        if (!text) return '';
-        return String(text).replace(/&/g, '&amp;')
-                   .replace(/</g, '&lt;')
-                   .replace(/>/g, '&gt;')
-                   .replace(/"/g, '&quot;')
-                   .replace(/'/g, '&#39;');
-    }
-
-    // Initialize
+    // =====================================================
+    // INIT
+    // =====================================================
     setItemType(currentItemType);
     loadDraft();
 

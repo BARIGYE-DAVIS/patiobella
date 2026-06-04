@@ -45,7 +45,7 @@ class InventoryItem extends Model
 
     protected $casts = [
         'minimum_stock'      => 'decimal:6',
-        'empty_bottle_weight' => 'decimal:6', 
+        'empty_bottle_weight' => 'decimal:6',
         'maximum_stock'      => 'decimal:6',
         'reorder_quantity'   => 'decimal:6',
         'unit_cost'          => 'decimal:2',

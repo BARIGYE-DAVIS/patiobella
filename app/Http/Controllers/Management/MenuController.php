@@ -1,7 +1,7 @@
 <?php
 
 namespace App\Http\Controllers\Management;
-
+use App\Services\InventoryCostService;
 use App\Http\Controllers\Controller;
 use App\Models\Menu;
 use App\Models\MenuItem;
@@ -18,6 +18,15 @@ use Illuminate\Support\Facades\Log;
 
 class MenuController extends Controller
 {
+
+
+    private InventoryCostService $costService;
+
+    public function __construct()
+    {
+        $this->costService = new InventoryCostService();
+    }
+
     private function getRoleName($user): ?string
     {
         try {
@@ -360,15 +369,30 @@ class MenuController extends Controller
     /**
      * Show form to create a new menu item
      */
-    public function createItem()
+ public function createItem()
     {
         if (!$this->checkAuthorization()) {
             return redirect()->route('dashboard')->with('error', 'Unauthorized access. Manager only.');
         }
 
-        $menus = Menu::with('department')->where('is_active', true)->orderBy('name')->get();
-        $categories = MenuItemCategory::where('is_active', true)->orderBy('sort_order')->orderBy('name')->get();
+        $menus          = Menu::with('department')->where('is_active', true)->orderBy('name')->get();
+        $categories     = MenuItemCategory::where('is_active', true)->orderBy('sort_order')->orderBy('name')->get();
         $inventoryItems = InventoryItem::where('is_active', true)->orderBy('name')->get();
+
+        // ✅ NEW: resolve current FIFO cost for every inventory item in one query
+        $inventoryItemIds = $inventoryItems->pluck('id')->toArray();
+        $fifoCosts        = $this->costService->getBulkCurrentUnitCosts($inventoryItemIds);
+
+        // Attach the live cost onto each item so the blade can read it
+        // as $item->current_unit_cost and $item->cost_source
+        $inventoryItems->each(function ($item) use ($fifoCosts) {
+            $cost = $fifoCosts[$item->id] ?? ['unit_cost' => 0, 'source' => 'none', 'found' => false];
+            $item->current_unit_cost = $cost['unit_cost'];
+            $item->cost_source       = $cost['source'];
+            $item->cost_batch_id     = $cost['batch_id'];
+
+
+        });
 
         return view('management.menu-items.create', compact('menus', 'categories', 'inventoryItems'));
     }
@@ -638,19 +662,58 @@ public function storeItemStandalone(Request $request)
     /**
      * Show form to edit a menu item
      */
-    public function editItem($id)
-    {
-        if (!$this->checkAuthorization()) {
-            return redirect()->route('dashboard')->with('error', 'Unauthorized access. Manager only.');
-        }
-
-        $menuItem = MenuItem::with(['menu', 'category', 'recipeItems.inventoryItem'])->findOrFail($id);
-        $menus = Menu::with('department')->where('is_active', true)->orderBy('name')->get();
-        $categories = MenuItemCategory::where('is_active', true)->orderBy('sort_order')->orderBy('name')->get();
-        $inventoryItems = InventoryItem::where('is_active', true)->orderBy('name')->get();
-
-        return view('management.menu-items.edit', compact('menuItem', 'menus', 'categories', 'inventoryItems'));
+public function editItem($id)
+{
+    if (!$this->checkAuthorization()) {
+        return redirect()->route('dashboard')->with('error', 'Unauthorized access. Manager only.');
     }
+
+    $menuItem       = MenuItem::with(['menu', 'category', 'recipeItems.inventoryItem'])->findOrFail($id);
+    $menus          = Menu::with('department')->where('is_active', true)->orderBy('name')->get();
+    $categories     = MenuItemCategory::where('is_active', true)->orderBy('sort_order')->orderBy('name')->get();
+    $inventoryItems = InventoryItem::where('is_active', true)->orderBy('name')->get();
+
+    // ✅ Resolve live FIFO cost for every inventory item (same as createItem)
+    $inventoryItemIds = $inventoryItems->pluck('id')->toArray();
+    $fifoCosts        = $this->costService->getBulkCurrentUnitCosts($inventoryItemIds);
+
+    $inventoryItems->each(function ($item) use ($fifoCosts) {
+        $cost = $fifoCosts[$item->id] ?? ['unit_cost' => 0, 'source' => 'none', 'found' => false];
+        $item->current_unit_cost = $cost['unit_cost'];
+        $item->cost_source       = $cost['source'];
+        $item->cost_batch_id     = $cost['batch_id'];
+    });
+
+    // ✅ Also resolve live cost for existing recipe ingredients
+    // so the edit form shows current prices not stale creation-time prices
+    $recipeIngredients = [];
+    foreach ($menuItem->recipeItems as $ri) {
+        if ($ri->inventoryItem) {
+            $fifo     = $this->costService->getCurrentUnitCost($ri->inventory_item_id);
+            $unitCost = $fifo['found'] ? $fifo['unit_cost'] : (float) $ri->unit_cost_at_creation;
+
+            $recipeIngredients[] = [
+                'recipe_id'          => $ri->id,
+                'inventory_item_id'  => $ri->inventory_item_id,
+                'name'               => $ri->inventoryItem->name,
+                'quantity'           => $ri->quantity_required,
+                'unit'               => $ri->unitOfMeasure->symbol ?? $ri->inventoryItem->unit_of_measurement,
+                'base_unit'          => $ri->inventoryItem->unit_of_measurement,
+                'unit_cost'          => $unitCost,               // ✅ live FIFO cost
+                'cost_source'        => $fifo['source'],
+                'wastage_percentage' => $ri->wastage_percentage,
+            ];
+        }
+    }
+
+    return view('management.menu-items.edit', compact(
+        'menuItem',
+        'menus',
+        'categories',
+        'inventoryItems',
+        'recipeIngredients'   // ✅ pass pre-resolved ingredients to blade
+    ));
+}
 
     /**
      * Get a single menu item (AJAX)
@@ -1004,45 +1067,50 @@ public function getMenuItemRecipe($id)
     }
 
     try {
-        $menuItem = MenuItem::findOrFail($id);
+        $menuItem    = MenuItem::findOrFail($id);
         $recipeItems = RecipeItem::with(['inventoryItem', 'unitOfMeasure'])
             ->where('menu_item_id', $id)
             ->get();
 
         $materialCost = 0;
-        $ingredients = [];
+        $ingredients  = [];
+        $costService  = new \App\Services\InventoryCostService();
 
         foreach ($recipeItems as $ri) {
             if ($ri->inventoryItem) {
-                $cost = $ri->quantity_required * $ri->inventoryItem->unit_cost;
+
+                // ✅ Get live FIFO cost, fall back to creation-time snapshot
+                $fifo        = $costService->getCurrentUnitCost($ri->inventory_item_id);
+                $unitCost    = $fifo['found'] ? $fifo['unit_cost'] : (float) $ri->unit_cost_at_creation;
+
+                $cost = $ri->quantity_required * $unitCost;
                 if ($ri->wastage_percentage > 0) {
                     $cost *= (1 + $ri->wastage_percentage / 100);
                 }
                 $materialCost += $cost;
 
                 $ingredients[] = [
-                    'name' => $ri->inventoryItem->name,
-                    'quantity' => $ri->quantity_required,
-                    'unit' => $ri->inventoryItem->base_unit,
-                    'unit_cost' => $ri->inventoryItem->unit_cost,
-                    'total_cost' => $cost,
+                    'name'               => $ri->inventoryItem->name,
+                    'quantity'           => $ri->quantity_required,
+                    'unit'               => $ri->inventoryItem->unit_of_measurement, // ✅ correct column
+                    'unit_cost'          => $unitCost,                                // ✅ from FIFO
+                    'total_cost'         => $cost,
                     'wastage_percentage' => $ri->wastage_percentage,
                 ];
             }
         }
 
-        // FIX: For items with no recipes (beverages), use stored m_cost and age_margins
+        // For beverages (no recipe items), use stored m_cost
         if ($recipeItems->isEmpty()) {
             $materialCost = $menuItem->m_cost ?? 0;
-            $margin = $menuItem->age_margins ?? 0;
+            $margin       = $menuItem->age_margins ?? 0;
         } else {
-            $commissionPct = 20;
+            $commissionPct     = 20;
             $glovoSellingPrice = $menuItem->glovo_selling_price ?? ($menuItem->selling_price * (1 + $commissionPct / 100));
-            $glovoCommission = $menuItem->glovo_commission ?? ($glovoSellingPrice * ($commissionPct / 100));
-            $finalMargin = $menuItem->final_margin ?? ($glovoSellingPrice - $materialCost - $glovoCommission);
+            $glovoCommission   = $menuItem->glovo_commission    ?? ($glovoSellingPrice * ($commissionPct / 100));
+            $finalMargin       = $menuItem->final_margin        ?? ($glovoSellingPrice - $materialCost - $glovoCommission);
 
-            // Use net price for margin calculation if VAT inclusive
-            $netPriceForMargin = $menuItem->vat_inclusive && $menuItem->vat_rate > 0
+            $netPriceForMargin = ($menuItem->vat_inclusive && $menuItem->vat_rate > 0)
                 ? $menuItem->selling_price / (1 + ($menuItem->vat_rate / 100))
                 : $menuItem->selling_price;
 
@@ -1053,32 +1121,34 @@ public function getMenuItemRecipe($id)
 
         return response()->json([
             'success' => true,
-            'item' => [
-                'id' => $menuItem->id,
-                'name' => $menuItem->name,
-                'description' => $menuItem->description,
-                'selling_price' => $menuItem->selling_price,
-                'material_cost' => $materialCost,
-                'margin' => $margin,
-                'age_margins' => $menuItem->age_margins ?? $margin,
+            'item'    => [
+                'id'                  => $menuItem->id,
+                'name'                => $menuItem->name,
+                'description'         => $menuItem->description,
+                'selling_price'       => $menuItem->selling_price,
+                'material_cost'       => $materialCost,
+                'margin'              => $margin,
+                'age_margins'         => $menuItem->age_margins ?? $margin,
                 'glovo_selling_price' => $menuItem->glovo_selling_price ?? 0,
-                'glovo_commission' => $menuItem->glovo_commission ?? 0,
-                'final_margin' => $menuItem->final_margin ?? 0,
-                'allergen_info' => $menuItem->allergen_info,
-                'inventory_item_id' => $menuItem->inventory_item_id,
-                // VAT fields
-                'vat_rate' => $menuItem->vat_rate ?? 18,
-                'vat_amount' => $menuItem->vat_amount ?? 0,
-                'vat_inclusive' => $menuItem->vat_inclusive ?? true,
-                'net_price' => $menuItem->net_price ?? $menuItem->selling_price,
+                'glovo_commission'    => $menuItem->glovo_commission    ?? 0,
+                'final_margin'        => $menuItem->final_margin        ?? 0,
+                'allergen_info'       => $menuItem->allergen_info,
+                'inventory_item_id'   => $menuItem->inventory_item_id,
+                'vat_rate'            => $menuItem->vat_rate      ?? 18,
+                'vat_amount'          => $menuItem->vat_amount    ?? 0,
+                'vat_inclusive'       => $menuItem->vat_inclusive ?? true,
+                'net_price'           => $menuItem->net_price     ?? $menuItem->selling_price,
             ],
-            'ingredients' => $ingredients
+            'ingredients' => $ingredients,
         ]);
+
     } catch (\Exception $e) {
-        return response()->json(['success' => false, 'message' => 'Failed to load recipe: ' . $e->getMessage()], 500);
+        return response()->json([
+            'success' => false,
+            'message' => 'Failed to load recipe: ' . $e->getMessage(),
+        ], 500);
     }
 }
-
     // =====================================================
     // RECIPE ITEMS MANAGEMENT (Helper Methods)
     // =====================================================
@@ -1086,35 +1156,47 @@ public function getMenuItemRecipe($id)
     /**
      * Update menu item material cost (m_cost) and margin (age_margins)
      */
-    private function updateMenuItemMaterialCost($menuItemId)
+ private function updateMenuItemMaterialCost($menuItemId)
     {
-        $recipeItems  = RecipeItem::where('menu_item_id', $menuItemId)->get();
+        $recipeItems  = RecipeItem::where('menu_item_id', $menuItemId)->with('inventoryItem')->get();
         $materialCost = 0;
 
-        foreach ($recipeItems as $ri) {
-            if ($ri->inventoryItem) {
-                $cost = $ri->quantity_required * $ri->inventoryItem->unit_cost;
+        if ($recipeItems->isNotEmpty()) {
+            // ✅ NEW: resolve FIFO costs for all ingredients in one query
+            $ingredientIds = $recipeItems->pluck('inventory_item_id')->toArray();
+            $fifoCosts     = $this->costService->getBulkCurrentUnitCosts($ingredientIds);
+
+            foreach ($recipeItems as $ri) {
+                // Use FIFO cost; fall back to the cost stored at recipe creation
+                $cost = $fifoCosts[$ri->inventory_item_id] ?? null;
+                $unitCost = ($cost && $cost['found'])
+                    ? $cost['unit_cost']
+                    : (float) $ri->unit_cost_at_creation;  // fallback
+
+                $lineCost = $ri->quantity_required * $unitCost;
+
                 if ($ri->wastage_percentage > 0) {
-                    $cost *= (1 + $ri->wastage_percentage / 100);
+                    $lineCost *= (1 + $ri->wastage_percentage / 100);
                 }
-                $materialCost += $cost;
+
+                $materialCost += $lineCost;
             }
         }
 
         $menuItem = MenuItem::find($menuItemId);
         if ($menuItem) {
-            // Use net price for margin calculation if VAT inclusive
-            $netPriceForMargin = $menuItem->vat_inclusive && $menuItem->vat_rate > 0 && $menuItem->selling_price > 0
+            $netPriceForMargin = ($menuItem->vat_inclusive && $menuItem->vat_rate > 0 && $menuItem->selling_price > 0)
                 ? $menuItem->selling_price / (1 + ($menuItem->vat_rate / 100))
                 : $menuItem->selling_price;
 
-            $margin = 0;
-            if ($netPriceForMargin > 0 && $materialCost > 0) {
-                $margin = (($netPriceForMargin - $materialCost) / $netPriceForMargin) * 100;
-            }
+            $margin  = ($netPriceForMargin > 0 && $materialCost > 0)
+                ? (($netPriceForMargin - $materialCost) / $netPriceForMargin) * 100
+                : 0;
 
-            $markUp = $netPriceForMargin - $materialCost;
-            $ageCost = ($netPriceForMargin > 0 && $materialCost > 0) ? ($materialCost / $netPriceForMargin) * 100 : 0;
+            $markUp  = $netPriceForMargin - $materialCost;
+            $ageCost = ($netPriceForMargin > 0 && $materialCost > 0)
+                ? ($materialCost / $netPriceForMargin) * 100
+                : 0;
 
             $menuItem->update([
                 'm_cost'      => round($materialCost, 2),
@@ -1125,7 +1207,8 @@ public function getMenuItemRecipe($id)
         }
     }
 
-    public function recalculateAllCosts()
+
+ public function recalculateAllCosts()
     {
         if (!$this->checkAuthorization()) {
             return redirect()->route('dashboard')->with('error', 'Unauthorized access. Manager only.');
@@ -1133,9 +1216,11 @@ public function getMenuItemRecipe($id)
 
         try {
             $menuItems = MenuItem::where('is_active', true)->get();
+
             foreach ($menuItems as $menuItem) {
                 $this->updateMenuItemMaterialCost($menuItem->id);
             }
+
             return redirect()->back()->with('success', "Recalculated costs for {$menuItems->count()} menu items.");
 
         } catch (\Exception $e) {
@@ -1144,7 +1229,7 @@ public function getMenuItemRecipe($id)
         }
     }
 
-    public function getInventoryItems(Request $request)
+public function getInventoryItems(Request $request)
     {
         if (!$this->checkAuthorization()) {
             return response()->json(['success' => false, 'message' => 'Unauthorized'], 403);
@@ -1163,16 +1248,24 @@ public function getMenuItemRecipe($id)
 
         $items = $query->orderBy('name')->limit(50)->get();
 
+        // ✅ NEW: resolve FIFO costs for this batch of items
+        $itemIds   = $items->pluck('id')->toArray();
+        $fifoCosts = $this->costService->getBulkCurrentUnitCosts($itemIds);
+
         return response()->json([
             'success' => true,
-            'items'   => $items->map(fn($item) => [
-                'id'            => $item->id,
-                'name'          => $item->name,
-                'item_code'     => $item->item_code,
-                'base_unit'     => $item->base_unit,
-                'unit_cost'     => $item->unit_cost,
-                'current_stock' => $item->current_stock,
-            ]),
+            'items'   => $items->map(function ($item) use ($fifoCosts) {
+                $cost = $fifoCosts[$item->id] ?? ['unit_cost' => 0, 'source' => 'none'];
+                return [
+                    'id'              => $item->id,
+                    'name'            => $item->name,
+                    'item_code'       => $item->item_code,
+                    'base_unit'       => $item->unit_of_measurement,
+                    'unit_cost'       => $cost['unit_cost'],    // ✅ FIFO cost, not stored cost
+                    'cost_source'     => $cost['source'],       // ✅ where it came from
+                    'current_stock'   => $item->current_stock,
+                ];
+            }),
         ]);
     }
 }
