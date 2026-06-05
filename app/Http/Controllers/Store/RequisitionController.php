@@ -50,44 +50,136 @@ class RequisitionController extends Controller
      */
 public function create()
 {
-    // Get batches with low stock (remaining_quantity <= minimum_stock)
-    $lowStockItems = \App\Models\Batch::with('inventoryItem.category')
-        ->where('batch_status', 'active')
+    // Statuses that mean the batch is still "in play".
+    // 'active'         = untouched, has full stock
+    // 'partially_used' = drawn from, still has remaining_quantity > 0
+    // 'depleted'       = fully consumed, remaining_quantity = 0
+    $liveStatuses = ['active', 'partially_used', 'depleted'];
+
+    // ─── LOW STOCK ───────────────────────────────────────────────────────────
+    // Items where SUM(remaining_quantity) across all live batches is > 0
+    // but <= the item's minimum_stock threshold.
+    // We find the qualifying inventory_item_ids first via a GROUP BY,
+    // then load one representative batch per item for display.
+
+    $lowStockItemIds = \App\Models\Batch::whereIn('batch_status', ['active', 'partially_used'])
         ->where('remaining_quantity', '>', 0)
-        ->whereHas('inventoryItem', function($query) {
-            $query->whereColumn('remaining_quantity', '<=', 'minimum_stock');
+        ->select('inventory_item_id')
+        ->groupBy('inventory_item_id')
+        ->havingRaw('SUM(remaining_quantity) > 0')
+        ->get()
+        ->filter(function ($row) {
+            // Keep only items whose total stock <= their minimum_stock.
+            $item = \App\Models\InventoryItem::find($row->inventory_item_id);
+            if (! $item || $item->minimum_stock <= 0) return false;
+
+            $totalStock = \App\Models\Batch::where('inventory_item_id', $row->inventory_item_id)
+                ->whereIn('batch_status', ['active', 'partially_used'])
+                ->where('remaining_quantity', '>', 0)
+                ->sum('remaining_quantity');
+
+            return $totalStock <= $item->minimum_stock;
+        })
+        ->pluck('inventory_item_id');
+
+    // One representative batch per low-stock item (earliest expiry first,
+    // so the most urgent batch surfaces at the top).
+    $lowStockItems = \App\Models\Batch::with('inventoryItem.category')
+        ->whereIn('batch_status', ['active', 'partially_used'])
+        ->where('remaining_quantity', '>', 0)
+        ->whereIn('inventory_item_id', $lowStockItemIds)
+        ->whereIn('id', function ($sub) use ($lowStockItemIds) {
+            $sub->selectRaw('MIN(id)')
+                ->from('batches')
+                ->whereIn('batch_status', ['active', 'partially_used'])
+                ->where('remaining_quantity', '>', 0)
+                ->whereIn('inventory_item_id', $lowStockItemIds)
+                ->groupBy('inventory_item_id');
         })
         ->get()
-        ->map(function($batch) {
+        ->map(function ($batch) {
+            $totalStock = \App\Models\Batch::where('inventory_item_id', $batch->inventory_item_id)
+                ->whereIn('batch_status', ['active', 'partially_used'])
+                ->where('remaining_quantity', '>', 0)
+                ->sum('remaining_quantity');
+
             return [
-                'batch_id' => $batch->id,
-                'item_id' => $batch->inventory_item_id,
-                'item_name' => $batch->inventoryItem->name,
-                'category' => $batch->inventoryItem->category->name ?? 'Uncategorized',
-                'batch_number' => $batch->batch_number,
-                'expiry_date' => $batch->expiry_date ? $batch->expiry_date->format('Y-m-d') : 'N/A',
-                'expiry_status' => $batch->expiry_date ?
-                    ($batch->expiry_date->isPast() ? 'expired' :
-                    ($batch->expiry_date->diffInDays(now()) <= 30 ? 'expiring_soon' : 'good')) : 'good',
-                'batch_stock' => $batch->remaining_quantity,
-                'total_stock' => \App\Models\Batch::where('inventory_item_id', $batch->inventory_item_id)
-                    ->where('batch_status', 'active')
-                    ->where('remaining_quantity', '>', 0)
-                    ->sum('remaining_quantity'),
-                'unit' => $batch->unit_of_measurement ?? $batch->inventoryItem->unit_of_measurement ?? 'piece',
-                'unit_cost' => $batch->unit_cost,
+                'batch_id'      => $batch->id,
+                'item_id'       => $batch->inventory_item_id,
+                'item_name'     => $batch->inventoryItem->name,
+                'category'      => $batch->inventoryItem->category->name ?? 'Uncategorized',
+                'batch_number'  => $batch->batch_number,
+                'expiry_date'   => $batch->expiry_date
+                                    ? $batch->expiry_date->format('Y-m-d') : 'N/A',
+                'expiry_status' => $batch->expiry_date
+                                    ? ($batch->expiry_date->isPast() ? 'expired'
+                                    : ($batch->expiry_date->diffInDays(now()) <= 30
+                                        ? 'expiring_soon' : 'good'))
+                                    : 'good',
+                'batch_stock'   => $batch->remaining_quantity,
+                'total_stock'   => $totalStock,
+                'unit'          => $batch->unit_of_measurement ?? 'piece',
+                'unit_cost'     => $batch->unit_cost,
                 'minimum_stock' => $batch->inventoryItem->minimum_stock ?? 10,
             ];
         })
-        ->values(); // Re-index the collection
+        ->values();
 
-    // Get all active batches for manual selection
+    // ─── OUT OF STOCK ─────────────────────────────────────────────────────────
+    // Items where SUM(remaining_quantity) across ALL live batch statuses = 0,
+    // meaning every batch for that item has been fully consumed.
+    // Must include 'depleted' here so items whose only batch is depleted show up.
+
+    $outOfStockItemIds = \App\Models\Batch::whereIn('batch_status', $liveStatuses)
+        ->select('inventory_item_id')
+        ->groupBy('inventory_item_id')
+        ->havingRaw('SUM(remaining_quantity) <= 0')
+        ->pluck('inventory_item_id');
+
+    // Most recent batch per out-of-stock item (for display: batch number, cost).
+    $outOfStockItems = \App\Models\Batch::with('inventoryItem.category')
+        ->whereIn('batch_status', $liveStatuses)
+        ->whereIn('inventory_item_id', $outOfStockItemIds)
+        ->whereIn('id', function ($sub) use ($liveStatuses, $outOfStockItemIds) {
+            $sub->selectRaw('MAX(id)')
+                ->from('batches')
+                ->whereIn('batch_status', $liveStatuses)
+                ->whereIn('inventory_item_id', $outOfStockItemIds)
+                ->groupBy('inventory_item_id');
+        })
+        ->get()
+        ->map(function ($batch) {
+            if (! $batch->inventoryItem) return null;
+
+            return [
+                'batch_id'      => $batch->id,
+                'item_id'       => $batch->inventory_item_id,
+                'item_name'     => $batch->inventoryItem->name,
+                'category'      => $batch->inventoryItem->category->name ?? 'Uncategorized',
+                'batch_number'  => $batch->batch_number,
+                'expiry_date'   => $batch->expiry_date
+                                    ? $batch->expiry_date->format('Y-m-d') : 'N/A',
+                'expiry_status' => $batch->expiry_date
+                                    ? ($batch->expiry_date->isPast() ? 'expired'
+                                    : ($batch->expiry_date->diffInDays(now()) <= 30
+                                        ? 'expiring_soon' : 'good'))
+                                    : 'good',
+                'unit'          => $batch->unit_of_measurement ?? 'piece',
+                'unit_cost'     => $batch->unit_cost,
+                'minimum_stock' => $batch->inventoryItem->minimum_stock ?? 10,
+                'total_stock'   => 0,
+            ];
+        })
+        ->filter()
+        ->values();
+
+    // ─── ALL BATCHES with stock (manual selection tab) ────────────────────────
     $batches = \App\Models\Batch::with('inventoryItem.category')
-        ->where('batch_status', 'active')
+        ->whereIn('batch_status', ['active', 'partially_used'])
         ->where('remaining_quantity', '>', 0)
         ->get();
 
-    return view('store.requisitions.create', compact('batches', 'lowStockItems'));
+    return view('store.requisitions.create', compact('batches', 'lowStockItems', 'outOfStockItems'));
 }
     /**
      * Get batch details for AJAX request.

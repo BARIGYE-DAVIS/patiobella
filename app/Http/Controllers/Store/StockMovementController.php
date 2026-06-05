@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\InventoryItem;
 use App\Models\StockMovement;
 use App\Models\StockMovementType;
+use App\Models\Batch;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -27,7 +28,7 @@ class StockMovementController extends Controller
         }
 
         try {
-            $query = StockMovement::with(['inventoryItem', 'movementType', 'approvedBy']);
+            $query = StockMovement::with(['inventoryItem', 'movementType', 'approvedBy', 'batch']);
 
             if ($request->filled('search')) {
                 $search = $request->search;
@@ -43,7 +44,6 @@ class StockMovementController extends Controller
             if ($request->filled('date_from'))        $query->whereDate('movement_date', '>=', $request->date_from);
             if ($request->filled('date_to'))          $query->whereDate('movement_date', '<=', $request->date_to);
 
-            // ── Read stock_before and stock_after directly from the DB ────────
             $movements = $query
                 ->orderBy('movement_date', 'desc')
                 ->orderBy('created_at', 'desc')
@@ -86,13 +86,18 @@ class StockMovementController extends Controller
                 'approvedBy',
                 'createdBy',
                 'updatedBy',
+                'batch',
             ])->findOrFail($id);
 
-            // Read directly from stored columns — no calculation needed
             $stockBefore = $movement->stock_before;
             $stockAfter  = $movement->stock_after;
 
-            return view('store.stock_movements.show', compact('movement', 'stockBefore', 'stockAfter'));
+            // Get current total stock from batches
+            $currentStock = Batch::where('inventory_item_id', $movement->inventory_item_id)
+                ->where('batch_status', 'active')
+                ->sum('remaining_quantity');
+
+            return view('store.stock_movements.show', compact('movement', 'stockBefore', 'stockAfter', 'currentStock'));
 
         } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
             return redirect()->route('store.stock-movements.index')->with('error', 'Stock movement not found.');
@@ -112,8 +117,15 @@ class StockMovementController extends Controller
         if (!$user->department || $user->department->name !== 'STORE') {
             return redirect()->route('store.dashboard')->with('error', 'Unauthorized access');
         }
+
         $items = InventoryItem::where('is_active', true)->orderBy('name')->get();
-        return view('store.stock_movements.create', compact('items'));
+        $batches = Batch::with('inventoryItem')
+            ->where('batch_status', 'active')
+            ->where('remaining_quantity', '>', 0)
+            ->orderBy('expiry_date', 'asc')
+            ->get();
+
+        return view('store.stock_movements.create', compact('items', 'batches'));
     }
 
     // ─────────────────────────────────────────────────────────────────────────────
@@ -129,6 +141,7 @@ class StockMovementController extends Controller
 
         $validated = $request->validate([
             'inventory_item_id' => 'required|exists:inventory_items,id',
+            'batch_id'          => 'nullable|exists:batches,id',
             'adjustment_type'   => 'required|in:add,subtract',
             'quantity'          => 'required|numeric|min:0.01',
             'reason'            => 'required|string|max:500',
@@ -139,38 +152,77 @@ class StockMovementController extends Controller
         try {
             $item        = InventoryItem::findOrFail($validated['inventory_item_id']);
             $quantity    = (float) $validated['quantity'];
-            $stockBefore = (float) ($item->current_stock ?? 0);
+
+            // Get current total stock from batches
+            $currentStock = Batch::where('inventory_item_id', $item->id)
+                ->where('batch_status', 'active')
+                ->sum('remaining_quantity');
+
+            $stockBefore = (float) $currentStock;
 
             if ($validated['adjustment_type'] === 'add') {
                 $newStock       = $stockBefore + $quantity;
                 $movementTypeId = 2;    // MANUAL_IN
+
+                // Create a new batch for added stock
+                $batchNumber = $this->generateBatchNumber();
+                $batch = Batch::create([
+                    'batch_number' => $batchNumber,
+                    'inventory_item_id' => $item->id,
+                    'initial_quantity' => $quantity,
+                    'remaining_quantity' => $quantity,
+                    'unit_cost' => 0,
+                    'total_cost' => 0,
+                    'unit_of_measurement' => $item->unit_of_measurement,
+                    'batch_status' => 'active',
+                    'notes' => $validated['reason'] . ' (Manual adjustment)',
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
+                $batchId = $batch->id;
+
             } else {
                 if ($stockBefore < $quantity) {
-                    throw new \Exception('Insufficient stock. Current: ' . $stockBefore . ' ' . $item->base_unit . '(s).');
+                    throw new \Exception('Insufficient stock. Current: ' . $stockBefore . ' ' . $item->unit_of_measurement . '(s).');
                 }
                 $newStock       = $stockBefore - $quantity;
                 $movementTypeId = 3;    // MANUAL_OUT
+                $batchId = $validated['batch_id'] ?? null;
+
+                // If batch specified, deduct from that batch
+                if ($batchId) {
+                    $batch = Batch::findOrFail($batchId);
+                    if ($batch->remaining_quantity < $quantity) {
+                        throw new \Exception('Insufficient stock in selected batch. Available: ' . $batch->remaining_quantity);
+                    }
+                    $batch->remaining_quantity -= $quantity;
+                    $batch->save();
+
+                    // Update batch status if depleted
+                    if ($batch->remaining_quantity <= 0) {
+                        $batch->batch_status = 'depleted';
+                        $batch->save();
+                    }
+                }
             }
 
-            $item->current_stock = $newStock;
-            $item->save();
-
-            $movementNumber = 'STK-ADJ-' . date('Ymd') . '-' . str_pad(rand(0, 9999), 4, '0', STR_PAD_LEFT);
+            $movementNumber = $this->generateMovementNumber();
 
             $newMovement = StockMovement::create([
                 'movement_number'       => $movementNumber,
                 'inventory_item_id'     => $item->id,
+                'batch_id'              => $batchId ?? null,
                 'store_id'              => 1,
                 'movement_type_id'      => $movementTypeId,
                 'quantity'              => $quantity,
                 'pack_type'             => null,
                 'pack_size'             => null,
                 'number_of_packs'       => null,
-                'base_unit'             => $item->base_unit ?? 'units',
+                'base_unit'             => $item->unit_of_measurement,
                 'unit_id'               => null,
                 'quantity_in_base_unit' => $quantity,
-                'unit_cost'             => $item->unit_cost ?? 0,
-                'total_value'           => $quantity * ($item->unit_cost ?? 0),
+                'unit_cost'             => $batch->unit_cost ?? 0,
+                'total_value'           => $quantity * ($batch->unit_cost ?? 0),
                 'reason'                => $validated['reason'] . ' (Manual adjustment)',
                 'movement_date'         => now(),
                 'approved_at'           => now(),
@@ -178,6 +230,8 @@ class StockMovementController extends Controller
                 'created_by'            => Auth::id(),
                 'stock_before'          => $stockBefore,
                 'stock_after'           => $newStock,
+                'created_at'            => now(),
+                'updated_at'            => now(),
             ]);
 
             DB::commit();
@@ -192,7 +246,7 @@ class StockMovementController extends Controller
             ]);
 
             return redirect()->route('store.stock-movements.index')
-                ->with('success', "Stock adjusted. New balance: {$newStock} {$item->base_unit}(s).");
+                ->with('success', "Stock adjusted. New balance: {$newStock} {$item->unit_of_measurement}(s).");
 
         } catch (\Exception $e) {
             DB::rollBack();
@@ -211,9 +265,9 @@ class StockMovementController extends Controller
     {
         try {
             $item     = InventoryItem::findOrFail($itemId);
-            $baseUnit = $item->base_unit ?? 'units';
+            $baseUnit = $item->unit_of_measurement;
 
-            $movements = StockMovement::with('movementType')
+            $movements = StockMovement::with(['movementType', 'batch'])
                 ->where('inventory_item_id', $itemId)
                 ->orderBy('created_at', 'desc')
                 ->limit(10)
@@ -237,12 +291,36 @@ class StockMovementController extends Controller
                     'unit_cost'             => $m->unit_cost,
                     'total_value'           => $m->total_value,
                     'reason'                => $m->reason,
+                    'batch_number'          => $m->batch->batch_number ?? null,
                     'date'                  => $m->movement_date->format('Y-m-d'),
                 ]),
             ]);
 
         } catch (\Exception $e) {
             return response()->json(['success' => false, 'message' => 'Failed to fetch movements'], 500);
+        }
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────────
+    // GET BATCHES FOR ITEM (AJAX)
+    // ─────────────────────────────────────────────────────────────────────────────
+
+    public function getItemBatches($itemId)
+    {
+        try {
+            $batches = Batch::where('inventory_item_id', $itemId)
+                ->where('batch_status', 'active')
+                ->where('remaining_quantity', '>', 0)
+                ->orderBy('expiry_date', 'asc')
+                ->get(['id', 'batch_number', 'remaining_quantity', 'expiry_date', 'unit_cost']);
+
+            return response()->json([
+                'success' => true,
+                'batches' => $batches,
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json(['success' => false, 'message' => 'Failed to fetch batches'], 500);
         }
     }
 
@@ -263,15 +341,16 @@ class StockMovementController extends Controller
 
         foreach ($movements as $movement) {
             $isIn     = $movement->movementType && $movement->movementType->sign === '+';
-            $baseUnit = $movement->base_unit ?? $movement->inventoryItem->base_unit ?? 'units';
+            $baseUnit = $movement->base_unit ?? $movement->inventoryItem->unit_of_measurement ?? 'units';
 
             $breakdown = $movement->pack_type
                 ? number_format($movement->number_of_packs) . ' ' . ucfirst($movement->pack_type)
                   . ($movement->pack_size ? ' (× ' . number_format($movement->pack_size) . " {$baseUnit}/{$movement->pack_type})" : '')
-                : number_format($movement->quantity, 2) . ' ' . ($movement->inventoryItem->default_unit_of_measure_id ?? 'units');
+                : number_format($movement->quantity, 2) . ' ' . $baseUnit;
 
             $exportData[] = [
                 'movement_number' => $movement->movement_number,
+                'batch_number'    => $movement->batch->batch_number ?? 'N/A',
                 'item_name'       => $movement->inventoryItem->name ?? 'N/A',
                 'item_code'       => $movement->inventoryItem->item_code ?? 'N/A',
                 'type'            => $movement->movementType->name ?? 'N/A',
@@ -297,7 +376,7 @@ class StockMovementController extends Controller
         $callback = function () use ($exportData) {
             $file = fopen('php://output', 'w');
             fputs($file, "\xEF\xBB\xBF");
-            fputcsv($file, ['Movement #', 'Item Name', 'Item Code', 'Type', 'Direction', 'Quantity', 'Breakdown', 'Total Units', 'Unit', 'Stock BEFORE', 'Stock AFTER', 'Unit Cost (UGX)', 'Total Value (UGX)', 'Movement Date', 'Reason']);
+            fputcsv($file, ['Movement #', 'Batch #', 'Item Name', 'Item Code', 'Type', 'Direction', 'Quantity', 'Breakdown', 'Total Units', 'Unit', 'Stock BEFORE', 'Stock AFTER', 'Unit Cost (UGX)', 'Total Value (UGX)', 'Movement Date', 'Reason']);
             foreach ($exportData as $row) {
                 fputcsv($file, array_values($row));
             }
@@ -311,130 +390,126 @@ class StockMovementController extends Controller
     // EXPORT PDF
     // ─────────────────────────────────────────────────────────────────────────────
 
- /**
- * EXPORT PDF
- */
-/**
- * EXPORT PDF
- */
-public function exportPdf(Request $request)
-{
-    $user = Auth::user();
-    if (!$user->department || $user->department->name !== 'STORE') {
-        return redirect()->route('dashboard')->with('error', 'Unauthorized access');
-    }
+    public function exportPdf(Request $request)
+    {
+        $user = Auth::user();
+        if (!$user->department || $user->department->name !== 'STORE') {
+            return redirect()->route('dashboard')->with('error', 'Unauthorized access');
+        }
 
-    $movements = $this->buildExportData($request);
-    $exportData = [];
-    $totalValue = 0;
+        $movements = $this->buildExportData($request);
+        $exportData = [];
+        $totalValue = 0;
 
-    foreach ($movements as $movement) {
-        // Get relationships safely
-        $movementType = $movement->movementType;
-        $inventoryItem = $movement->inventoryItem;
+        foreach ($movements as $movement) {
+            $movementType = $movement->movementType;
+            $inventoryItem = $movement->inventoryItem;
 
-        $isIn = $movementType && $movementType->sign === '+';
-        $baseUnit = $movement->base_unit ?? ($inventoryItem->base_unit ?? 'units');
+            $isIn = $movementType && $movementType->sign === '+';
+            $baseUnit = $movement->base_unit ?? ($inventoryItem->unit_of_measurement ?? 'units');
 
-        // Calculate breakdown
-        if ($movement->pack_type) {
-            $breakdown = number_format($movement->number_of_packs ?? $movement->quantity) . ' ' . ucfirst($movement->pack_type);
-            if ($movement->pack_size) {
-                $breakdown .= ' (× ' . number_format($movement->pack_size) . " {$baseUnit}/{$movement->pack_type})";
+            if ($movement->pack_type) {
+                $breakdown = number_format($movement->number_of_packs ?? $movement->quantity) . ' ' . ucfirst($movement->pack_type);
+                if ($movement->pack_size) {
+                    $breakdown .= ' (× ' . number_format($movement->pack_size) . " {$baseUnit}/{$movement->pack_type})";
+                }
+            } else {
+                $breakdown = number_format($movement->quantity, 2) . ' ' . $baseUnit;
             }
+
+            $exportItem = new \stdClass();
+            $exportItem->movement_number = $movement->movement_number;
+            $exportItem->batch_number = $movement->batch->batch_number ?? 'N/A';
+            $exportItem->item_name = $inventoryItem->name ?? 'N/A';
+            $exportItem->item_code = $inventoryItem->item_code ?? 'N/A';
+            $exportItem->type = $movementType->name ?? 'N/A';
+            $exportItem->direction = $isIn ? 'IN' : 'OUT';
+            $exportItem->quantity = $movement->pack_type ? ($movement->number_of_packs ?? $movement->quantity) : $movement->quantity;
+            $exportItem->breakdown = $breakdown;
+            $exportItem->total_units = $movement->quantity_in_base_unit ?? 0;
+            $exportItem->unit = $baseUnit;
+            $exportItem->stock_before = $movement->stock_before ?? 0;
+            $exportItem->stock_after = $movement->stock_after ?? 0;
+            $exportItem->unit_cost = $movement->unit_cost ?? 0;
+            $exportItem->total_value = $movement->total_value ?? 0;
+            $exportItem->movement_date = $movement->movement_date ? $movement->movement_date->format('Y-m-d') : 'N/A';
+            $exportItem->reason = $movement->reason ?? 'N/A';
+
+            $exportData[] = $exportItem;
+            $totalValue += $movement->total_value ?? 0;
+        }
+
+        $pdf = Pdf::loadView('store.stock_movements.export_pdf', [
+            'movements' => $exportData,
+            'export_date' => now()->format('F d, Y H:i:s'),
+            'total_movements' => count($exportData),
+            'total_value' => $totalValue,
+        ]);
+
+        return $pdf->download('stock_movements_' . date('Y-m-d') . '.pdf');
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────────
+    // PRIVATE HELPERS
+    // ─────────────────────────────────────────────────────────────────────────────
+
+    private function generateMovementNumber()
+    {
+        $lastMovement = StockMovement::orderBy('id', 'desc')->first();
+        if ($lastMovement) {
+            $lastNumber = intval(substr($lastMovement->movement_number, -4));
+            $newNumber = str_pad($lastNumber + 1, 4, '0', STR_PAD_LEFT);
         } else {
-            $breakdown = number_format($movement->quantity, 2) . ' ' . ($movement->pack_type ?? $baseUnit);
+            $newNumber = '0001';
+        }
+        return 'STK-ADJ-' . date('Ymd') . '-' . $newNumber;
+    }
+
+    private function generateBatchNumber()
+    {
+        $lastBatch = Batch::orderBy('id', 'desc')->first();
+        if ($lastBatch) {
+            $lastNumber = intval(substr($lastBatch->batch_number, -4));
+            $newNumber = str_pad($lastNumber + 1, 4, '0', STR_PAD_LEFT);
+        } else {
+            $newNumber = '0001';
+        }
+        return 'BAT-ADJ-' . date('Ymd') . '-' . $newNumber;
+    }
+
+    private function buildExportData(Request $request)
+    {
+        $query = StockMovement::with(['inventoryItem', 'movementType', 'batch'])
+            ->orderBy('movement_date', 'asc')
+            ->orderBy('created_at', 'asc');
+
+        if ($request->filled('search')) {
+            $s = $request->search;
+            $query->where(function($q) use ($s) {
+                $q->where('movement_number', 'like', "%{$s}%")
+                  ->orWhereHas('inventoryItem', function($sq) use ($s) {
+                      $sq->where('name', 'like', "%{$s}%");
+                  })
+                  ->orWhere('reason', 'like', "%{$s}%");
+            });
         }
 
-        // Create object with all needed properties
-        $exportItem = new \stdClass();
-        $exportItem->movement_number = $movement->movement_number;
-        $exportItem->item_name = $inventoryItem->name ?? 'N/A';
-        $exportItem->item_code = $inventoryItem->item_code ?? 'N/A';
-        $exportItem->type = $movementType->name ?? 'N/A';
-        $exportItem->direction = $isIn ? 'IN' : 'OUT';
-        $exportItem->quantity = $movement->pack_type ? ($movement->number_of_packs ?? $movement->quantity) : $movement->quantity;  // ADD THIS LINE
-        $exportItem->breakdown = $breakdown;
-        $exportItem->total_units = $movement->quantity_in_base_unit ?? 0;
-        $exportItem->unit = $baseUnit;
-        $exportItem->stock_before = $movement->stock_before ?? 0;
-        $exportItem->stock_after = $movement->stock_after ?? 0;
-        $exportItem->unit_cost = $movement->unit_cost ?? 0;
-        $exportItem->total_value = $movement->total_value ?? 0;
-        $exportItem->movement_date = $movement->movement_date ? $movement->movement_date->format('Y-m-d') : 'N/A';
-        $exportItem->reason = $movement->reason ?? 'N/A';
-
-        $exportData[] = $exportItem;
-        $totalValue += $movement->total_value ?? 0;
-    }
-
-    $pdf = Pdf::loadView('store.stock_movements.export_pdf', [
-        'movements' => $exportData,
-        'export_date' => now()->format('F d, Y H:i:s'),
-        'total_movements' => count($exportData),
-        'total_value' => $totalValue,
-    ]);
-
-    return $pdf->download('stock_movements_' . date('Y-m-d') . '.pdf');
-}
-
-    // ─────────────────────────────────────────────────────────────────────────────
-    // PRIVATE HELPER — build export query (shared by Excel & PDF)
-    // No longer needs opening balance calculation — reads from stored columns
-    // ─────────────────────────────────────────────────────────────────────────────
-
-  /**
- * PRIVATE HELPER — build export query (shared by Excel & PDF)
- */
-/**
- * PRIVATE HELPER — build export query (shared by Excel & PDF)
- */
-private function buildExportData(Request $request)
-{
-    $query = StockMovement::with(['inventoryItem', 'movementType'])
-        ->orderBy('movement_date', 'asc')
-        ->orderBy('created_at', 'asc');
-
-    if ($request->filled('search')) {
-        $s = $request->search;
-        $query->where(function($q) use ($s) {
-            $q->where('movement_number', 'like', "%{$s}%")
-              ->orWhereHas('inventoryItem', function($sq) use ($s) {
-                  $sq->where('name', 'like', "%{$s}%");
-              })
-              ->orWhere('reason', 'like', "%{$s}%");
-        });
-    }
-
-    if ($request->filled('item_id')) {
-        $query->where('inventory_item_id', $request->item_id);
-    }
-
-    if ($request->filled('movement_type_id')) {
-        $query->where('movement_type_id', $request->movement_type_id);
-    }
-
-    if ($request->filled('date_from')) {
-        $query->whereDate('movement_date', '>=', $request->date_from);
-    }
-
-    if ($request->filled('date_to')) {
-        $query->whereDate('movement_date', '<=', $request->date_to);
-    }
-
-    $results = $query->get();
-
-    // Load any missing relationships if needed
-    foreach ($results as $result) {
-        if (!$result->relationLoaded('inventoryItem')) {
-            $result->load('inventoryItem');
+        if ($request->filled('item_id')) {
+            $query->where('inventory_item_id', $request->item_id);
         }
-        if (!$result->relationLoaded('movementType')) {
-            $result->load('movementType');
+
+        if ($request->filled('movement_type_id')) {
+            $query->where('movement_type_id', $request->movement_type_id);
         }
+
+        if ($request->filled('date_from')) {
+            $query->whereDate('movement_date', '>=', $request->date_from);
+        }
+
+        if ($request->filled('date_to')) {
+            $query->whereDate('movement_date', '<=', $request->date_to);
+        }
+
+        return $query->get();
     }
-
-    return $results;
-}
-
 }

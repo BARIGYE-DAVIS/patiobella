@@ -174,6 +174,16 @@
     </a>
 @endCanNav
 
+
+            <a href="{{ route('store.inventory.import') }}"
+               class="flex items-center px-4 py-3 text-sm hover:bg-orange-700 transition sidebar-nav-link
+                      {{ request()->routeIs('store.inventory.import') ? 'sidebar-active' : '' }}">
+                <i class="fa fa-import"></i>
+                import Inventory
+            </a>
+
+
+
             {{-- Batches --}}
             @canNav('view_batches')
             <a href="{{ route('store.batches.index') }}"

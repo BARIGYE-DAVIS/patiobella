@@ -349,4 +349,17 @@ class StockMovement extends Model
     {
         return $this->hasMany(StockMovement::class, 'reversed_by_movement_id');
     }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Relationships - ADD THIS MISSING RELATIONSHIP
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Get the batch associated with this stock movement
+ */
+public function batch()
+{
+    return $this->belongsTo(Batch::class, 'batch_id');
+}
+
 }

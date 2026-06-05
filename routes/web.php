@@ -110,20 +110,27 @@ Route::prefix('store')->name('store.')->middleware(['auth'])->group(function () 
     Route::get('/dashboard', [App\Http\Controllers\Store\StoreDashboardController::class, 'index'])->name('dashboard');
 
     // Inventory Management Routes (with permission checks)
-    Route::prefix('inventory')->name('inventory.')->group(function () {
-        Route::get('/', [App\Http\Controllers\Store\InventoryController::class, 'index'])->name('index')->middleware('permission:view_inventory');
-        Route::get('/create', [App\Http\Controllers\Store\InventoryController::class, 'create'])->name('create')->middleware('permission:create_inventory');
-        Route::post('/', [App\Http\Controllers\Store\InventoryController::class, 'store'])->name('store')->middleware('permission:create_inventory');
-        Route::post('/store-from-grn', [App\Http\Controllers\Store\InventoryController::class, 'storeFromGrn'])->name('store-from-grn')->middleware('permission:create_inventory');
-        Route::get('/get-grn-items/{grnId}', [App\Http\Controllers\Store\InventoryController::class, 'getGrnItems'])->name('get-grn-items')->middleware('permission:view_inventory');
-        Route::get('/barcode-lookup', [App\Http\Controllers\Store\InventoryController::class, 'barcodeLookup'])->name('barcode-lookup')->middleware('permission:view_inventory');
-        Route::get('/{id}', [App\Http\Controllers\Store\InventoryController::class, 'show'])->name('show')->middleware('permission:view_inventory');
-        Route::get('/{id}/edit', [App\Http\Controllers\Store\InventoryController::class, 'edit'])->name('edit')->middleware('permission:edit_inventory');
-        Route::put('/{id}', [App\Http\Controllers\Store\InventoryController::class, 'update'])->name('update')->middleware('permission:edit_inventory');
-        Route::delete('/{id}', [App\Http\Controllers\Store\InventoryController::class, 'destroy'])->name('destroy')->middleware('permission:delete_inventory');
-        Route::patch('/{id}/adjust', [App\Http\Controllers\Store\InventoryController::class, 'adjustStock'])->name('adjust')->middleware('permission:adjust_inventory');
-    });
+Route::prefix('inventory')->name('inventory.')->group(function () {
+    // IMPORT ROUTES (MUST COME FIRST - before {id} routes)
+    Route::get('/import', [App\Http\Controllers\Store\InventoryImportController::class, 'showImportForm'])->name('import')->middleware('permission:create_inventory');
+    Route::get('/import/template', [App\Http\Controllers\Store\InventoryImportController::class, 'downloadTemplate'])->name('import.template')->middleware('permission:create_inventory');
+    Route::post('/import', [App\Http\Controllers\Store\InventoryImportController::class, 'import'])->name('import.process')->middleware('permission:create_inventory');
 
+    // Regular CRUD routes
+    Route::get('/', [App\Http\Controllers\Store\InventoryController::class, 'index'])->name('index')->middleware('permission:view_inventory');
+    Route::get('/create', [App\Http\Controllers\Store\InventoryController::class, 'create'])->name('create')->middleware('permission:create_inventory');
+    Route::post('/', [App\Http\Controllers\Store\InventoryController::class, 'store'])->name('store')->middleware('permission:create_inventory');
+    Route::post('/store-from-grn', [App\Http\Controllers\Store\InventoryController::class, 'storeFromGrn'])->name('store-from-grn')->middleware('permission:create_inventory');
+    Route::get('/get-grn-items/{grnId}', [App\Http\Controllers\Store\InventoryController::class, 'getGrnItems'])->name('get-grn-items')->middleware('permission:view_inventory');
+    Route::get('/barcode-lookup', [App\Http\Controllers\Store\InventoryController::class, 'barcodeLookup'])->name('barcode-lookup')->middleware('permission:view_inventory');
+    Route::patch('/{id}/adjust', [App\Http\Controllers\Store\InventoryController::class, 'adjustStock'])->name('adjust')->middleware('permission:adjust_inventory');
+
+    // Routes with {id} parameters MUST come LAST
+    Route::get('/{id}', [App\Http\Controllers\Store\InventoryController::class, 'show'])->name('show')->middleware('permission:view_inventory');
+    Route::get('/{id}/edit', [App\Http\Controllers\Store\InventoryController::class, 'edit'])->name('edit')->middleware('permission:edit_inventory');
+    Route::put('/{id}', [App\Http\Controllers\Store\InventoryController::class, 'update'])->name('update')->middleware('permission:edit_inventory');
+    Route::delete('/{id}', [App\Http\Controllers\Store\InventoryController::class, 'destroy'])->name('destroy')->middleware('permission:delete_inventory');
+});
     // Empty Bottle Weight Management Routes
     Route::prefix('empty-bottle-weights')->name('empty-bottle-weights.')->group(function () {
         Route::get('/', [App\Http\Controllers\Store\EmptyBottleWeightController::class, 'index'])->name('index')->middleware('permission:view_inventory');
