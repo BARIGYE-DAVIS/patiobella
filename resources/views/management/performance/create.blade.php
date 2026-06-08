@@ -94,6 +94,14 @@
     .info-tooltip:hover {
         color: #3b82f6;
     }
+    .gifts-card {
+        background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+        border: 1px solid #fbbf24;
+    }
+    .performance-card {
+        background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
+        border: 1px solid #3b82f6;
+    }
 </style>
 
 <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
@@ -109,7 +117,7 @@
         <form method="POST" action="{{ route('management.performance.store') }}" id="performanceForm">
             @csrf
 
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
                 <div>
                     <label class="block text-xs font-semibold text-gray-700 mb-1">Department *</label>
                     <select name="department_id" id="department_id" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" required>
@@ -122,6 +130,16 @@
                 <div>
                     <label class="block text-xs font-semibold text-gray-700 mb-1">Report Date</label>
                     <input type="date" name="report_date" id="report_date" value="{{ date('Y-m-d') }}" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-gray-700 mb-1">
+                        Gifts Amount (Optional)
+                        <i class="fas fa-info-circle info-tooltip" title="Total value of complimentary items given to customers today"></i>
+                    </label>
+                    <div class="relative">
+                        <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-gray-500 text-sm">UGX</span>
+                        <input type="number" name="gifts_amount" id="gifts_amount" value="0" step="1000" min="0" class="w-full pl-12 pr-3 py-2 border border-gray-300 rounded-lg text-sm">
+                    </div>
                 </div>
                 <div class="flex items-end">
                     <button type="button" id="loadBtn" class="w-full px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg">
@@ -137,29 +155,59 @@
                 </div>
             </div>
 
-            <!-- TOTALS SECTION -->
-            <div id="totalsSection" class="mt-6 p-4 bg-gray-100 rounded-lg border border-gray-200" style="display: none;">
-                <h4 class="font-semibold text-gray-800 mb-3">SUMMARY TOTALS</h4>
-                <div class="totals-grid">
-                    <div class="total-card">
-                        <div class="total-label">TOTAL SALES</div>
-                        <div class="total-value text-emerald-600" id="totalSalesAmount">0 UGX</div>
+            <!-- TOTALS SECTION with GIFTS -->
+            <div id="totalsSection" class="mt-6" style="display: none;">
+                <!-- With Gifts Card -->
+                <div class="performance-card rounded-lg p-4 mb-4">
+                    <h4 class="font-semibold text-blue-800 mb-3">
+                        <i class="fas fa-chart-line mr-2"></i> Sales (Gifts Included)
+                    </h4>
+                    <div class="grid grid-cols-2 md:grid-cols-5 gap-4">
+                        <div class="bg-white rounded-lg p-3 text-center">
+                            <div class="text-xs text-gray-500">Total Sales</div>
+                            <div class="text-lg font-bold text-blue-600" id="totalSalesAmount">0 UGX</div>
+                        </div>
+                        <div class="bg-white rounded-lg p-3 text-center">
+                            <div class="text-xs text-gray-500">Cost of Goods Sold</div>
+                            <div class="text-lg font-bold text-red-600" id="totalCogsAmount">0 UGX</div>
+                        </div>
+                        <div class="bg-white rounded-lg p-3 text-center">
+                            <div class="text-xs text-gray-500">Gifts</div>
+                            <div class="text-lg font-bold text-purple-600" id="giftsDisplay">0 UGX</div>
+                        </div>
+                        <div class="bg-white rounded-lg p-3 text-center">
+                            <div class="text-xs text-gray-500">Profit</div>
+                            <div class="text-lg font-bold text-green-600" id="totalProfitAmount">0 UGX</div>
+                        </div>
+                        <div class="bg-white rounded-lg p-3 text-center">
+                            <div class="text-xs text-gray-500">Profit Margin</div>
+                            <div class="text-lg font-bold text-emerald-600" id="profitMarginDisplay">0%</div>
+                        </div>
                     </div>
-                    <div class="total-card">
-                        <div class="total-label">TOTAL COGS</div>
-                        <div class="total-value text-red-600" id="totalCogsAmount">0 UGX</div>
-                    </div>
-                    <div class="total-card">
-                        <div class="total-label">TOTAL PROFIT</div>
-                        <div class="total-value text-blue-600" id="totalProfitAmount">0 UGX</div>
-                    </div>
-                    <div class="total-card">
-                        <div class="total-label">AVERAGE PROFIT MARGIN</div>
-                        <div class="total-value text-purple-600" id="avgMarginDisplay">0%</div>
-                    </div>
-                    <div class="total-card">
-                        <div class="total-label">AVERAGE PROFIT</div>
-                        <div class="total-value text-orange-600" id="avgProfitDisplay">0 UGX</div>
+                </div>
+
+                <!-- Without Gifts Card -->
+                <div class="gifts-card rounded-lg p-4">
+                    <h4 class="font-semibold text-yellow-800 mb-3">
+                        <i class="fas fa-gift mr-2"></i> Performance Summary: Gifts Excluded
+                    </h4>
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        <div class="bg-white rounded-lg p-3 text-center">
+                            <div class="text-xs text-gray-500">Sales (Gifts Removed)</div>
+                            <div class="text-lg font-bold text-green-600" id="salesWithoutGifts">0 UGX</div>
+                        </div>
+                        <div class="bg-white rounded-lg p-3 text-center">
+                            <div class="text-xs text-gray-500">Cost of Goods Sold</div>
+                            <div class="text-lg font-bold text-red-600" id="cogsWithoutGifts">0 UGX</div>
+                        </div>
+                        <div class="bg-white rounded-lg p-3 text-center">
+                            <div class="text-xs text-gray-500">Profit</div>
+                            <div class="text-lg font-bold text-green-600" id="profitWithoutGifts">0 UGX</div>
+                        </div>
+                        <div class="bg-white rounded-lg p-3 text-center">
+                            <div class="text-xs text-gray-500">Profit Margin</div>
+                            <div class="text-lg font-bold text-emerald-600" id="marginWithoutGifts">0%</div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -187,6 +235,10 @@ document.getElementById('loadBtn').addEventListener('click', function() {
     loadDepartmentData(departmentId);
 });
 
+document.getElementById('gifts_amount').addEventListener('input', function() {
+    updateGiftsCalculations();
+});
+
 function loadDepartmentData(departmentId) {
     showLoading();
 
@@ -196,6 +248,8 @@ function loadDepartmentData(departmentId) {
         .then(response => response.json())
         .then(data => {
             if (data.success) {
+                console.log('Loaded data:', data); // Debug
+                console.log('Stock items with added_today:', data.stock_items);
                 menuItemsData = data.items || [];
                 stockItemsData = data.stock_items || [];
                 renderSideBySide();
@@ -215,7 +269,6 @@ function loadDepartmentData(departmentId) {
 function renderSideBySide() {
     const container = document.getElementById('itemsContainer');
 
-    // MENU ITEMS SECTION
     let html = `
         <div class="menu-section">
             <div class="section-title">MENU ITEMS</div>
@@ -245,7 +298,6 @@ function renderSideBySide() {
         html += `<td><span class="profit-display-${mi}">0 UGX</span></td>`;
         html += `</tr>`;
 
-        // HIDDEN INGREDIENTS DATA
         const ingredients = item.ingredients;
         for (let ig = 0; ig < ingredients.length; ig++) {
             const ing = ingredients[ig];
@@ -262,7 +314,6 @@ function renderSideBySide() {
             </table>
         </div>
 
-        <!-- GENERAL STOCK SECTION -->
         <div class="stock-section">
             <div class="section-title">
                 GENERAL STOCK
@@ -284,23 +335,23 @@ function renderSideBySide() {
 
     for (let si = 0; si < stockItemsData.length; si++) {
         const stockItem = stockItemsData[si];
+        const addedValue = stockItem.added_today || 0;
 
         html += `
-            <tr class="stock-row">
+            <tr class="stock-row" data-stock-index="${si}">
                 <td>${escapeHtml(stockItem.inventory_item_name)}</td>
                 <td>${escapeHtml(stockItem.uom)}</td>
                 <td><input type="number" class="stock-input opening-stock-input" data-stock-index="${si}" value="${stockItem.opening_stock}" step="1" min="0" readonly style="background-color:#f3f4f6;"></td>
-                <td><input type="number" class="stock-input added-stock-input" data-stock-index="${si}" value="${stockItem.added_today || 0}" step="1" min="0" readonly style="background-color:#f3f4f6;"></td>
+                <td><input type="number" class="stock-input added-stock-input" data-stock-index="${si}" value="${addedValue}" step="1" min="0" readonly style="background-color:#f3f4f6;"></td>
                 <td class="stock-used-display-${si}">0</td>
                 <td class="stock-closing-display-${si}">${stockItem.opening_stock}</td>
             </tr>
         `;
 
-        // Hidden fields
         html += `<input type="hidden" class="stock-inventory-id-${si}" value="${stockItem.inventory_item_id}">`;
         html += `<input type="hidden" class="stock-unit-cost-${si}" value="${stockItem.unit_cost}">`;
         html += `<input type="hidden" class="stock-opening-hidden-${si}" value="${stockItem.opening_stock}">`;
-        html += `<input type="hidden" class="stock-added-hidden-${si}" value="${stockItem.added_today || 0}">`;
+        html += `<input type="hidden" class="stock-added-hidden-${si}" value="${addedValue}">`;
         html += `<input type="hidden" class="stock-used-hidden-${si}" value="0">`;
         html += `<input type="hidden" class="stock-closing-hidden-${si}" value="${stockItem.opening_stock}">`;
     }
@@ -321,6 +372,7 @@ function renderSideBySide() {
 
     container.innerHTML = html;
     attachEventListeners();
+    calculateTotals();
 }
 
 function attachEventListeners() {
@@ -331,23 +383,7 @@ function attachEventListeners() {
             calculateAllUsage();
             calculateTotals();
             calculateSummaryTotals();
-        });
-    });
-
-    document.querySelectorAll('.opening-stock-input').forEach(input => {
-        input.addEventListener('input', function() {
-            const stockIndex = parseInt(this.dataset.stockIndex);
-            const value = parseFloat(this.value) || 0;
-            const added = parseFloat(document.querySelector(`.stock-added-hidden-${stockIndex}`)?.value) || 0;
-            const used = parseFloat(document.querySelector(`.stock-used-hidden-${stockIndex}`)?.value) || 0;
-            let closing = value + added - used;
-            if (closing < 0) closing = 0;
-
-            document.querySelector(`.stock-closing-display-${stockIndex}`).innerText = closing;
-            document.querySelector(`.stock-closing-hidden-${stockIndex}`).value = closing;
-            document.querySelector(`.stock-opening-hidden-${stockIndex}`).value = value;
-
-            calculateTotals();
+            updateGiftsCalculations();
         });
     });
 }
@@ -380,7 +416,10 @@ function calculateMenuRow(menuIndex) {
 function calculateAllUsage() {
     // Reset all stock used values
     for (let si = 0; si < stockItemsData.length; si++) {
-        document.querySelector(`.stock-used-hidden-${si}`).value = 0;
+        const usedHidden = document.querySelector(`.stock-used-hidden-${si}`);
+        if (usedHidden) usedHidden.value = 0;
+        const usedDisplay = document.querySelector(`.stock-used-display-${si}`);
+        if (usedDisplay) usedDisplay.innerText = '0';
     }
 
     // Calculate total used for each stock item across all menu items
@@ -424,16 +463,18 @@ function calculateTotals() {
         totalClosing += parseFloat(document.querySelector(`.stock-closing-hidden-${si}`)?.value) || 0;
     }
 
-    document.getElementById('totalAdded').innerText = totalAdded.toFixed(2);
-    document.getElementById('totalUsed').innerText = totalUsed.toFixed(2);
-    document.getElementById('totalClosing').innerText = totalClosing.toFixed(2);
+    const totalAddedElem = document.getElementById('totalAdded');
+    const totalUsedElem = document.getElementById('totalUsed');
+    const totalClosingElem = document.getElementById('totalClosing');
+
+    if (totalAddedElem) totalAddedElem.innerText = totalAdded.toFixed(2);
+    if (totalUsedElem) totalUsedElem.innerText = totalUsed.toFixed(2);
+    if (totalClosingElem) totalClosingElem.innerText = totalClosing.toFixed(2);
 }
 
 function calculateSummaryTotals() {
     let totalSales = 0;
     let totalCogs = 0;
-    let totalProfit = 0;
-    let itemCount = 0;
 
     for (let mi = 0; mi < menuItemsData.length; mi++) {
         const qtySold = parseFloat(document.querySelector(`.qty-sold[data-menu-index="${mi}"]`)?.value) || 0;
@@ -447,18 +488,33 @@ function calculateSummaryTotals() {
 
         totalSales += salesAmount;
         totalCogs += cogs;
-        totalProfit += (salesAmount - cogs);
-        itemCount++;
     }
 
-    const avgMargin = totalSales > 0 ? (totalProfit / totalSales) * 100 : 0;
-    const avgProfit = itemCount > 0 ? totalProfit / itemCount : 0;
+    const totalProfit = totalSales - totalCogs;
+    const profitMargin = totalSales > 0 ? (totalProfit / totalSales) * 100 : 0;
 
     document.getElementById('totalSalesAmount').innerText = formatMoney(totalSales);
     document.getElementById('totalCogsAmount').innerText = formatMoney(totalCogs);
     document.getElementById('totalProfitAmount').innerText = formatMoney(totalProfit);
-    document.getElementById('avgMarginDisplay').innerText = avgMargin.toFixed(1) + '%';
-    document.getElementById('avgProfitDisplay').innerText = formatMoney(avgProfit);
+    document.getElementById('profitMarginDisplay').innerText = profitMargin.toFixed(2) + '%';
+
+    return { totalSales, totalCogs };
+}
+
+function updateGiftsCalculations() {
+    const giftsAmount = parseFloat(document.getElementById('gifts_amount').value) || 0;
+    const totalSalesRaw = parseFloat(document.getElementById('totalSalesAmount').innerText.replace(' UGX', '').replace(/,/g, '')) || 0;
+    const totalCogsRaw = parseFloat(document.getElementById('totalCogsAmount').innerText.replace(' UGX', '').replace(/,/g, '')) || 0;
+
+    const salesWithoutGifts = totalSalesRaw - giftsAmount;
+    const profitWithoutGifts = salesWithoutGifts - totalCogsRaw;
+    const marginWithoutGifts = salesWithoutGifts > 0 ? (profitWithoutGifts / salesWithoutGifts) * 100 : 0;
+
+    document.getElementById('giftsDisplay').innerText = formatMoney(giftsAmount);
+    document.getElementById('salesWithoutGifts').innerText = formatMoney(salesWithoutGifts);
+    document.getElementById('cogsWithoutGifts').innerText = formatMoney(totalCogsRaw);
+    document.getElementById('profitWithoutGifts').innerText = formatMoney(profitWithoutGifts);
+    document.getElementById('marginWithoutGifts').innerText = marginWithoutGifts.toFixed(2) + '%';
 }
 
 function formatMoney(amount) {
@@ -483,12 +539,13 @@ function escapeHtml(str) {
     });
 }
 
-// Form submission
+// Form submission with gifts
 document.getElementById('performanceForm').addEventListener('submit', function(e) {
     e.preventDefault();
 
     const departmentId = document.getElementById('department_id').value;
     const reportDate = document.getElementById('report_date').value;
+    const giftsAmount = parseFloat(document.getElementById('gifts_amount').value) || 0;
 
     if (!departmentId) {
         alert('Please select a department.');
@@ -556,6 +613,7 @@ document.getElementById('performanceForm').addEventListener('submit', function(e
         body: JSON.stringify({
             department_id: departmentId,
             report_date: reportDate,
+            gifts_amount: giftsAmount,
             sales_data: salesData,
         })
     })

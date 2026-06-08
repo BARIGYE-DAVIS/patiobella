@@ -44,9 +44,9 @@
             <span class="ml-2 bg-primary text-white text-xs px-2 py-1 rounded">Super Admin</span>
         @endif
     </p>
-    
+
     <hr class="my-4">
-    
+
     <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
         <!-- Quick Actions - Only for Super Admin -->
         @if(Auth::user()->is_super_admin || Auth::user()->can_create_users)
@@ -72,19 +72,19 @@
             <h3 class="font-semibold text-gray-800 mb-2">System Info</h3>
             <ul class="space-y-2 text-sm">
                 <li class="text-gray-600">
-                    <i class="fas fa-calendar-alt mr-2 text-primary"></i> 
+                    <i class="fas fa-calendar-alt mr-2 text-primary"></i>
                     Today: {{ now()->format('F j, Y') }}
                 </li>
                 <li class="text-gray-600">
-                    <i class="fas fa-clock mr-2 text-primary"></i> 
+                    <i class="fas fa-clock mr-2 text-primary"></i>
                     Time: {{ now()->format('g:i A') }}
                 </li>
                 <li class="text-gray-600">
-                    <i class="fas fa-envelope mr-2 text-primary"></i> 
+                    <i class="fas fa-envelope mr-2 text-primary"></i>
                     Logged in as: {{ Auth::user()->email }}
                 </li>
                 <li class="text-gray-600">
-                    <i class="fas fa-shield-alt mr-2 text-primary"></i> 
+                    <i class="fas fa-shield-alt mr-2 text-primary"></i>
                     Role: {{ ucfirst(Auth::user()->role) }}
                 </li>
             </ul>

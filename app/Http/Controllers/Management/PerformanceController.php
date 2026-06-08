@@ -6,9 +6,15 @@ use App\Http\Controllers\Controller;
 use App\Models\Department;
 use App\Models\DepartmentRequisitionItem;
 use App\Models\InventoryItem;
+use App\Models\BusinessSetting;
 use App\Models\MenuItem;
+use App\Models\DepartmentStockMovement;
 use App\Models\PerformanceReport;
 use App\Models\PerformanceItem;
+use App\Models\StockMovement;
+use Barryvdh\DomPDF\Facade\Pdf;
+use Maatwebsite\Excel\Facades\Excel;
+use App\Exports\PerformanceReportExport;
 use App\Models\RecipeItem;
 use App\Models\Role;
 use Illuminate\Http\Request;
@@ -49,44 +55,38 @@ class PerformanceController extends Controller
 
     /**
      * Get OPENING stock for an inventory item (stock BEFORE the selected date)
-     * OPENING = (Total issued BEFORE date) - (Total sold + consumed + returned BEFORE date)
      */
-    private function getOpeningStock($departmentId, $inventoryItemId, $date)
-    {
-        $opening = DepartmentRequisitionItem::whereHas('requisition', function($query) use ($departmentId, $date) {
-                $query->where('department_id', $departmentId)
-                      ->where('status', '!=', 'cancelled')
-                      ->where('status', '!=', 'rejected')
-                      ->whereDate('created_at', '<', $date);
-            })
-            ->where('inventory_item_id', $inventoryItemId)
-            ->select(DB::raw('
-                COALESCE(SUM(issued_total_pieces), 0) -
-                (COALESCE(SUM(quantity_sold), 0) +
-                 COALESCE(SUM(quantity_consumed), 0) +
-                 COALESCE(SUM(quantity_returned), 0)) as opening
-            '))
-            ->value('opening');
+/**
+ * Get OPENING stock for an inventory item (stock issued BEFORE the selected date)
+ */
+/**
+ * Get OPENING stock for a department item (balance BEFORE the selected date)
+ */
+private function getOpeningStock($departmentId, $inventoryItemId, $date)
+{
+    $movement = DepartmentStockMovement::where('department_id', $departmentId)
+        ->where('inventory_item_id', $inventoryItemId)
+        ->where('movement_date', '<', $date)
+        ->orderBy('movement_date', 'desc')
+        ->orderBy('id', 'desc')
+        ->first();
 
-        return max(0, (float)$opening);
-    }
+    return $movement ? (float)$movement->closing_balance : 0;
+}
 
-    /**
-     * Get ADDED stock for an inventory item (stock issued ON the selected date)
-     */
-    private function getAddedStock($departmentId, $inventoryItemId, $date)
-    {
-        $added = DepartmentRequisitionItem::whereHas('requisition', function($query) use ($departmentId, $date) {
-                $query->where('department_id', $departmentId)
-                      ->where('status', '!=', 'cancelled')
-                      ->where('status', '!=', 'rejected')
-                      ->whereDate('created_at', $date);
-            })
-            ->where('inventory_item_id', $inventoryItemId)
-            ->sum('issued_total_pieces');
+/**
+ * Get ADDED stock for a department item (stock issued ON the selected date)
+ */
+private function getAddedStock($departmentId, $inventoryItemId, $date)
+{
+    $added = DepartmentStockMovement::where('department_id', $departmentId)
+        ->where('inventory_item_id', $inventoryItemId)
+        ->where('movement_date', $date)
+        ->where('movement_type', 'issue')
+        ->sum('added_quantity');
 
-        return max(0, (float)$added);
-    }
+    return (float)$added;
+}
 
     /**
      * Display list of performance reports
@@ -131,8 +131,6 @@ class PerformanceController extends Controller
 
     /**
      * Get department data with menu items, recipes, and current stock
-     * OPENING = Stock BEFORE selected date
-     * ADDED = Stock issued ON selected date
      */
     public function getDepartmentStockData($departmentId, Request $request)
     {
@@ -264,8 +262,7 @@ class PerformanceController extends Controller
     }
 
     /**
-     * Store performance stock take data
-     * Updates department_requisition_items with consumed/sold quantities
+     * Store performance stock take data with Gifts support
      */
     public function store(Request $request)
     {
@@ -276,6 +273,7 @@ class PerformanceController extends Controller
         $validated = $request->validate([
             'department_id' => 'required|exists:departments,id',
             'report_date' => 'required|date',
+            'gifts_amount' => 'nullable|numeric|min:0',
             'sales_data' => 'required|array',
             'sales_data.*.menu_item_id' => 'required|exists:menu_items,id',
             'sales_data.*.quantity_sold' => 'required|numeric|min:0',
@@ -295,12 +293,13 @@ class PerformanceController extends Controller
         try {
             $department = Department::find($validated['department_id']);
             $isKitchen = ($department && $department->name === 'KITCHEN');
+            $giftsAmount = (float)($validated['gifts_amount'] ?? 0);
 
             $totalSales = 0;
             $totalCogs = 0;
             $totalProfit = 0;
 
-            // Create performance report
+            // Create performance report with gifts
             $report = PerformanceReport::create([
                 'report_number' => $this->generateReportNumber(),
                 'department_id' => $validated['department_id'],
@@ -309,6 +308,7 @@ class PerformanceController extends Controller
                 'total_cogs' => 0,
                 'total_profit' => 0,
                 'profit_margin' => 0,
+                'gifts_amount' => $giftsAmount,
                 'created_by' => Auth::id(),
                 'status' => 'completed',
             ]);
@@ -318,7 +318,7 @@ class PerformanceController extends Controller
                 $sellingPrice = (float)$saleData['selling_price'];
                 $salesAmount = $quantitySold * $sellingPrice;
 
-                // Check if has recipe (more than 1 ingredient or single ingredient with qty != 1)
+                // Check if has recipe
                 $hasRecipe = (count($saleData['ingredients']) > 1 ||
                              (count($saleData['ingredients']) == 1 && $saleData['ingredients'][0]['quantity_required'] != 1));
 
@@ -332,12 +332,10 @@ class PerformanceController extends Controller
                     $ingredientCogs = $usedQuantity * $unitCost;
                     $menuItemCogs += $ingredientCogs;
 
-                    // Determine which column to update in department_requisition_items
+                    // Update department stock
                     if ($isKitchen) {
-                        // Kitchen always uses quantity_consumed
                         $this->updateDepartmentStock($validated['department_id'], $inventoryItemId, $usedQuantity, 'consumed');
                     } else {
-                        // Other departments: if has recipe use consumed, else use sold
                         if ($hasRecipe) {
                             $this->updateDepartmentStock($validated['department_id'], $inventoryItemId, $usedQuantity, 'consumed');
                         } else {
@@ -393,11 +391,20 @@ class PerformanceController extends Controller
 
             $profitMargin = $totalSales > 0 ? ($totalProfit / $totalSales) * 100 : 0;
 
+            // Calculate WITHOUT gifts
+            $salesWithoutGifts = $totalSales - $giftsAmount;
+            $profitWithoutGifts = $salesWithoutGifts - $totalCogs;
+            $profitMarginWithoutGifts = $salesWithoutGifts > 0 ? ($profitWithoutGifts / $salesWithoutGifts) * 100 : 0;
+
+            // Update report with all calculations
             $report->update([
                 'total_sales' => $totalSales,
                 'total_cogs' => $totalCogs,
                 'total_profit' => $totalProfit,
                 'profit_margin' => $profitMargin,
+                'sales_without_gifts' => $salesWithoutGifts,
+                'profit_without_gifts' => $profitWithoutGifts,
+                'profit_margin_without_gifts' => $profitMarginWithoutGifts,
             ]);
 
             DB::commit();
@@ -406,6 +413,7 @@ class PerformanceController extends Controller
                 'user_id' => Auth::id(),
                 'report_id' => $report->id,
                 'department_id' => $validated['department_id'],
+                'gifts_amount' => $giftsAmount,
             ]);
 
             return response()->json([
@@ -434,7 +442,6 @@ class PerformanceController extends Controller
      */
     private function updateDepartmentStock($departmentId, $inventoryItemId, $usedQuantity, $type)
     {
-        // Find open requisition items for this department and inventory item
         $requisitionItems = DepartmentRequisitionItem::whereHas('requisition', function($query) use ($departmentId) {
                 $query->where('department_id', $departmentId)
                       ->where('status', '!=', 'cancelled')
@@ -465,15 +472,7 @@ class PerformanceController extends Controller
             }
 
             $reqItem->save();
-
             $remainingToDeduct -= $deductFromThis;
-
-            Log::info("Updated department stock", [
-                'requisition_item_id' => $reqItem->id,
-                'type' => $type,
-                'deducted' => $deductFromThis,
-                'remaining_to_deduct' => $remainingToDeduct
-            ]);
         }
 
         if ($remainingToDeduct > 0) {
@@ -487,7 +486,7 @@ class PerformanceController extends Controller
     }
 
     /**
-     * Show a specific performance report
+     * Show a specific performance report with Gift calculations
      */
     public function show($id)
     {
@@ -498,7 +497,27 @@ class PerformanceController extends Controller
         $report = PerformanceReport::with(['department', 'createdBy', 'items.menuItem', 'items.inventoryItem'])
             ->findOrFail($id);
 
-        return view('management.performance.show', compact('report'));
+        // Calculate summaries
+        $summaryWithGifts = [
+            'sales' => $report->total_sales,
+            'cogs' => $report->total_cogs,
+            'gifts' => $report->gifts_amount ?? 0,
+            'profit' => $report->total_profit,
+            'cogs_percentage' => $report->total_sales > 0 ? ($report->total_cogs / $report->total_sales) * 100 : 0,
+            'profit_margin' => $report->profit_margin,
+        ];
+
+        $summaryWithoutGifts = [
+            'sales' => $report->sales_without_gifts ?? ($report->total_sales - ($report->gifts_amount ?? 0)),
+            'cogs' => $report->total_cogs,
+            'profit' => $report->profit_without_gifts ?? (($report->total_sales - ($report->gifts_amount ?? 0)) - $report->total_cogs),
+            'cogs_percentage' => ($report->sales_without_gifts ?? ($report->total_sales - ($report->gifts_amount ?? 0))) > 0
+                ? ($report->total_cogs / ($report->sales_without_gifts ?? ($report->total_sales - ($report->gifts_amount ?? 0)))) * 100
+                : 0,
+            'profit_margin' => $report->profit_margin_without_gifts ?? 0,
+        ];
+
+        return view('management.performance.show', compact('report', 'summaryWithGifts', 'summaryWithoutGifts'));
     }
 
     /**
@@ -577,22 +596,126 @@ class PerformanceController extends Controller
         $chartData = [
             'dates' => [],
             'sales' => [],
+            'sales_without_gifts' => [],
             'cogs' => [],
             'profit' => [],
+            'profit_without_gifts' => [],
             'margins' => [],
+            'margins_without_gifts' => [],
         ];
 
         foreach ($reports as $report) {
             $chartData['dates'][] = $report->report_date->format('Y-m-d');
             $chartData['sales'][] = $report->total_sales;
+            $chartData['sales_without_gifts'][] = $report->sales_without_gifts ?? ($report->total_sales - ($report->gifts_amount ?? 0));
             $chartData['cogs'][] = $report->total_cogs;
             $chartData['profit'][] = $report->total_profit;
+            $chartData['profit_without_gifts'][] = $report->profit_without_gifts ?? (($report->total_sales - ($report->gifts_amount ?? 0)) - $report->total_cogs);
             $chartData['margins'][] = round($report->profit_margin, 2);
+            $chartData['margins_without_gifts'][] = round($report->profit_margin_without_gifts ?? 0, 2);
         }
 
         return response()->json([
             'success' => true,
             'data' => $chartData,
         ]);
+    }
+
+    /**
+     * Export Performance Report to PDF
+     */
+    public function exportPdf($id)
+    {
+        if (!$this->checkAuthorization()) {
+            return redirect()->route('dashboard')->with('error', 'Unauthorized access.');
+        }
+
+        $report = PerformanceReport::with(['department', 'createdBy', 'items.menuItem', 'items.inventoryItem'])
+            ->findOrFail($id);
+
+        // Get business settings for dynamic company info
+        $businessSettings = [];
+        $settings = BusinessSetting::where('is_active', true)->get();
+        foreach($settings as $setting) {
+            $businessSettings[$setting->key] = $setting->value;
+        }
+
+        // Calculate summaries
+        $salesWithoutGifts = $report->sales_without_gifts ?? ($report->total_sales - ($report->gifts_amount ?? 0));
+        $profitWithoutGifts = $report->profit_without_gifts ?? ($salesWithoutGifts - $report->total_cogs);
+        $marginWithoutGifts = $report->profit_margin_without_gifts ?? ($salesWithoutGifts > 0 ? ($profitWithoutGifts / $salesWithoutGifts) * 100 : 0);
+
+        // Group menu items
+        $groupedItems = $report->items->groupBy('menu_item_id');
+
+        // Calculate top moving stock items
+        $ingredientUsage = [];
+        foreach($report->items as $item) {
+            $inventoryId = $item->inventory_item_id;
+            if (!isset($ingredientUsage[$inventoryId])) {
+                $ingredientUsage[$inventoryId] = [
+                    'name' => $item->inventoryItem->name ?? 'N/A',
+                    'uom' => $item->inventoryItem->unit_of_measurement ?? 'piece',
+                    'used' => 0,
+                    'cogs' => 0
+                ];
+            }
+            $ingredientUsage[$inventoryId]['used'] += $item->used_quantity;
+            $ingredientUsage[$inventoryId]['cogs'] += $item->cogs;
+        }
+        usort($ingredientUsage, function($a, $b) {
+            return $b['used'] <=> $a['used'];
+        });
+        $topMovingItems = array_slice($ingredientUsage, 0, 10);
+
+        // Calculate stock summary
+        $stockSummary = [];
+        foreach($report->items as $item) {
+            $inventoryId = $item->inventory_item_id;
+            if (!isset($stockSummary[$inventoryId])) {
+                $stockSummary[$inventoryId] = [
+                    'name' => $item->inventoryItem->name ?? 'N/A',
+                    'uom' => $item->inventoryItem->unit_of_measurement ?? 'piece',
+                    'opening' => $item->opening_stock,
+                    'added' => $item->added_stock ?? 0,
+                    'used' => 0,
+                    'closing' => $item->closing_stock,
+                ];
+            }
+            $stockSummary[$inventoryId]['used'] += $item->used_quantity;
+        }
+
+        $data = [
+            'report' => $report,
+            'groupedItems' => $groupedItems,
+            'topMovingItems' => $topMovingItems,
+            'stockSummary' => $stockSummary,
+            'salesWithoutGifts' => $salesWithoutGifts,
+            'profitWithoutGifts' => $profitWithoutGifts,
+            'marginWithoutGifts' => $marginWithoutGifts,
+            'generated_date' => now()->format('F d, Y H:i:s'),
+            'generated_by' => Auth::user()->first_name . ' ' . Auth::user()->last_name,
+            'businessSettings' => $businessSettings,
+        ];
+
+        $pdf = Pdf::loadView('management.performance.export_pdf', $data);
+        $pdf->setPaper('A4', 'portrait');
+
+        return $pdf->download('Performance_Report_' . $report->report_number . '.pdf');
+    }
+
+    /**
+     * Export Performance Report to Excel
+     */
+    public function exportExcel($id)
+    {
+        if (!$this->checkAuthorization()) {
+            return redirect()->route('dashboard')->with('error', 'Unauthorized access.');
+        }
+
+        $report = PerformanceReport::with(['department', 'createdBy', 'items.menuItem', 'items.inventoryItem'])
+            ->findOrFail($id);
+
+        return Excel::download(new PerformanceReportExport($report), 'Performance_Report_' . $report->report_number . '.xlsx');
     }
 }

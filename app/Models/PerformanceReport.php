@@ -20,6 +20,10 @@ class PerformanceReport extends Model
         'total_cogs',
         'total_profit',
         'profit_margin',
+        'gifts_amount',
+        'sales_without_gifts',
+        'profit_without_gifts',
+        'profit_margin_without_gifts',
         'status',
         'notes',
         'created_by',
@@ -32,6 +36,10 @@ class PerformanceReport extends Model
         'total_cogs' => 'decimal:2',
         'total_profit' => 'decimal:2',
         'profit_margin' => 'decimal:2',
+        'gifts_amount' => 'decimal:2',
+        'sales_without_gifts' => 'decimal:2',
+        'profit_without_gifts' => 'decimal:2',
+        'profit_margin_without_gifts' => 'decimal:2',
     ];
 
     // Relationships
@@ -74,5 +82,38 @@ class PerformanceReport extends Model
     public function getProfitMarginFormattedAttribute()
     {
         return number_format($this->profit_margin, 2) . '%';
+    }
+
+    // New Accessors for Gifts
+    public function getFormattedGiftsAmountAttribute()
+    {
+        return number_format($this->gifts_amount ?? 0, 0) . ' UGX';
+    }
+
+    public function getFormattedSalesWithoutGiftsAttribute()
+    {
+        return number_format($this->sales_without_gifts ?? ($this->total_sales - ($this->gifts_amount ?? 0)), 0) . ' UGX';
+    }
+
+    public function getFormattedProfitWithoutGiftsAttribute()
+    {
+        return number_format($this->profit_without_gifts ?? (($this->total_sales - ($this->gifts_amount ?? 0)) - $this->total_cogs), 0) . ' UGX';
+    }
+
+    public function getProfitMarginWithoutGiftsFormattedAttribute()
+    {
+        return number_format($this->profit_margin_without_gifts ?? 0, 2) . '%';
+    }
+
+    // Helper method to get COGS percentage
+    public function getCogsPercentageAttribute()
+    {
+        return $this->total_sales > 0 ? ($this->total_cogs / $this->total_sales) * 100 : 0;
+    }
+
+    public function getCogsPercentageWithoutGiftsAttribute()
+    {
+        $salesWithoutGifts = $this->sales_without_gifts ?? ($this->total_sales - ($this->gifts_amount ?? 0));
+        return $salesWithoutGifts > 0 ? ($this->total_cogs / $salesWithoutGifts) * 100 : 0;
     }
 }

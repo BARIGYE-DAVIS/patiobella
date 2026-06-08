@@ -276,6 +276,16 @@
                 <span>Performance</span>
             </a>
 
+                        {{-- Reports --}}
+            @canNav('view_reports')
+            <a href="{{ route('management.reports.index') }}"
+               class="flex items-center px-4 py-3 text-sm hover:bg-orange-700 transition sidebar-nav-link
+                      {{ request()->routeIs('management.reports.*') ? 'sidebar-active' : '' }}">
+                <i class="fas fa-chart-bar w-5 h-5 mr-3 text-orange-200"></i>
+                <span>Reports</span>
+            </a>
+            @endCanNav
+
             {{-- Menu Items --}}
             @canNav('view_menu_items')
             <a href="{{ route('management.menu-items.index') }}"

@@ -9,6 +9,41 @@
 @section('content')
 <div class="space-y-4">
 
+    {{-- ── SESSION ERROR / VALIDATION ERRORS ── --}}
+    @if(session('error'))
+        <div class="bg-red-50 border-l-4 border-red-500 rounded-lg px-5 py-4">
+            <div class="flex items-start gap-3">
+                <i class="fas fa-times-circle text-red-500 mt-0.5"></i>
+                <div>
+                    <p class="font-semibold text-red-800 text-sm">Failed to save</p>
+                    <p class="text-red-700 text-sm mt-1">{{ session('error') }}</p>
+                </div>
+            </div>
+        </div>
+    @endif
+
+    @if($errors->any())
+        <div class="bg-red-50 border-l-4 border-red-500 rounded-lg px-5 py-4">
+            <div class="flex items-start gap-3">
+                <i class="fas fa-exclamation-circle text-red-500 mt-0.5"></i>
+                <div>
+                    <p class="font-semibold text-red-800 text-sm">Validation errors</p>
+                    <ul class="text-red-700 text-sm mt-1 list-disc list-inside">
+                        @foreach($errors->all() as $error)
+                            <li>{{ $error }}</li>
+                        @endforeach
+                    </ul>
+                </div>
+            </div>
+        </div>
+    @endif
+
+    @if(session('success'))
+        <div class="bg-green-50 border-l-4 border-green-500 rounded-lg px-5 py-4">
+            <p class="text-green-800 text-sm"><i class="fas fa-check-circle mr-2"></i>{{ session('success') }}</p>
+        </div>
+    @endif
+
     {{-- Page Header --}}
     <div class="bg-white rounded-xl border border-gray-200 shadow-sm px-6 py-4 flex items-center justify-between flex-wrap gap-3">
         <div class="flex items-center gap-3">
@@ -85,23 +120,23 @@
                         @foreach($requisition->items as $index => $item)
                         @php
                             $unit = $item->inventoryItem->unit_of_measurement ?? 'piece';
-                            $requestedQty = (float) $item->quantity_requested;
-                            $approvedQty = (float) ($item->quantity_approved ?? $requestedQty);
+                            $requestedQty  = (float) $item->quantity_requested;
+                            $approvedQty   = (float) ($item->quantity_approved ?? $requestedQty);
                             $alreadyIssued = (float) ($item->issued_total_pieces ?? 0);
                             $remainingToIssue = max(0, $approvedQty - $alreadyIssued);
 
-                            // Get batches with remaining quantity (FIFO - oldest expiry first)
+                            // FIFO batches — include partially_used as well
                             $batches = \App\Models\Batch::where('inventory_item_id', $item->inventory_item_id)
-                                ->where('batch_status', 'active')
+                                ->whereIn('batch_status', ['active', 'partially_used'])
                                 ->where('remaining_quantity', '>', 0)
                                 ->orderBy('expiry_date', 'asc')
                                 ->orderBy('created_at', 'asc')
                                 ->get();
 
                             $totalAvailable = $batches->sum('remaining_quantity');
-                            $canFulfill = $totalAvailable >= $remainingToIssue;
+                            $canFulfill     = $totalAvailable >= $remainingToIssue;
 
-                            // Calculate suggested FIFO quantities
+                            // Suggested FIFO quantities
                             $suggestedQtys = [];
                             $remaining = $remainingToIssue;
                             foreach ($batches as $batch) {
@@ -113,13 +148,20 @@
                                 if ($remaining <= 0) break;
                             }
                         @endphp
-                        <tr class="hover:bg-gray-50" data-item-index="{{ $index }}" data-remaining="{{ $remainingToIssue }}" data-approved="{{ $approvedQty }}" data-requested="{{ $requestedQty }}">
+                        <tr class="hover:bg-gray-50"
+                            data-item-index="{{ $index }}"
+                            data-remaining="{{ $remainingToIssue }}"
+                            data-approved="{{ $approvedQty }}"
+                            data-requested="{{ $requestedQty }}">
+
                             <td class="px-4 py-3">
                                 <p class="font-medium text-gray-800">{{ $item->inventoryItem->name ?? 'N/A' }}</p>
                                 <p class="text-xs text-gray-400">{{ $item->inventoryItem->item_code ?? '' }}</p>
-                                <input type="hidden" name="items[{{ $index }}][item_id]" value="{{ $item->id }}">
+                                {{-- Always submit item_id and inventory_item_id --}}
+                                <input type="hidden" name="items[{{ $index }}][item_id]"          value="{{ $item->id }}">
                                 <input type="hidden" name="items[{{ $index }}][inventory_item_id]" value="{{ $item->inventory_item_id }}">
                             </td>
+
                             <td class="px-4 py-3 text-gray-500">{{ $unit }}</td>
                             <td class="px-4 py-3 text-center font-semibold">{{ number_format($requestedQty, 2) }}</td>
                             <td class="px-4 py-3 text-center">
@@ -132,18 +174,34 @@
                                     <span class="text-gray-400">—</span>
                                 @endif
                             </td>
+
                             <td class="px-4 py-3">
                                 @if($remainingToIssue <= 0)
-                                    <div class="text-green-600 font-medium">✓ Fully issued</div>
+                                    {{-- Fully issued — still submit quantity_issued = 0 --}}
+                                    <div class="text-green-600 font-medium text-sm">✓ Fully issued</div>
+                                    <input type="hidden" name="items[{{ $index }}][quantity_issued]"    value="0">
+                                    <input type="hidden" name="items[{{ $index }}][issued_total_pieces]" value="0">
+
+                                @elseif($approvedQty <= 0)
+                                    {{-- Nothing approved — still submit so controller records it --}}
+                                    <div class="text-gray-400 text-sm">— Not approved</div>
+                                    <input type="hidden" name="items[{{ $index }}][quantity_issued]"    value="0">
+                                    <input type="hidden" name="items[{{ $index }}][issued_total_pieces]" value="0">
+
                                 @elseif($totalAvailable <= 0)
-                                    <div class="text-red-600 font-medium">✗ Out of stock</div>
+                                    {{-- Out of stock — submit zero so controller still saves --}}
+                                    <div class="text-red-600 font-medium text-sm">✗ Out of stock</div>
+                                    <input type="hidden" name="items[{{ $index }}][quantity_issued]"    value="0">
+                                    <input type="hidden" name="items[{{ $index }}][issued_total_pieces]" value="0">
+
                                 @else
+                                    {{-- Has stock and still needs issuing --}}
                                     <div class="space-y-2">
                                         @foreach($batches as $batchIdx => $batch)
                                             @php
-                                                $suggestedQty = $suggestedQtys[$batch->id] ?? 0;
-                                                $maxFromBatch = min($batch->remaining_quantity, $remainingToIssue);
-                                                $batchUnit = $batch->unit_of_measurement ?? $unit;
+                                                $suggestedQty  = $suggestedQtys[$batch->id] ?? 0;
+                                                $maxFromBatch  = min($batch->remaining_quantity, $remainingToIssue);
+                                                $batchUnit     = $batch->unit_of_measurement ?? $unit;
                                             @endphp
                                             @if($suggestedQty > 0)
                                             <div class="batch-item border border-gray-200 rounded-lg p-2 bg-gray-50">
@@ -155,12 +213,18 @@
                                                                 <i class="fas fa-calendar-alt"></i> Exp: {{ date('d/m/Y', strtotime($batch->expiry_date)) }}
                                                             </span>
                                                         @endif
+                                                        <span class="ml-2 text-xs px-1.5 py-0.5 rounded-full
+                                                            {{ $batch->batch_status === 'partially_used' ? 'bg-amber-100 text-amber-700' : 'bg-green-100 text-green-700' }}">
+                                                            {{ $batch->batch_status === 'partially_used' ? 'Partial' : 'Active' }}
+                                                        </span>
                                                     </div>
                                                     <span class="text-xs text-gray-500">Available: {{ number_format($batch->remaining_quantity, 2) }} {{ $batchUnit }}</span>
                                                 </div>
                                                 <div class="flex items-center gap-3">
                                                     <label class="text-xs text-gray-600">Qty to take:</label>
-                                                    <input type="hidden" name="batches[{{ $index }}][{{ $batchIdx }}][batch_id]" value="{{ $batch->id }}">
+                                                    <input type="hidden"
+                                                           name="batches[{{ $index }}][{{ $batchIdx }}][batch_id]"
+                                                           value="{{ $batch->id }}">
                                                     <input type="number"
                                                            name="batches[{{ $index }}][{{ $batchIdx }}][quantity]"
                                                            id="batch_qty_{{ $index }}_{{ $batchIdx }}"
@@ -181,20 +245,29 @@
                                             <span class="text-xs text-gray-600">Total to issue:</span>
                                             <span id="item_total_{{ $index }}" class="font-bold text-green-600 ml-2">0.00</span>
                                             <span class="text-xs text-gray-500"> {{ $unit }}</span>
-                                            <input type="hidden" name="items[{{ $index }}][quantity_issued]" id="item_quantity_{{ $index }}" value="0">
-                                            <input type="hidden" name="items[{{ $index }}][issued_total_pieces]" id="item_total_pieces_{{ $index }}" value="0">
+                                            <input type="hidden" name="items[{{ $index }}][quantity_issued]"     id="item_quantity_{{ $index }}"      value="0">
+                                            <input type="hidden" name="items[{{ $index }}][issued_total_pieces]" id="item_total_pieces_{{ $index }}"  value="0">
                                         </div>
 
                                         @if(!$canFulfill)
                                             <div class="text-amber-600 text-xs mt-1">
-                                                <i class="fas fa-exclamation-triangle"></i> Only {{ number_format($totalAvailable, 2) }} {{ $unit }} available. {{ number_format($remainingToIssue - $totalAvailable, 2) }} will not be issued.
+                                                <i class="fas fa-exclamation-triangle"></i>
+                                                Only {{ number_format($totalAvailable, 2) }} {{ $unit }} available.
+                                                {{ number_format($remainingToIssue - $totalAvailable, 2) }} will not be issued.
                                             </div>
                                         @endif
                                     </div>
                                 @endif
                             </td>
+
                             <td class="px-4 py-3 text-center">
-                                <span id="display_total_{{ $index }}" class="text-gray-600">0.00</span>
+                                <span id="display_total_{{ $index }}" class="text-gray-600">
+                                    @if($remainingToIssue <= 0 || $approvedQty <= 0 || $totalAvailable <= 0)
+                                        —
+                                    @else
+                                        0.00
+                                    @endif
+                                </span>
                             </td>
                         </tr>
                         @endforeach
@@ -216,7 +289,7 @@
             </label>
             <textarea name="store_notes" id="store_notes" rows="2"
                       class="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      placeholder="Any notes for the department..."></textarea>
+                      placeholder="Any notes for the department...">{{ old('store_notes') }}</textarea>
         </div>
 
         {{-- Actions --}}
@@ -225,7 +298,7 @@
                class="px-6 py-2 border border-gray-300 rounded-lg text-sm text-gray-700 hover:bg-gray-50 transition">
                 <i class="fas fa-times mr-1"></i> Cancel
             </a>
-            <button type="submit"
+            <button type="submit" id="submitBtn"
                     class="px-6 py-2 bg-green-600 text-sm text-white rounded-lg hover:bg-green-700 transition font-medium">
                 <i class="fas fa-check-circle mr-1"></i> Confirm Issue
             </button>
@@ -256,50 +329,56 @@
     </div>
 </div>
 
+{{-- ── DEBUG PANEL (remove in production) ── --}}
+<div id="debugPanel" class="fixed bottom-4 right-4 z-50" style="max-width: 420px;">
+    <button class="hidden"  onclick="toggleDebug()"
+            class="bg-gray-800 text-white text-xs px-3 py-1.5 rounded-lg mb-1 w-full text-left font-mono">
+        🐛 Debug form data
+    </button>
+    <div id="debugContent" class="hidden bg-gray-900 text-green-400 text-xs p-3 rounded-lg overflow-y-auto font-mono"
+         style="max-height: 300px; white-space: pre-wrap;"></div>
+</div>
+
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 
 <script>
-    document.addEventListener('DOMContentLoaded', function() {
+    // ── TOTALS ─────────────────────────────────────────────────────────────────
+    document.addEventListener('DOMContentLoaded', function () {
         const itemRows = document.querySelectorAll('tbody tr[data-item-index]');
 
         itemRows.forEach(row => {
-            const itemIndex = row.getAttribute('data-item-index');
+            const itemIndex   = row.getAttribute('data-item-index');
             const batchInputs = document.querySelectorAll(`[id^="batch_qty_${itemIndex}_"]`);
 
-            // If there are no batch inputs for this row (fully issued / out of stock),
-            // skip setting up listeners — the DOM elements won't exist.
             if (!batchInputs.length) return;
 
             function updateItemTotal() {
                 let total = 0;
-                batchInputs.forEach(input => {
-                    total += parseFloat(input.value) || 0;
-                });
+                batchInputs.forEach(input => { total += parseFloat(input.value) || 0; });
 
                 const remainingNeeded = parseFloat(row.getAttribute('data-remaining')) || 0;
                 if (total > remainingNeeded) total = remainingNeeded;
 
-                // Guard: elements only exist when the batch section is rendered
-                const itemTotalEl        = document.getElementById(`item_total_${itemIndex}`);
-                const displayTotalEl     = document.getElementById(`display_total_${itemIndex}`);
-                const itemQuantityEl     = document.getElementById(`item_quantity_${itemIndex}`);
-                const itemTotalPiecesEl  = document.getElementById(`item_total_pieces_${itemIndex}`);
+                const itemTotalEl       = document.getElementById(`item_total_${itemIndex}`);
+                const displayTotalEl    = document.getElementById(`display_total_${itemIndex}`);
+                const itemQuantityEl    = document.getElementById(`item_quantity_${itemIndex}`);
+                const itemTotalPiecesEl = document.getElementById(`item_total_pieces_${itemIndex}`);
 
-                if (itemTotalEl)       itemTotalEl.innerText        = total.toFixed(2);
-                if (displayTotalEl)    displayTotalEl.innerText     = total.toFixed(2);
-                if (itemQuantityEl)    itemQuantityEl.value         = total;
-                if (itemTotalPiecesEl) itemTotalPiecesEl.value      = total;
+                if (itemTotalEl)       itemTotalEl.innerText   = total.toFixed(2);
+                if (displayTotalEl)    displayTotalEl.innerText = total.toFixed(2);
+                if (itemQuantityEl)    itemQuantityEl.value    = total;
+                if (itemTotalPiecesEl) itemTotalPiecesEl.value = total;
 
                 updateGrandTotal();
             }
 
             batchInputs.forEach(input => {
-                input.addEventListener('change', function() { updateItemTotal(); });
-                input.addEventListener('input', function() {
+                input.addEventListener('change', updateItemTotal);
+                input.addEventListener('input', function () {
                     let val = parseFloat(this.value) || 0;
                     const max = parseFloat(this.getAttribute('max')) || 0;
                     if (val > max) this.value = max;
-                    if (val < 0) this.value = 0;
+                    if (val < 0)   this.value = 0;
                     updateItemTotal();
                 });
             });
@@ -313,12 +392,14 @@
         document.querySelectorAll('[id^="item_total_"]').forEach(el => {
             grand += parseFloat(el.innerText) || 0;
         });
-        const grandTotalEl = document.getElementById('grandTotal');
-        if (grandTotalEl) grandTotalEl.innerText = grand.toFixed(2);
+        const el = document.getElementById('grandTotal');
+        if (el) el.innerText = grand.toFixed(2);
     }
 
-    document.getElementById('issueForm').addEventListener('submit', function(e) {
+    // ── FORM SUBMIT ────────────────────────────────────────────────────────────
+    document.getElementById('issueForm').addEventListener('submit', function (e) {
         const takenBy = document.getElementById('taken_by').value.trim();
+
         if (!takenBy) {
             e.preventDefault();
             alert('Please enter the name of the person receiving these items.');
@@ -326,141 +407,164 @@
             return false;
         }
 
-        let hasQty = false;
-        document.querySelectorAll('[id^="item_quantity_"]').forEach(input => {
-            if (parseFloat(input.value) > 0) hasQty = true;
-        });
+        // Show loading state
+        const btn = document.getElementById('submitBtn');
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i> Saving...';
 
-        if (!hasQty) {
-            e.preventDefault();
-            alert('No items to issue. Please specify quantities for at least one item.');
-            return false;
-        }
+        // Allow submit even if all quantities are zero
+        // The controller handles zero-qty items gracefully
+        return true;
     });
 
+    // ── DEBUG PANEL ────────────────────────────────────────────────────────────
+    function toggleDebug() {
+        const panel = document.getElementById('debugContent');
+        panel.classList.toggle('hidden');
+        if (!panel.classList.contains('hidden')) {
+            refreshDebug();
+        }
+    }
+
+    function refreshDebug() {
+        const form   = document.getElementById('issueForm');
+        const data   = new FormData(form);
+        const output = [];
+
+        for (let [key, value] of data.entries()) {
+            if (key === '_token') continue;
+            output.push(`${key} = ${value}`);
+        }
+
+        document.getElementById('debugContent').textContent = output.join('\n');
+    }
+
+    // ── PREVIEW ────────────────────────────────────────────────────────────────
     function generatePreviewHTML() {
-        const requisition = @json($requisition);
+        const requisition = @json($requisition->load(['department', 'requestedBy', 'approvedBy']));
         const items = [];
 
         document.querySelectorAll('tbody tr[data-item-index]').forEach(row => {
-            const itemIndex = row.getAttribute('data-item-index');
-            const itemName = row.querySelector('.font-medium')?.innerText || 'N/A';
-            const unit = row.querySelector('td:nth-child(2)')?.innerText || 'piece';
-            const approved = row.getAttribute('data-approved') || 0;
-            const requested = row.getAttribute('data-requested') || 0;
-            const quantityToIssue = parseFloat(document.getElementById(`item_quantity_${itemIndex}`)?.value || 0);
+            const itemIndex      = row.getAttribute('data-item-index');
+            const itemName       = row.querySelector('.font-medium')?.innerText || 'N/A';
+            const unit           = row.querySelector('td:nth-child(2)')?.innerText || 'piece';
+            const approved       = row.getAttribute('data-approved') || 0;
+            const requested      = row.getAttribute('data-requested') || 0;
+            const qtyEl          = document.getElementById(`item_quantity_${itemIndex}`);
+            const quantityToIssue = qtyEl ? parseFloat(qtyEl.value || 0) : 0;
 
             if (quantityToIssue > 0) {
-                items.push({ name: itemName, unit: unit, approved: approved, requested: requested, issued: quantityToIssue });
+                items.push({ name: itemName, unit, approved, requested, issued: quantityToIssue });
             }
         });
 
-        const takenBy = document.getElementById('taken_by').value || 'Not specified';
-        const storeNotes = document.getElementById('store_notes').value || '';
-        const now = new Date();
+        const takenBy       = document.getElementById('taken_by').value || 'Not specified';
+        const storeNotes    = document.getElementById('store_notes').value || '';
+        const now           = new Date();
         const formattedDate = now.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
-        const currentUser = @json(Auth::user());
+        const currentUser   = @json(Auth::user());
 
-        let requestedBySignature = '';
-        if (requisition.requested_by && requisition.requested_by.signature_path) {
-            requestedBySignature = `<img src="{{ asset('storage') }}/${requisition.requested_by.signature_path}" style="max-height:50px; max-width:150px;">`;
-        }
-
-        let approvedBySignature = '';
-        if (requisition.approved_by && requisition.approved_by.signature_path) {
-            approvedBySignature = `<img src="{{ asset('storage') }}/${requisition.approved_by.signature_path}" style="max-height:50px; max-width:150px;">`;
-        }
-
-        let issuedBySignature = '';
-        if (currentUser && currentUser.signature_path) {
-            issuedBySignature = `<img src="{{ asset('storage') }}/${currentUser.signature_path}" style="max-height:50px; max-width:150px;">`;
-        }
+        const requestedBySignature = requisition.requested_by?.signature_path
+            ? `<img src="{{ asset('storage') }}/${requisition.requested_by.signature_path}" style="max-height:50px;max-width:150px;">`
+            : '';
+        const approvedBySignature  = requisition.approved_by?.signature_path
+            ? `<img src="{{ asset('storage') }}/${requisition.approved_by.signature_path}" style="max-height:50px;max-width:150px;">`
+            : '';
+        const issuedBySignature    = currentUser?.signature_path
+            ? `<img src="{{ asset('storage') }}/${currentUser.signature_path}" style="max-height:50px;max-width:150px;">`
+            : '';
 
         return `
-            <div style="font-family: Arial, sans-serif; max-width: 100%; margin: 0 auto;">
-                <div style="text-align: center; margin-bottom: 20px; border-bottom: 2px solid #e5e7eb; padding-bottom: 12px;">
-                    <h2 style="margin: 0; color: #111827;">ISSUE NOTE</h2>
-                    <p style="margin: 4px 0 0; color: #6b7280;">Department Issue Slip</p>
-                    <p style="margin: 4px 0 0; font-size: 12px;">Requisition: ${requisition.requisition_number}</p>
-                </div>
-
-                <div style="margin-bottom: 18px;">
-                    <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
-                        <tr><td style="padding: 4px;"><strong>Date Issued:</strong> ${formattedDate}</td><td style="padding: 4px;"><strong>Department:</strong> ${requisition.department?.name || 'N/A'}</td></tr>
-                        <tr><td style="padding: 4px;"><strong>Received By:</strong> ${takenBy}</td><td style="padding: 4px;"><strong>Issued By:</strong> ${currentUser?.first_name || ''} ${currentUser?.last_name || ''}</td></tr>
-                    </table>
-                </div>
-
-                ${storeNotes ? `<div style="margin-bottom: 16px; padding: 8px; background: #f9fafb; border-left: 4px solid #22c55e;"><strong>Notes:</strong><p style="margin: 6px 0 0;">${storeNotes}</p></div>` : ''}
-
-                <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
-                    <thead>
-                        <tr><th style="border:1px solid #e5e7eb; padding:8px; background:#22c55e; color:#fff;">#</th>
-                            <th style="border:1px solid #e5e7eb; padding:8px; background:#22c55e; color:#fff;">Item</th>
-                            <th style="border:1px solid #e5e7eb; padding:8px; background:#22c55e; color:#fff;">Requested</th>
-                            <th style="border:1px solid #e5e7eb; padding:8px; background:#22c55e; color:#fff;">Approved</th>
-                            <th style="border:1px solid #e5e7eb; padding:8px; background:#22c55e; color:#fff;">Issued</th>
-                            <th style="border:1px solid #e5e7eb; padding:8px; background:#22c55e; color:#fff;">Unit</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        ${items.map((item, idx) => `
-                            <tr>
-                                <td style="border:1px solid #e5e7eb; padding:8px;">${idx+1}</td>
-                                <td style="border:1px solid #e5e7eb; padding:8px;">${item.name}</td>
-                                <td style="border:1px solid #e5e7eb; padding:8px; text-align:center;">${parseFloat(item.requested).toFixed(2)}</td>
-                                <td style="border:1px solid #e5e7eb; padding:8px; text-align:center;">${parseFloat(item.approved).toFixed(2)}</td>
-                                <td style="border:1px solid #e5e7eb; padding:8px; text-align:center;"><strong>${item.issued.toFixed(2)}</strong></td>
-                                <td style="border:1px solid #e5e7eb; padding:8px; text-align:center;">${item.unit}</td>
-                            </tr>
-                        `).join('')}
-                    </tbody>
-                    <tfoot>
-                        <tr><td colspan="4" style="border:1px solid #e5e7eb; padding:8px; text-align:right;"><strong>Total Issued:</strong></td>
-                            <td style="border:1px solid #e5e7eb; padding:8px; text-align:center;"><strong>${items.reduce((sum, i) => sum + i.issued, 0).toFixed(2)}</strong></td>
-                            <td style="border:1px solid #e5e7eb; padding:8px;"></td>
-                        </tr>
-                    </tfoot>
-                </table>
-
-                <div style="margin-top: 30px;">
-                    <table style="width: 100%;">
-                        <tr>
-                            <td style="width: 33%; text-align: center;">
-                                <div style="border-top: 1px solid #111827; width: 80%; margin: 0 auto 10px auto;"></div>
-                                ${requestedBySignature}
-                                <div><strong>${requisition.requested_by?.first_name || ''} ${requisition.requested_by?.last_name || ''}</strong></div>
-                                <div style="font-size: 11px;">Requested By</div>
-                            </td>
-                            <td style="width: 33%; text-align: center;">
-                                <div style="border-top: 1px solid #111827; width: 80%; margin: 0 auto 10px auto;"></div>
-                                ${approvedBySignature}
-                                <div><strong>${requisition.approved_by?.first_name || ''} ${requisition.approved_by?.last_name || ''}</strong></div>
-                                <div style="font-size: 11px;">Approved By</div>
-                            </td>
-                            <td style="width: 33%; text-align: center;">
-                                <div style="border-top: 1px solid #111827; width: 80%; margin: 0 auto 10px auto;"></div>
-                                ${issuedBySignature}
-                                <div><strong>${currentUser?.first_name || ''} ${currentUser?.last_name || ''}</strong></div>
-                                <div style="font-size: 11px;">Issued By</div>
-                            </td>
-                        </tr>
-                        <tr>
-                            <td style="text-align: center; padding-top: 20px;">
-                                <div style="border-top: 1px solid #111827; width: 80%; margin: 0 auto 10px auto;"></div>
-                                <div><strong>${takenBy}</strong></div>
-                                <div style="font-size: 11px;">Received By</div>
-                            </td>
-                            <td colspan="2"></td>
-                        </tr>
-                    </table>
-                </div>
-
-                <div style="margin-top: 20px; text-align: center; font-size: 10px; color: #9ca3af; border-top: 1px solid #eef2f7; padding-top: 12px;">
-                    <p>This is a system-generated issue note. Please verify all items before signing.</p>
-                </div>
+        <div style="font-family:Arial,sans-serif;max-width:100%;margin:0 auto;">
+            <div style="text-align:center;margin-bottom:20px;border-bottom:2px solid #e5e7eb;padding-bottom:12px;">
+                <h2 style="margin:0;color:#111827;">ISSUE NOTE</h2>
+                <p style="margin:4px 0 0;color:#6b7280;">Department Issue Slip</p>
+                <p style="margin:4px 0 0;font-size:12px;">Requisition: ${requisition.requisition_number}</p>
             </div>
-        `;
+            <div style="margin-bottom:18px;">
+                <table style="width:100%;border-collapse:collapse;font-size:13px;">
+                    <tr>
+                        <td style="padding:4px;"><strong>Date Issued:</strong> ${formattedDate}</td>
+                        <td style="padding:4px;"><strong>Department:</strong> ${requisition.department?.name || 'N/A'}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding:4px;"><strong>Received By:</strong> ${takenBy}</td>
+                        <td style="padding:4px;"><strong>Issued By:</strong> ${currentUser?.first_name || ''} ${currentUser?.last_name || ''}</td>
+                    </tr>
+                </table>
+            </div>
+            ${storeNotes ? `<div style="margin-bottom:16px;padding:8px;background:#f9fafb;border-left:4px solid #22c55e;"><strong>Notes:</strong><p style="margin:6px 0 0;">${storeNotes}</p></div>` : ''}
+            <table style="width:100%;border-collapse:collapse;margin-bottom:20px;">
+                <thead>
+                    <tr>
+                        <th style="border:1px solid #e5e7eb;padding:8px;background:#22c55e;color:#fff;">#</th>
+                        <th style="border:1px solid #e5e7eb;padding:8px;background:#22c55e;color:#fff;">Item</th>
+                        <th style="border:1px solid #e5e7eb;padding:8px;background:#22c55e;color:#fff;">Requested</th>
+                        <th style="border:1px solid #e5e7eb;padding:8px;background:#22c55e;color:#fff;">Approved</th>
+                        <th style="border:1px solid #e5e7eb;padding:8px;background:#22c55e;color:#fff;">Issued</th>
+                        <th style="border:1px solid #e5e7eb;padding:8px;background:#22c55e;color:#fff;">Unit</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${items.length > 0
+                        ? items.map((item, idx) => `
+                            <tr>
+                                <td style="border:1px solid #e5e7eb;padding:8px;">${idx + 1}</td>
+                                <td style="border:1px solid #e5e7eb;padding:8px;">${item.name}</td>
+                                <td style="border:1px solid #e5e7eb;padding:8px;text-align:center;">${parseFloat(item.requested).toFixed(2)}</td>
+                                <td style="border:1px solid #e5e7eb;padding:8px;text-align:center;">${parseFloat(item.approved).toFixed(2)}</td>
+                                <td style="border:1px solid #e5e7eb;padding:8px;text-align:center;"><strong>${item.issued.toFixed(2)}</strong></td>
+                                <td style="border:1px solid #e5e7eb;padding:8px;text-align:center;">${item.unit}</td>
+                            </tr>`).join('')
+                        : `<tr><td colspan="6" style="border:1px solid #e5e7eb;padding:12px;text-align:center;color:#9ca3af;">No items with quantity to issue</td></tr>`
+                    }
+                </tbody>
+                <tfoot>
+                    <tr>
+                        <td colspan="4" style="border:1px solid #e5e7eb;padding:8px;text-align:right;"><strong>Total Issued:</strong></td>
+                        <td style="border:1px solid #e5e7eb;padding:8px;text-align:center;">
+                            <strong>${items.reduce((sum, i) => sum + i.issued, 0).toFixed(2)}</strong>
+                        </td>
+                        <td style="border:1px solid #e5e7eb;padding:8px;"></td>
+                    </tr>
+                </tfoot>
+            </table>
+            <div style="margin-top:30px;">
+                <table style="width:100%;">
+                    <tr>
+                        <td style="width:33%;text-align:center;">
+                            <div style="border-top:1px solid #111827;width:80%;margin:0 auto 10px auto;"></div>
+                            ${requestedBySignature}
+                            <div><strong>${requisition.requested_by?.first_name || ''} ${requisition.requested_by?.last_name || ''}</strong></div>
+                            <div style="font-size:11px;">Requested By</div>
+                        </td>
+                        <td style="width:33%;text-align:center;">
+                            <div style="border-top:1px solid #111827;width:80%;margin:0 auto 10px auto;"></div>
+                            ${approvedBySignature}
+                            <div><strong>${requisition.approved_by?.first_name || ''} ${requisition.approved_by?.last_name || ''}</strong></div>
+                            <div style="font-size:11px;">Approved By</div>
+                        </td>
+                        <td style="width:33%;text-align:center;">
+                            <div style="border-top:1px solid #111827;width:80%;margin:0 auto 10px auto;"></div>
+                            ${issuedBySignature}
+                            <div><strong>${currentUser?.first_name || ''} ${currentUser?.last_name || ''}</strong></div>
+                            <div style="font-size:11px;">Issued By</div>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="text-align:center;padding-top:20px;">
+                            <div style="border-top:1px solid #111827;width:80%;margin:0 auto 10px auto;"></div>
+                            <div><strong>${takenBy}</strong></div>
+                            <div style="font-size:11px;">Received By</div>
+                        </td>
+                        <td colspan="2"></td>
+                    </tr>
+                </table>
+            </div>
+            <div style="margin-top:20px;text-align:center;font-size:10px;color:#9ca3af;border-top:1px solid #eef2f7;padding-top:12px;">
+                <p>This is a system-generated issue note. Please verify all items before signing.</p>
+            </div>
+        </div>`;
     }
 
     function showPreviewModal() {
@@ -470,17 +574,6 @@
             document.getElementById('taken_by').focus();
             return;
         }
-
-        let hasQty = false;
-        document.querySelectorAll('[id^="item_quantity_"]').forEach(input => {
-            if (parseFloat(input.value) > 0) hasQty = true;
-        });
-
-        if (!hasQty) {
-            alert('Please specify quantities for at least one item before previewing.');
-            return;
-        }
-
         document.getElementById('previewContent').innerHTML = generatePreviewHTML();
         document.getElementById('previewModal').classList.remove('hidden');
     }
@@ -508,7 +601,7 @@
 <style>
     .batch-item { transition: all 0.2s; }
     .batch-item:hover { background-color: #fef3c7; border-color: #fcd34d; }
-    .batch-qty:focus { outline: none; border-color: #22c55e; box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.2); }
+    .batch-qty:focus { outline: none; border-color: #22c55e; box-shadow: 0 0 0 2px rgba(34,197,94,0.2); }
     .hidden { display: none !important; }
 </style>
 @endsection

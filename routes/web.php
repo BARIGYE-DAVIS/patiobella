@@ -10,6 +10,7 @@ use App\Http\Controllers\performance\PerformanceController;
 //use App\Http\Controllers\Management\PerformanceSummaryController;
 use Illuminate\Support\Facades\Auth;
 use App\Http\Controllers\RoleController;
+use App\Http\Controllers\Management\ReportController;
 use App\Http\Controllers\Procurement\PurchaseOrderController;
 use App\Http\Controllers\Store\StoreDashboardController;
 use App\Http\Controllers\Management\ManagerStockMovementController;
@@ -400,6 +401,8 @@ Route::prefix('management')->name('management.')->middleware(['auth'])->group(fu
         Route::put('/{id}', [App\Http\Controllers\Management\ManagementRequisitionController::class, 'update'])->name('update')->middleware('permission:edit_requisitions');
         Route::post('/{id}/reject', [App\Http\Controllers\Management\ManagementRequisitionController::class, 'reject'])->name('reject')->middleware('permission:approve_requisitions');
     });
+
+
 
     Route::prefix('stock-counts')->name('stock-counts.')->group(function () {
         Route::get('/', [App\Http\Controllers\Management\StockCountController::class, 'index'])->name('index')->middleware('permission:view_stock_counts');
@@ -939,4 +942,31 @@ Route::prefix('management')->name('management.')->middleware(['auth'])->group(fu
         // Chart data endpoint
         Route::get('/chart-data', [App\Http\Controllers\Management\PerformanceController::class, 'chartData'])->name('chart-data');
     });
+});
+
+// Performance Report Exports
+Route::get('/performance/{id}/pdf', [App\Http\Controllers\Management\PerformanceController::class, 'exportPdf'])
+    ->name('management.performance.export-pdf');
+Route::get('/performance/{id}/excel', [App\Http\Controllers\Management\PerformanceController::class, 'exportExcel'])
+    ->name('management.performance.export-excel');
+
+
+
+
+    Route::prefix('management')->middleware(['auth'])->group(function () {
+
+    Route::prefix('reports')->group(function () {
+
+        // Main reports dashboard
+        Route::get('/', [ReportController::class, 'index'])->name('management.reports.index');
+
+        // AJAX endpoint for report data
+        Route::get('/data', [ReportController::class, 'getData'])->name('management.reports.data');
+
+        // Export routes
+        Route::get('/export-pdf', [ReportController::class, 'exportPdf'])->name('management.reports.export-pdf');
+        Route::get('/export-excel', [ReportController::class, 'exportExcel'])->name('management.reports.export-excel');
+
+    });
+
 });

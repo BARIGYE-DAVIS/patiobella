@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\DepartmentRequisition;
 use App\Models\DepartmentRequisitionItem;
 use App\Models\InventoryItem;
+use App\Models\DepartmentStockMovement;
 use App\Models\StockMovement;
 use App\Models\Batch;
 use Illuminate\Http\Request;
@@ -245,122 +246,166 @@ public function issue(Request $request, $id)
     DB::beginTransaction();
 
     try {
-        $requisition = DepartmentRequisition::findOrFail($id);
-        $anyIssued = false;
+        $requisition    = DepartmentRequisition::findOrFail($id);
+        $anyIssued      = false;
         $allFullyIssued = true;
 
         foreach ($request->items as $itemIndex => $itemData) {
-            $reqItem = DepartmentRequisitionItem::findOrFail($itemData['item_id']);
+            $reqItem       = DepartmentRequisitionItem::findOrFail($itemData['item_id']);
             $inventoryItem = InventoryItem::find($reqItem->inventory_item_id);
 
-            $totalToIssue = (float) $itemData['quantity_issued'];
-            $approvedQty = (float) ($reqItem->quantity_approved ?? $reqItem->quantity_requested);
+            $totalToIssue  = (float) ($itemData['quantity_issued'] ?? 0);
+            $approvedQty   = (float) ($reqItem->quantity_approved ?? $reqItem->quantity_requested);
             $alreadyIssued = (float) ($reqItem->issued_total_pieces ?? 0);
+            $unit          = $inventoryItem->unit_of_measurement ?? 'piece';
 
-            if ($totalToIssue <= 0) {
+            if ($totalToIssue > 0) {
+                $anyIssued        = true;
+                $batchData        = $request->input('batches.' . $itemIndex, []);
+                $remainingToIssue = $totalToIssue;
+                $batchesUsed      = [];
+                $totalIssuedFromBatches = 0;
+
+                foreach ($batchData as $batchItem) {
+                    if ($remainingToIssue <= 0) break;
+
+                    $batchId           = $batchItem['batch_id'] ?? null;
+                    $quantityFromBatch = (float) ($batchItem['quantity'] ?? 0);
+
+                    if (!$batchId || $quantityFromBatch <= 0) continue;
+
+                    $batch = Batch::find($batchId);
+
+                    if (!$batch) {
+                        throw new \Exception("Batch not found: {$batchId}");
+                    }
+
+                    if ($batch->remaining_quantity < $quantityFromBatch) {
+                        throw new \Exception("Insufficient stock in batch {$batch->batch_number}. Available: {$batch->remaining_quantity}, Requested: {$quantityFromBatch}");
+                    }
+
+                    $takeFromBatch = min($quantityFromBatch, $remainingToIssue, $batch->remaining_quantity);
+
+                    if ($takeFromBatch <= 0) continue;
+
+                    // Reduce batch quantity
+                    $batch->remaining_quantity -= $takeFromBatch;
+
+                    if ($batch->remaining_quantity <= 0) {
+                        $batch->batch_status = 'depleted';
+                    } elseif ($batch->remaining_quantity < $batch->initial_quantity) {
+                        $batch->batch_status = 'partially_used';
+                    }
+
+                    $batch->save();
+
+                    $batchesUsed[] = [
+                        'batch_id'     => $batch->id,
+                        'batch_number' => $batch->batch_number,
+                        'quantity'     => $takeFromBatch,
+                        'unit_cost'    => $batch->unit_cost,
+                    ];
+
+                    $totalIssuedFromBatches += $takeFromBatch;
+
+                    // Stock movement for this batch
+                    $movementNumber = 'ISS-' . date('Ymd') . '-' . str_pad(rand(0, 9999), 4, '0', STR_PAD_LEFT);
+
+                    StockMovement::create([
+                        'movement_number'       => $movementNumber,
+                        'inventory_item_id'     => $inventoryItem->id,
+                        'batch_id'              => $batch->id,
+                        'store_id'              => 1,
+                        'movement_type_id'      => 5,
+                        'quantity'              => $takeFromBatch,
+                        'pack_type'             => null,
+                        'pack_size'             => null,
+                        'number_of_packs'       => null,
+                        'base_unit'             => $unit,
+                        'quantity_in_base_unit' => $takeFromBatch,
+                        'unit_cost'             => $batch->unit_cost,
+                        'total_value'           => $takeFromBatch * $batch->unit_cost,
+                        'reason'                => 'Issued to ' . ($requisition->department->name ?? 'Department') . ' - Req: ' . $requisition->requisition_number,
+                        'movement_date'         => now()->toDateString(),
+                        'approved_at'           => now(),
+                        'approved_by'           => Auth::id(),
+                        'created_by'            => Auth::id(),
+                        'taken_by'              => $request->taken_by,
+                    ]);
+
+                    $remainingToIssue -= $takeFromBatch;
+                }
+
+                // =========================================================
+                // RECORD IN DEPARTMENT_STOCK_MOVEMENTS TABLE
+                // =========================================================
+
+                // Get current opening balance for this department & item
+                $lastMovement = DepartmentStockMovement::where('department_id', $requisition->department_id)
+                    ->where('inventory_item_id', $inventoryItem->id)
+                    ->orderBy('movement_date', 'desc')
+                    ->orderBy('id', 'desc')
+                    ->first();
+
+                $currentBalance = $lastMovement ? $lastMovement->closing_balance : 0;
+
+                // Create department stock movement record
+                DepartmentStockMovement::create([
+                    'movement_number'     => DepartmentStockMovement::generateMovementNumber(),
+                    'department_id'       => $requisition->department_id,
+                    'inventory_item_id'   => $inventoryItem->id,
+                    'batch_id'            => $batchesUsed[0]['batch_id'] ?? null,
+                    'requisition_item_id' => $reqItem->id,
+                    'opening_balance'     => $currentBalance,
+                    'added_quantity'      => $totalIssuedFromBatches,
+                    'used_quantity'       => 0,
+                    'returned_quantity'   => 0,
+                    'closing_balance'     => $currentBalance + $totalIssuedFromBatches,
+                    'movement_type'       => 'issue',
+                    'movement_date'       => now()->toDateString(),
+                    'notes'               => $reqItem->notes ?? 'Issued from requisition: ' . $requisition->requisition_number,
+                    'created_by'          => Auth::id(),
+                ]);
+
+                // Update item totals
+                $newIssuedTotal               = $alreadyIssued + $totalToIssue;
+                $reqItem->issued_total_pieces = $newIssuedTotal;
+                $reqItem->quantity_issued     = $totalToIssue;
+                $reqItem->batch_issuances     = json_encode($batchesUsed);
+                $reqItem->batch_id            = $batchesUsed[0]['batch_id'] ?? $reqItem->batch_id;
+
+                if ($newIssuedTotal < $approvedQty) {
+                    $allFullyIssued = false;
+                }
+
+                Log::info('Item issued with batch tracking', [
+                    'requisition_id' => $requisition->id,
+                    'item_id'        => $inventoryItem->id,
+                    'total_issued'   => $totalToIssue,
+                    'batches_used'   => $batchesUsed,
+                    'taken_by'       => $request->taken_by,
+                ]);
+
+            } else {
+                $reqItem->quantity_issued = 0;
+
+                if (is_null($reqItem->batch_issuances)) {
+                    $reqItem->batch_issuances = json_encode([]);
+                }
+
                 if ($alreadyIssued < $approvedQty) {
                     $allFullyIssued = false;
                 }
-                continue;
-            }
 
-            $anyIssued = true;
-
-            // Get batch details from the request
-            $batchData = $request->input('batches.' . $itemIndex, []);
-            $remainingToIssue = $totalToIssue;
-            $batchesUsed = [];
-            $unit = $inventoryItem->unit_of_measurement ?? 'piece';
-
-            foreach ($batchData as $batchItem) {
-                if ($remainingToIssue <= 0) break;
-
-                $batchId = $batchItem['batch_id'] ?? null;
-                $quantityFromBatch = (float) ($batchItem['quantity'] ?? 0);
-
-                if (!$batchId || $quantityFromBatch <= 0) continue;
-
-                $batch = Batch::find($batchId);
-                if (!$batch || $batch->remaining_quantity < $quantityFromBatch) {
-                    throw new \Exception("Insufficient stock in batch {$batch->batch_number}");
-                }
-
-                $takeFromBatch = min($quantityFromBatch, $remainingToIssue, $batch->remaining_quantity);
-
-                if ($takeFromBatch <= 0) continue;
-
-                // Reduce batch quantity
-                $batch->remaining_quantity -= $takeFromBatch;
-
-                if ($batch->remaining_quantity <= 0) {
-                    $batch->batch_status = 'depleted';
-                } elseif ($batch->remaining_quantity < $batch->initial_quantity) {
-                    $batch->batch_status = 'partially_used';
-                }
-
-                $batch->save();
-
-                $batchesUsed[] = [
-                    'batch_id' => $batch->id,
-                    'batch_number' => $batch->batch_number,
-                    'quantity' => $takeFromBatch,
-                    'unit_cost' => $batch->unit_cost,
-                ];
-
-                // Create stock movement for this batch
-                $movementNumber = 'ISS-' . date('Ymd') . '-' . str_pad(rand(0, 9999), 4, '0', STR_PAD_LEFT);
-
-                StockMovement::create([
-                    'movement_number' => $movementNumber,
-                    'inventory_item_id' => $inventoryItem->id,
-                    'batch_id' => $batch->id,
-                    'store_id' => 1,
-                    'movement_type_id' => 5,
-                    'quantity' => $takeFromBatch,
-                    'pack_type' => null,
-                    'pack_size' => null,
-                    'number_of_packs' => null,
-                    'base_unit' => $unit,
-                    'quantity_in_base_unit' => $takeFromBatch,
-                    'unit_cost' => $batch->unit_cost,
-                    'total_value' => $takeFromBatch * $batch->unit_cost,
-                    'reason' => 'Issued to ' . ($requisition->department->name ?? 'Department') . ' - Req: ' . $requisition->requisition_number,
-                    'movement_date' => now()->toDateString(),
-                    'approved_at' => now(),
-                    'approved_by' => Auth::id(),
-                    'created_by' => Auth::id(),
-                    'taken_by' => $request->taken_by,
+                Log::info('Item skipped — zero quantity to issue', [
+                    'requisition_id' => $requisition->id,
+                    'item_id'        => $reqItem->inventory_item_id,
+                    'approved_qty'   => $approvedQty,
+                    'already_issued' => $alreadyIssued,
                 ]);
-
-                $remainingToIssue -= $takeFromBatch;
             }
 
-            if ($remainingToIssue > 0) {
-                throw new \Exception("Could not fulfill full quantity for {$inventoryItem->name}. Missing: {$remainingToIssue} {$unit}");
-            }
-
-            // Update requisition item with JSON batch data
-            $newIssuedTotal = $alreadyIssued + $totalToIssue;
-            $reqItem->issued_total_pieces = $newIssuedTotal;
-            $reqItem->quantity_issued = $totalToIssue;
-            $reqItem->batch_issuances = json_encode($batchesUsed);
-
-            // Keep first batch_id for backward compatibility
-            $reqItem->batch_id = $batchesUsed[0]['batch_id'] ?? null;
             $reqItem->save();
-
-            Log::info('Item issued with batch tracking', [
-                'requisition_id' => $requisition->id,
-                'item_id' => $inventoryItem->id,
-                'total_issued' => $totalToIssue,
-                'batches_used' => $batchesUsed,
-                'taken_by' => $request->taken_by,
-            ]);
-
-            // Check if fully issued
-            if ($newIssuedTotal < $approvedQty) {
-                $allFullyIssued = false;
-            }
         }
 
         // Update requisition status
@@ -380,6 +425,14 @@ public function issue(Request $request, $id)
 
         DB::commit();
 
+        Log::info('Requisition issue completed', [
+            'requisition_id' => $requisition->id,
+            'status'         => $requisition->status,
+            'taken_by'       => $request->taken_by,
+            'any_issued'     => $anyIssued,
+            'all_fully'      => $allFullyIssued,
+        ]);
+
         return redirect()->route('store.department-requisitions.show', $requisition->id)
             ->with('success', 'Items issued successfully. Taken by: ' . $request->taken_by);
 
@@ -387,18 +440,14 @@ public function issue(Request $request, $id)
         DB::rollBack();
         Log::error('Error issuing items', [
             'requisition_id' => $id,
-            'error' => $e->getMessage(),
-            'trace' => $e->getTraceAsString(),
+            'error'          => $e->getMessage(),
+            'trace'          => $e->getTraceAsString(),
         ]);
         return redirect()->back()
             ->with('error', 'Error issuing items: ' . $e->getMessage())
             ->withInput();
     }
 }
-    // ─────────────────────────────────────────────────────────────────────────────
-    // RETURN FORM
-    // ─────────────────────────────────────────────────────────────────────────────
-
     public function returnForm($id)
     {
         $user = Auth::user();
@@ -443,207 +492,210 @@ public function processReturn(Request $request, $id)
     }
 
     $request->validate([
-        'items'                     => 'required|array',
-        'items.*.item_id'           => 'required|exists:department_requisition_items,id',
-        'items.*.inventory_item_id' => 'required|exists:inventory_items,id',
-        'items.*.batch_id'          => 'nullable|exists:batches,id',
-        'items.*.quantity_returned' => 'nullable|numeric|min:0',
-        'items.*.return_reason'     => 'nullable|string',
-        'global_return_reason'      => 'nullable|string',
-        'returned_by'               => 'required|string|max:255',
-        'store_notes'               => 'nullable|string',
+        'items'                  => 'required|array',
+        'items.*.item_id'        => 'required|exists:department_requisition_items,id',
+        'items.*.quantity_returned' => 'required|numeric|min:0',
+        'returned_by'            => 'required|string|max:255',
+        'return_reason'          => 'nullable|string',
     ]);
 
     DB::beginTransaction();
 
     try {
-        $requisition  = DepartmentRequisition::findOrFail($id);
-        $anyReturned  = false;
-        $globalReason = $request->global_return_reason;
-        $returnsData = [];
+        $requisition = DepartmentRequisition::findOrFail($id);
+        $anyReturned = false;
 
         foreach ($request->items as $itemData) {
             $reqItem = DepartmentRequisitionItem::findOrFail($itemData['item_id']);
-            $inventoryItem = InventoryItem::find($itemData['inventory_item_id']);
+            $quantityToReturn = (float) ($itemData['quantity_returned'] ?? 0);
 
-            $totalPiecesReturned = (float) ($itemData['quantity_returned'] ?? 0);
-            $batchId = $itemData['batch_id'] ?? null;
-            $returnReason = $itemData['return_reason'] ?? $globalReason;
-
-            if ($totalPiecesReturned <= 0) {
+            if ($quantityToReturn <= 0) {
                 continue;
             }
 
-            // Validate not exceeding issued quantity
-            $alreadyIssued = (float) ($reqItem->issued_total_pieces ?? 0);
-            $alreadyReturned = (float) ($reqItem->returned_total_pieces ?? 0);
-            $availableToReturn = $alreadyIssued - $alreadyReturned;
-
-            if ($totalPiecesReturned > $availableToReturn) {
-                throw new \Exception(
-                    'Cannot return more than issued. Item: ' . ($inventoryItem->name ?? 'N/A') .
-                    ', Issued: ' . $alreadyIssued .
-                    ', Already Returned: ' . $alreadyReturned .
-                    ', Attempting: ' . $totalPiecesReturned
-                );
-            }
-
+            $anyReturned = true;
+            $inventoryItem = InventoryItem::find($reqItem->inventory_item_id);
             $unit = $inventoryItem->unit_of_measurement ?? 'piece';
 
-            // Get existing batch returns or initialize empty array
-            $existingReturns = json_decode($reqItem->batch_returns, true) ?? [];
+            // Get current batch issuances
+            $batchIssuances = json_decode($reqItem->batch_issuances, true) ?? [];
 
-            // Add this return to the batch returns array
-            $existingReturns[] = [
-                'batch_id' => $batchId,
-                'quantity' => $totalPiecesReturned,
-                'reason' => $returnReason,
-                'returned_at' => now()->toDateTimeString(),
-                'returned_by' => $request->returned_by,
-            ];
+            // Track returns by batch (FIFO - return to most recent batch first)
+            $remainingToReturn = $quantityToReturn;
+            $returnsByBatch = [];
 
-            // Update requisition item
-            $newTotalReturned = $alreadyReturned + $totalPiecesReturned;
-            $reqItem->returned_total_pieces = $newTotalReturned;
-            $reqItem->quantity_returned = $totalPiecesReturned;
-            $reqItem->batch_returns = json_encode($existingReturns);
-            $reqItem->return_reason = $returnReason;
-            $reqItem->returned_at = now();
-            $reqItem->save();
+            // Reverse the batch issuances to return to most recent first
+            $reversedBatches = array_reverse($batchIssuances);
 
-            // If batch_id is provided, add stock back to that specific batch
-            if ($batchId) {
+            foreach ($reversedBatches as &$batchIssued) {
+                if ($remainingToReturn <= 0) break;
+
+                $batchId = $batchIssued['batch_id'];
+                $issuedQuantity = $batchIssued['quantity'];
+
+                // Check how much of this batch has already been returned
+                $existingReturns = json_decode($reqItem->batch_returns, true) ?? [];
+                $alreadyReturnedFromBatch = 0;
+                foreach ($existingReturns as $ret) {
+                    if ($ret['batch_id'] == $batchId) {
+                        $alreadyReturnedFromBatch += $ret['quantity'];
+                    }
+                }
+
+                $availableToReturn = $issuedQuantity - $alreadyReturnedFromBatch;
+
+                if ($availableToReturn <= 0) continue;
+
+                $returnFromThisBatch = min($remainingToReturn, $availableToReturn);
+
+                // Return stock to batch
                 $batch = Batch::find($batchId);
                 if ($batch) {
-                    $batch->remaining_quantity += $totalPiecesReturned;
-                    if ($batch->batch_status === 'depleted') {
+                    $batch->remaining_quantity += $returnFromThisBatch;
+                    if ($batch->remaining_quantity > 0 && $batch->batch_status == 'depleted') {
+                        $batch->batch_status = 'partially_used';
+                    } elseif ($batch->remaining_quantity == $batch->initial_quantity) {
                         $batch->batch_status = 'active';
                     }
                     $batch->save();
-                    $usedBatchNumber = $batch->batch_number;
-                } else {
-                    $usedBatchNumber = 'unknown';
                 }
-            } else {
-                // Find oldest active batch to add stock back
-                $batch = Batch::where('inventory_item_id', $inventoryItem->id)
-                    ->where('batch_status', 'active')
-                    ->orderBy('expiry_date', 'asc')
-                    ->first();
 
-                if ($batch) {
-                    $batch->remaining_quantity += $totalPiecesReturned;
-                    $batch->save();
-                    $usedBatchNumber = $batch->batch_number;
-                } else {
-                    // Create new batch for returned items
-                    $newBatchNumber = 'BAT-RET-' . date('Ymd') . '-' . str_pad($inventoryItem->id, 6, '0', STR_PAD_LEFT);
-                    $batch = Batch::create([
-                        'batch_number' => $newBatchNumber,
-                        'inventory_item_id' => $inventoryItem->id,
-                        'initial_quantity' => $totalPiecesReturned,
-                        'remaining_quantity' => $totalPiecesReturned,
-                        'unit_cost' => $inventoryItem->last_purchase_price ?? 0,
-                        'unit_of_measurement' => $unit,
-                        'batch_status' => 'active',
-                        'notes' => 'Returned from requisition: ' . $requisition->requisition_number,
-                    ]);
-                    $usedBatchNumber = $newBatchNumber;
+                $returnsByBatch[] = [
+                    'batch_id' => $batchId,
+                    'batch_number' => $batchIssued['batch_number'],
+                    'quantity' => $returnFromThisBatch,
+                    'unit_cost' => $batchIssued['unit_cost'] ?? 0,
+                ];
+
+                $remainingToReturn -= $returnFromThisBatch;
+            }
+
+            // Update batch_returns in requisition item
+            $existingReturns = json_decode($reqItem->batch_returns, true) ?? [];
+            foreach ($returnsByBatch as $return) {
+                $found = false;
+                foreach ($existingReturns as &$existing) {
+                    if ($existing['batch_id'] == $return['batch_id']) {
+                        $existing['quantity'] += $return['quantity'];
+                        $found = true;
+                        break;
+                    }
+                }
+                if (!$found) {
+                    $existingReturns[] = $return;
                 }
             }
 
-            // Create stock movement for return
+            $reqItem->batch_returns = json_encode($existingReturns);
+            $reqItem->quantity_returned = ($reqItem->quantity_returned ?? 0) + $quantityToReturn;
+            $reqItem->return_reason = $request->return_reason ?? $reqItem->return_reason;
+            $reqItem->returned_at = now();
+            $reqItem->save();
+
+            // =========================================================
+            // RECORD RETURN IN DEPARTMENT_STOCK_MOVEMENTS TABLE
+            // =========================================================
+
+            // Get current balance before return
+            $lastMovement = DepartmentStockMovement::where('department_id', $requisition->department_id)
+                ->where('inventory_item_id', $inventoryItem->id)
+                ->orderBy('movement_date', 'desc')
+                ->orderBy('id', 'desc')
+                ->first();
+
+            $currentBalance = $lastMovement ? $lastMovement->closing_balance : 0;
+
+            // Create department stock movement record for return
+            DepartmentStockMovement::create([
+                'movement_number'     => DepartmentStockMovement::generateMovementNumber(),
+                'department_id'       => $requisition->department_id,
+                'inventory_item_id'   => $inventoryItem->id,
+                'batch_id'            => $returnsByBatch[0]['batch_id'] ?? null,
+                'requisition_item_id' => $reqItem->id,
+                'opening_balance'     => $currentBalance,
+                'added_quantity'      => 0,
+                'used_quantity'       => 0,
+                'returned_quantity'   => $quantityToReturn,
+                'closing_balance'     => $currentBalance - $quantityToReturn,
+                'movement_type'       => 'return',
+                'movement_date'       => now()->toDateString(),
+                'notes'               => 'Returned from requisition: ' . $requisition->requisization_number . ' - Reason: ' . ($request->return_reason ?? 'N/A'),
+                'created_by'          => Auth::id(),
+            ]);
+
+            // Create stock movement record for audit
             $movementNumber = 'RET-' . date('Ymd') . '-' . str_pad(rand(0, 9999), 4, '0', STR_PAD_LEFT);
 
             StockMovement::create([
-                'movement_number' => $movementNumber,
-                'inventory_item_id' => $inventoryItem->id,
-                'batch_id' => $batchId ?? ($batch->id ?? null),
-                'store_id' => 1,
-                'movement_type_id' => 2,
-                'quantity' => $totalPiecesReturned,
-                'base_unit' => $unit,
-                'quantity_in_base_unit' => $totalPiecesReturned,
-                'unit_cost' => $inventoryItem->last_purchase_price ?? 0,
-                'total_value' => $totalPiecesReturned * ($inventoryItem->last_purchase_price ?? 0),
-                'reason' => 'RETURN from ' . ($requisition->department->name ?? 'Department') .
-                           ' - Req: ' . $requisition->requisition_number .
-                           ($returnReason ? ' - Reason: ' . $returnReason : ''),
-                'movement_date' => now()->toDateString(),
-                'approved_at' => now(),
-                'approved_by' => Auth::id(),
-                'created_by' => Auth::id(),
-                'returned_by' => $request->returned_by,
+                'movement_number'       => $movementNumber,
+                'inventory_item_id'     => $inventoryItem->id,
+                'batch_id'              => $returnsByBatch[0]['batch_id'] ?? null,
+                'store_id'              => 1,
+                'movement_type_id'      => 6, // Return to store
+                'quantity'              => $quantityToReturn,
+                'pack_type'             => null,
+                'pack_size'             => null,
+                'number_of_packs'       => null,
+                'base_unit'             => $unit,
+                'quantity_in_base_unit' => $quantityToReturn,
+                'unit_cost'             => $returnsByBatch[0]['unit_cost'] ?? 0,
+                'total_value'           => $quantityToReturn * ($returnsByBatch[0]['unit_cost'] ?? 0),
+                'reason'                => 'Return from ' . ($requisition->department->name ?? 'Department') . ' - Req: ' . $requisition->requisition_number . ' - Reason: ' . ($request->return_reason ?? 'N/A'),
+                'movement_date'         => now()->toDateString(),
+                'approved_at'           => now(),
+                'approved_by'           => Auth::id(),
+                'created_by'            => Auth::id(),
+                'returned_by'           => $request->returned_by,
             ]);
 
-            $returnsData[] = [
-                'item' => $inventoryItem->name,
-                'quantity' => $totalPiecesReturned,
-                'batch' => $usedBatchNumber,
-                'reason' => $returnReason,
-            ];
-
-            $anyReturned = true;
-
-            Log::info('Items returned with batch tracking', [
+            Log::info('Item returned with batch tracking', [
                 'requisition_id' => $requisition->id,
-                'item_id' => $inventoryItem->id,
-                'item_name' => $inventoryItem->name,
-                'quantity_returned' => $totalPiecesReturned,
-                'batch_used' => $usedBatchNumber,
-                'returned_by' => $request->returned_by,
-                'reason' => $returnReason,
+                'item_id'        => $inventoryItem->id,
+                'quantity_returned' => $quantityToReturn,
+                'returns_by_batch' => $returnsByBatch,
+                'returned_by'    => $request->returned_by,
             ]);
         }
 
         // Update requisition status
         if ($anyReturned) {
-            $requisition->load('items');
+            // Check if all issued items have been returned
+            $totalIssued = $requisition->items->sum('issued_total_pieces');
+            $totalReturned = $requisition->items->sum('quantity_returned');
 
-            $totalIssued    = (float) $requisition->items->sum('issued_total_pieces');
-            $totalConsumed  = (float) $requisition->items->sum('quantity_consumed');
-            $totalSold      = (float) $requisition->items->sum('quantity_sold');
-            $totalReturned  = (float) $requisition->items->sum('returned_total_pieces');
-            $totalProcessed = $totalConsumed + $totalSold + $totalReturned;
-
-            if ($totalIssued > 0 && $totalProcessed >= $totalIssued) {
-                $requisition->status = 'completed';
-            } elseif ($totalReturned > 0) {
+            if ($totalReturned >= $totalIssued && $totalIssued > 0) {
+                $requisition->status = 'returned';
+            } else {
                 $requisition->status = 'partially_returned';
             }
-
-            $requisition->returned_by = $request->returned_by;
         }
 
-        if ($request->filled('store_notes')) {
-            $existing = $requisition->store_notes;
-            $newNote = now()->format('Y-m-d H:i') . ' - Return Notes: ' . $request->store_notes;
-            $requisition->store_notes = $existing ? $existing . "\n" . $newNote : $newNote;
-        }
-
+        $requisition->returned_by = $request->returned_by;
         $requisition->save();
 
         DB::commit();
 
-        Log::info('Returns processed successfully', [
+        Log::info('Requisition return completed', [
             'requisition_id' => $requisition->id,
-            'returns_count' => count($returnsData),
-            'returned_by' => $request->returned_by,
+            'status'         => $requisition->status,
+            'returned_by'    => $request->returned_by,
         ]);
 
         return redirect()->route('store.department-requisitions.show', $requisition->id)
-            ->with('success', 'Items returned successfully by: ' . $request->returned_by);
+            ->with('success', 'Items returned successfully. Returned by: ' . $request->returned_by);
 
     } catch (\Exception $e) {
         DB::rollBack();
-        Log::error('Error processing return', [
+        Log::error('Error returning items', [
             'requisition_id' => $id,
-            'error' => $e->getMessage(),
-            'trace' => $e->getTraceAsString(),
+            'error'          => $e->getMessage(),
+            'trace'          => $e->getTraceAsString(),
         ]);
         return redirect()->back()
-            ->with('error', 'Error processing return: ' . $e->getMessage())
+            ->with('error', 'Error returning items: ' . $e->getMessage())
             ->withInput();
     }
 }
+
+
 }
